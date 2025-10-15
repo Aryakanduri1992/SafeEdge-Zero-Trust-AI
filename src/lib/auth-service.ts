@@ -11,6 +11,8 @@ import {
 import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateAdminData, Plan } from './types';
 import { setDocumentNonBlocking, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 
 const { auth, firestore } = initializeFirebase();
@@ -65,11 +67,6 @@ export const logout = async (): Promise<void> => {
 };
 
 export const createAdmin = async (adminData: NewAdminData, superAdminId: string): Promise<void> => {
-    // This function now only handles creating the auth user.
-    // The profile document creation is handled by a Cloud Function (or should be).
-    // For client-side only demo, we create auth user then profile.
-    
-    // Check if an admin with this email already exists in Firestore
     const adminsRef = collection(firestore, 'admins');
     const q = query(adminsRef, where("email", "==", adminData.email));
     const querySnapshot = await getDocs(q);
@@ -78,7 +75,6 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
         throw new Error("An admin with this email already exists.");
     }
     
-    // Create a temporary auth instance to create the user, to avoid auto-signing in the new user
     const tempAuth = getAuth(initializeFirebase().firebaseApp);
 
     try {
@@ -96,11 +92,19 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
         };
 
         const adminDocRef = doc(firestore, "admins", newAdminUID);
-        // Use non-blocking update
-        setDocumentNonBlocking(adminDocRef, newAdminProfile, { merge: false });
+        
+        // Manually handle the setDoc to emit a contextual error
+        setDoc(adminDocRef, newAdminProfile)
+            .catch((error) => {
+                const permissionError = new FirestorePermissionError({
+                    path: adminDocRef.path,
+                    operation: 'create',
+                    requestResourceData: newAdminProfile,
+                });
+                errorEmitter.emit('permission-error', permissionError);
+            });
 
     } catch (error: any) {
-        // Firebase auth errors (e.g., 'auth/email-already-in-use')
         if (error.code === 'auth/email-already-in-use') {
             throw new Error("An account with this email already exists in Firebase Authentication.");
         }
@@ -150,7 +154,7 @@ const seedSuperAdmin = async () => {
         }
     } catch (error: any) {
         if (error.code === 'auth/email-already-in-use') {
-            console.log("Super Admin already exists.");
+            // This is expected if the super admin already exists.
         } else {
             console.error("Error seeding Super Admin:", error);
         }
