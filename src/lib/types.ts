@@ -1,4 +1,5 @@
 export type UserRole = 'admin' | 'superadmin';
+export type Plan = 'Free' | 'Pro' | 'Enterprise';
 
 export interface BaseUser {
   id: string;
@@ -11,14 +12,14 @@ export interface User extends BaseUser {
   password?: string;
   createdAt: string;
   devices: number;
-  plan: 'Free' | 'Pro' | 'Enterprise';
+  plan: Plan;
 }
 
 export interface AdminUser extends BaseUser {
   role: 'admin';
   createdAt: string;
   devices: number;
-  plan: 'Free' | 'Pro' | 'Enterprise';
+  plan: Plan;
 }
 
 export interface SuperAdminUser extends BaseUser {
@@ -31,3 +32,8 @@ export interface LoginCredentials {
 }
 
 export type NewAdminData = Required<LoginCredentials> & { name: string };
+
+export type UpdateAdminData = {
+  plan: Plan;
+  devices: number;
+};

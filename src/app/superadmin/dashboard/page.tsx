@@ -19,14 +19,17 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { CreateAdminForm } from '@/components/superadmin/create-admin-form';
-import { PlusCircle, ShieldCheck, Users } from 'lucide-react';
+import { EditAdminForm } from '@/components/superadmin/edit-admin-form';
+import { PlusCircle, Users, Edit } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AdminUser } from '@/lib/types';
 
 export default function SuperAdminDashboardPage() {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [selectedAdmin, setSelectedAdmin] = useState<AdminUser | null>(null);
   const { user, admins } = useAuth();
 
   const planVariant = (plan: AdminUser['plan']) => {
@@ -38,6 +41,11 @@ export default function SuperAdminDashboardPage() {
       default:
         return 'secondary';
     }
+  };
+
+  const handleEditClick = (admin: AdminUser) => {
+    setSelectedAdmin(admin);
+    setIsEditDialogOpen(true);
   };
 
   return (
@@ -72,7 +80,7 @@ export default function SuperAdminDashboardPage() {
               Create and manage administrator accounts for AuthStation.
             </p>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button>
                 <PlusCircle className="mr-2 h-4 w-4" />
@@ -86,7 +94,7 @@ export default function SuperAdminDashboardPage() {
                   Enter the details for the new admin account. An email will not be sent; you must share the credentials securely.
                 </DialogDescription>
               </DialogHeader>
-              <CreateAdminForm onFinished={() => setIsDialogOpen(false)} />
+              <CreateAdminForm onFinished={() => setIsCreateDialogOpen(false)} />
             </DialogContent>
           </Dialog>
         </CardHeader>
@@ -98,7 +106,8 @@ export default function SuperAdminDashboardPage() {
                 <TableHead>Email</TableHead>
                 <TableHead>Date Joined</TableHead>
                 <TableHead className="text-center">Devices</TableHead>
-                <TableHead className="text-right">Plan</TableHead>
+                <TableHead className="text-center">Plan</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -110,8 +119,14 @@ export default function SuperAdminDashboardPage() {
                     {new Date(admin.createdAt).toLocaleDateString()}
                   </TableCell>
                   <TableCell className="text-center font-medium">{admin.devices}</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-center">
                     <Badge variant={planVariant(admin.plan)}>{admin.plan}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Button variant="outline" size="sm" onClick={() => handleEditClick(admin)}>
+                      <Edit className="mr-2 h-3 w-3" />
+                      Edit
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}
@@ -119,6 +134,18 @@ export default function SuperAdminDashboardPage() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Edit Admin: {selectedAdmin?.name}</DialogTitle>
+                <DialogDescription>
+                  Update the plan and device allocation for this administrator.
+                </DialogDescription>
+              </DialogHeader>
+              {selectedAdmin && <EditAdminForm admin={selectedAdmin} onFinished={() => setIsEditDialogOpen(false)} />}
+            </DialogContent>
+          </Dialog>
     </div>
   );
 }

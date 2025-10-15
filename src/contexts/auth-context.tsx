@@ -3,7 +3,7 @@
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import * as authService from '@/lib/auth-service';
-import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData } from '@/lib/types';
+import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateAdminData } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
@@ -15,6 +15,7 @@ type AuthContextType = {
   login: (credentials: LoginCredentials, role: 'admin' | 'superadmin') => Promise<void>;
   logout: () => Promise<void>;
   createAdmin: (adminData: NewAdminData) => Promise<AdminUser>;
+  updateAdmin: (adminId: string, adminData: UpdateAdminData) => Promise<AdminUser>;
   refreshAdmins: () => Promise<void>;
 };
 
@@ -88,6 +89,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return newAdmin;
   };
   
+  const updateAdmin = async (adminId: string, adminData: UpdateAdminData) => {
+    const updatedAdmin = await authService.updateAdmin(adminId, adminData);
+    await refreshAdmins();
+    return updatedAdmin;
+  };
+
   if (isLoading) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-background">
@@ -97,7 +104,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, admins, isAuthenticated: !!user, isLoading, login, logout, createAdmin, refreshAdmins }}>
+    <AuthContext.Provider value={{ user, admins, isAuthenticated: !!user, isLoading, login, logout, createAdmin, updateAdmin, refreshAdmins }}>
       {children}
     </AuthContext.Provider>
   );

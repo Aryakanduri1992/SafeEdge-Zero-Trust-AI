@@ -1,6 +1,6 @@
 "use client";
 
-import type { User, AdminUser, SuperAdminUser, LoginCredentials, NewAdminData } from './types';
+import type { User, AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateAdminData, Plan } from './types';
 
 // Mock user database
 let users: User[] = [
@@ -126,6 +126,37 @@ export const getAdmins = async (): Promise<AdminUser[]> => {
           resolve(admins);
       }, 500);
   });
+};
+
+export const updateAdmin = async (adminId: string, adminData: UpdateAdminData): Promise<AdminUser> => {
+    return new Promise((resolve, reject) => {
+        setTimeout(() => {
+            const currentUser = getSession();
+            if(!currentUser || currentUser.role !== 'superadmin') {
+                return reject(new Error('Unauthorized: Only super admins can update admins.'));
+            }
+
+            const userIndex = users.findIndex(u => u.id === adminId && u.role === 'admin');
+
+            if (userIndex === -1) {
+                return reject(new Error('Admin not found.'));
+            }
+
+            users[userIndex] = { ...users[userIndex], ...adminData };
+
+            const updatedUser = users[userIndex];
+            const adminUser: AdminUser = {
+                id: updatedUser.id,
+                name: updatedUser.name,
+                email: updatedUser.email,
+                role: 'admin',
+                createdAt: updatedUser.createdAt,
+                devices: updatedUser.devices,
+                plan: updatedUser.plan,
+            };
+            resolve(adminUser);
+        }, 1000);
+    });
 };
 
 export const checkAuth = async (): Promise<SuperAdminUser | AdminUser | null> => {
