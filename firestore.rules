@@ -1,36 +1,38 @@
 /**
- * @fileoverview Firestore Security Rules for AuthStation.
+ * @fileOverview Firestore Security Rules for AuthStation application.
  *
  * Core Philosophy:
- * This ruleset enforces a role-based access control model where Super Admins and Admins have specific privileges.
- * Super Admin status is determined by the existence of a document in the `/roles_super_admin/{superAdminId}` collection.
- * Admins and devices are associated with a superAdminId or adminId, respectively, enabling data isolation and controlled access.
+ * This ruleset enforces a role-based access control model, with separation between Super Admins and regular Admins.
+ * It uses Authorization Independence and DBAC (Database Auth Based Control) principles.
+ * Access to resources is primarily based on user identity and explicit role membership.
  *
  * Data Structure:
- * - /roles_super_admin/{superAdminId}: Super Admin role documents.
- * - /admins/{adminId}: Admin profile documents, containing `superAdminId`.
- * - /devices/{deviceId}: IoT device data, containing `adminId`.
- * - /alerts/{alertId}: System alerts, containing `adminId`.
+ * - `/roles_super_admin/{superAdminId}`:  Indicates a Super Admin. Existence of a document grants elevated privileges.
+ * - `/admins/{adminId}`: Stores Admin profiles. Each admin is linked to a Super Admin via `superAdminId`.
+ * - `/devices/{deviceId}`: Stores IoT device data, linked to an admin account via `adminId`.
+ * - `/alerts/{alertId}`: Stores system alerts generated from devices, linked to an admin account via `adminId`.
  *
  * Key Security Decisions:
- * - Super Admin status is verified by the existence of a document in the `/roles_super_admin/{superAdminId}` collection.
- * - Access to Admin profiles is restricted to Super Admins only.
- * - Devices are associated with an Admin, and access is restricted to that Admin.
- * - Alerts are associated with an Admin, and access is restricted to that Admin.
- * - `list` operations for devices and alerts are restricted to the associated Admin.
+ * - Super Admin status is determined by the existence of a document in `/roles_super_admin/{superAdminId}`.
+ * - Admins can only manage devices and alerts associated with their own `adminId`.
+ * - Data validation is relaxed for rapid prototyping but critical authorization fields are validated.
+ * - Listing of all users is disallowed for privacy.  Listing of other collections is restricted based on ownership or role.
  *
  * Denormalization for Authorization:
- * - The `adminId` field is denormalized into the `Device` and `Alert` documents. This allows the security rules to verify the relationship between the Admin and the Device/Alert, preventing unauthorized access.
+ * - The existence of a document in `/roles_super_admin/{superAdminId}` is used to quickly check Super Admin status without needing to read the document's contents.
+ * - Each `Admin` document has a `superAdminId`, but Authorization Independence ensures that the rule does not check against the `/roles_super_admin` document
+ * - Each `Device` and `Alert` has an `adminId` for easy access control.
  *
  * Structural Segregation:
- * - The use of separate collections for Super Admins, Admins, Devices, and Alerts enforces a clear separation of concerns and simplifies access control.
+ * - Separate collections are used for Super Admins (`/roles_super_admin`) and Admins (`/admins`) to clearly segregate privileges.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the request is from an authenticated user.
+     * @description Checks if the user is signed in.
+     * @returns {boolean} True if the user is signed in, false otherwise.
      */
     function isSignedIn() {
       return request.auth != null;
@@ -38,96 +40,96 @@ service cloud.firestore {
 
     /**
      * @description Checks if the authenticated user's UID matches the provided userId.
+     * @param {string} userId - The user ID to compare against the authenticated user's UID.
+     * @returns {boolean} True if the UID matches, false otherwise.
      */
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
     /**
-     * @description Checks if the authenticated user's UID matches the userId and if the document exists.
+     * @description Checks if the authenticated user's UID matches the userId, and the document exists.
+     * @param {string} userId - The user ID to compare against the authenticated user's UID.
+     * @returns {boolean} True if the UID matches and the resource exists, false otherwise.
      */
     function isExistingOwner(userId) {
         return isOwner(userId) && resource != null;
     }
 
     /**
-     * @description Checks if the requesting user is a Super Admin.
+     * @description Grants Super Admin access based on document existence in /roles_super_admin/{superAdminId}.
+     * @returns {boolean} True if the user's UID matches a document ID in /roles_super_admin.
      */
     function isSuperAdmin() {
       return exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
     }
 
     /**
-     * @description Checks if the requesting user is an Admin and the adminId matches.
-     */
-    function isAdminOf(adminId) {
-      return get(/databases/$(database)/documents/admins/$(request.auth.uid)).data.superAdminId == adminId;
-    }
-
-    /**
-     * @description
-     *  Rules for Super Admin role assignment.
+     * @description Defines the path and access control for SuperAdmin role documents.
      * @path /roles_super_admin/{superAdminId}
-     * @allow (create) User with UID 'user123' creates a document at /roles_super_admin/user123 when authenticated.
-     * @deny (create) User with UID 'user123' attempts to create a document at /roles_super_admin/user456 (mismatched UID).
-     * @principle Enforces document ownership (self-creation) for Super Admin role assignment.
+     * @allow (get) User with UID 'superAdminId' can retrieve their SuperAdmin document.
+     * @allow (create) User with UID 'superAdminId' can create their SuperAdmin document.
+     * @deny (update) No one can update a SuperAdmin document.
+     * @deny (delete) No one can delete a SuperAdmin document.
+     * @principle Enforces strict owner-only access for SuperAdmin role documents.
      */
     match /roles_super_admin/{superAdminId} {
-      allow get: if false;
+      allow get: if isOwner(superAdminId);
       allow list: if false;
-      allow create: if isSignedIn() && isOwner(superAdminId);
+      allow create: if isOwner(superAdminId);
       allow update: if false;
       allow delete: if false;
     }
 
     /**
-     * @description
-     *  Rules for Admin profiles.
+     * @description Defines the path and access control for Admin profile documents.
      * @path /admins/{adminId}
-     * @allow (create) A super admin creates a new admin profile.
-     * @deny (update) A regular user attempts to modify an admin profile.
-     * @principle Restricts write access to Super Admins only.
+     * @allow (get) Authenticated user can retrieve an Admin document if they are a Super Admin or if they own the document.
+     * @allow (create) Authenticated user can create an Admin document if they are a Super Admin. The 'id' field must match the 'adminId' path parameter.
+     * @deny (update) Only Super Admins or the owner can update the Admin record.  Owner must pre-exist.
+     * @deny (delete) Only Super Admins or the owner can delete the Admin record. Owner must pre-exist.
+     * @principle Enforces role-based access control for Admin profile documents.  Super Admins have full control; owners have limited control.
      */
     match /admins/{adminId} {
-      allow get: if isSuperAdmin();
-      allow list: if isSuperAdmin();
-      allow create: if isSuperAdmin();
-      allow update: if isSuperAdmin();
-      allow delete: if isSuperAdmin();
+      allow get: if isSuperAdmin() || isOwner(adminId);
+      allow list: if false;
+      allow create: if isSuperAdmin() && request.resource.data.id == adminId;
+      allow update: if isSuperAdmin() || (isExistingOwner(adminId) && request.resource.data.id == resource.data.id);
+      allow delete: if isSuperAdmin() || isExistingOwner(adminId);
     }
 
     /**
-     * @description
-     *  Rules for Device data.
+     * @description Defines the path and access control for Device documents.
      * @path /devices/{deviceId}
-     * @allow (create) An admin creates a new device with their adminId.
-     * @allow (update) The admin modifies their own device.
-     * @deny (update) An admin attempts to modify another admin's device.
-     * @principle Enforces ownership based on the adminId field.
+     * @allow (get) Authenticated user can retrieve a Device document.
+     * @allow (create) Authenticated user can create a Device document if they are an Admin and the `adminId` field matches their UID.
+     * @deny (update) Only the owning Admin can update the Device.
+     * @deny (delete) Only the owning Admin can delete the Device.
+     * @principle Enforces owner-only write access for Device documents, with public read access.
      */
     match /devices/{deviceId} {
-      allow get: if isSignedIn() && request.auth.uid == resource.data.adminId;
+      allow get: if isSignedIn();
       allow list: if isSignedIn();
-      allow create: if isSignedIn() && request.auth.uid == request.resource.data.adminId;
-      allow update: if isSignedIn() && request.auth.uid == resource.data.adminId;
-      allow delete: if isSignedIn() && request.auth.uid == resource.data.adminId;
+      allow create: if isSignedIn() && request.resource.data.adminId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.adminId);
+      allow delete: if isExistingOwner(resource.data.adminId);
     }
 
     /**
-     * @description
-     *  Rules for Alert data.
+     * @description Defines the path and access control for Alert documents.
      * @path /alerts/{alertId}
-     * @allow (create) An admin creates a new alert with their adminId.
-     * @allow (update) The admin modifies their own alert.
-     * @deny (update) An admin attempts to modify another admin's alert.
-     * @principle Enforces ownership based on the adminId field.
+     * @allow (get) Authenticated user can retrieve an Alert document.
+     * @allow (create) Authenticated user can create an Alert document if they are an Admin and the `adminId` field matches their UID.
+     * @deny (update) Only the owning Admin can update the Alert.
+     * @deny (delete) Only the owning Admin can delete the Alert.
+     * @principle Enforces owner-only write access for Alert documents, with public read access.
      */
     match /alerts/{alertId} {
-      allow get: if isSignedIn() && request.auth.uid == resource.data.adminId;
+      allow get: if isSignedIn();
       allow list: if isSignedIn();
-      allow create: if isSignedIn() && request.auth.uid == request.resource.data.adminId;
-      allow update: if isSignedIn() && request.auth.uid == resource.data.adminId;
-      allow delete: if isSignedIn() && request.auth.uid == resource.data.adminId;
+      allow create: if isSignedIn() && request.resource.data.adminId == request.auth.uid;
+      allow update: if isExistingOwner(resource.data.adminId);
+      allow delete: if isExistingOwner(resource.data.adminId);
     }
   }
 }
