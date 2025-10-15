@@ -2,18 +2,57 @@
 
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
-import { LogOut, Bell } from 'lucide-react';
+import { LogOut, Bell, Menu } from 'lucide-react';
 import { AdminUser } from '@/lib/types';
+import Link from 'next/link';
+import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
+import { navItems } from './sidebar';
+import { cn } from '@/lib/utils';
+import { usePathname } from 'next/navigation';
+import { Logo } from '../logo';
 
 export function Header() {
   const { logout, user } = useAuth();
   const adminUser = user as AdminUser;
+  const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 shadow-sm backdrop-blur-sm sm:px-6">
-      <div className="flex items-center gap-4">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 shadow-sm backdrop-blur-sm sm:px-6 md:justify-end">
+       <div className="flex items-center gap-4 md:hidden">
+         <Sheet>
+          <SheetTrigger asChild>
+            <Button variant="outline" size="icon">
+              <Menu className="h-5 w-5" />
+              <span className="sr-only">Toggle navigation menu</span>
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className="flex flex-col">
+             <nav className="grid gap-4 text-lg font-medium">
+                <Link
+                href="#"
+                className="flex items-center gap-2 text-lg font-semibold mb-4"
+                >
+                <Logo className="h-8 w-8" />
+                <span className="sr-only">SafeEdge</span>
+                </Link>
+                {navItems.map((item) => (
+                    <Link
+                        key={item.href}
+                        href={item.href}
+                        className={cn(
+                        "flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+                        pathname === item.href && "bg-muted text-primary"
+                        )}
+                    >
+                        <item.icon className="h-5 w-5" />
+                        {item.label}
+                    </Link>
+                ))}
+            </nav>
+          </SheetContent>
+        </Sheet>
         <span className="font-headline text-2xl font-bold text-primary">
-          {adminUser?.organization || 'SafeEdge Cyber System'}
+          {adminUser?.organization || 'SafeEdge'}
         </span>
       </div>
       <div className='flex items-center gap-4'>
@@ -26,7 +65,7 @@ export function Header() {
         </span>
         <Button variant="ghost" size="sm" onClick={logout}>
           <LogOut className="mr-2 h-4 w-4" />
-          Logout
+          <span className="hidden sm:inline">Logout</span>
         </Button>
       </div>
     </header>

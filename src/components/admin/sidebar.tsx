@@ -6,7 +6,7 @@ import { LayoutDashboard, RadioTower, Bell, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
 
-const navItems = [
+export const navItems = [
   { href: "/admin/dashboard", icon: LayoutDashboard, label: "Dashboard" },
   { href: "/admin/devices", icon: RadioTower, label: "Devices" },
   { href: "/admin/alerts", icon: Bell, label: "Alerts" },
@@ -25,7 +25,7 @@ export function Sidebar() {
             <span className="font-headline text-xl text-primary">SafeEdge</span>
           </Link>
         </div>
-        <div className="flex-1">
+        <div className="flex-1 overflow-auto py-2">
           <nav className="grid items-start px-4 text-sm font-medium">
             {navItems.map((item) => (
               <Link

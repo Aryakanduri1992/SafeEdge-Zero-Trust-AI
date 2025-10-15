@@ -30,7 +30,7 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="grid min-h-screen w-full grid-cols-[240px_1fr]">
+    <div className="grid min-h-screen w-full md:grid-cols-[240px_1fr]">
       <Sidebar />
       <div className="flex flex-col">
         <Header />

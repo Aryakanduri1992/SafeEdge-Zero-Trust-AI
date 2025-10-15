@@ -34,7 +34,7 @@ import {
   SignalHigh,
   Loader2,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Device, DeviceStatus, AdminUser } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { DeviceForm } from "./device-form";
@@ -212,31 +212,31 @@ export function DeviceList() {
   return (
     <>
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Device Registry</CardTitle>
-          <div className="flex items-center gap-4">
-            <div className="text-sm text-muted-foreground">
-              <span className="font-semibold text-foreground">
-                {devicesUsed}
-              </span>
-              /{maxDevices} Devices Used
-            </div>
-            <Button onClick={handleAddClick} disabled={areDevicesLoading}>
-              <PlusCircle className="mr-2 h-4 w-4" />
-              Add Device
-            </Button>
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <CardTitle>Device Registry</CardTitle>
+            <CardDescription>
+                <span className="font-semibold text-foreground">
+                    {devicesUsed}
+                </span>
+                /{maxDevices} Devices Used
+            </CardDescription>
           </div>
+          <Button onClick={handleAddClick} disabled={areDevicesLoading} className="w-full sm:w-auto">
+            <PlusCircle className="mr-2 h-4 w-4" />
+            Add Device
+          </Button>
         </CardHeader>
         <CardContent>
           {areDevicesLoading ? <LoadingState /> : (devices && devices.length > 0) ? (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Status</TableHead>
+                  <TableHead className="w-[100px]">Status</TableHead>
                   <TableHead>Device</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Last Seen</TableHead>
+                  <TableHead className="hidden md:table-cell">Type</TableHead>
+                  <TableHead className="hidden lg:table-cell">Location</TableHead>
+                  <TableHead className="hidden xl:table-cell">Last Seen</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -251,7 +251,7 @@ export function DeviceList() {
                           className={statusInfo.className}
                         >
                           {statusInfo.icon}
-                          {statusInfo.label}
+                          <span className="hidden sm:inline-block ml-1">{statusInfo.label}</span>
                         </Badge>
                       </TableCell>
                       <TableCell>
@@ -260,9 +260,9 @@ export function DeviceList() {
                           {device.id}
                         </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{device.type}</TableCell>
-                      <TableCell className="text-muted-foreground">{device.location}</TableCell>
-                      <TableCell className="text-muted-foreground">
+                      <TableCell className="text-muted-foreground hidden md:table-cell">{device.type}</TableCell>
+                      <TableCell className="text-muted-foreground hidden lg:table-cell">{device.location}</TableCell>
+                      <TableCell className="text-muted-foreground hidden xl:table-cell">
                         {new Date(device.lastSeen).toLocaleString()}
                       </TableCell>
                       <TableCell className="text-right">
@@ -277,15 +277,15 @@ export function DeviceList() {
                             <DropdownMenuItem
                               onClick={() => handleEditClick(device)}
                             >
-                              <Pencil className="mr-2" />
-                              Edit
+                              <Pencil className="mr-2 h-4 w-4" />
+                              <span>Edit</span>
                             </DropdownMenuItem>
                             <DropdownMenuItem
                               onClick={() => handleDeleteClick(device)}
                               className="text-red-500 focus:text-red-500 focus:bg-red-500/10"
                             >
-                              <Trash2 className="mr-2" />
-                              Delete
+                              <Trash2 className="mr-2 h-4 w-4" />
+                              <span>Delete</span>
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>

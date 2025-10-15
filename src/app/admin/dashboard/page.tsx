@@ -96,7 +96,7 @@ export default function AdminDashboardPage() {
         <p className="text-muted-foreground">Welcome back, {user?.name}. Here is the real-time status of your protected assets.</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Device Status</CardTitle>
@@ -155,7 +155,7 @@ export default function AdminDashboardPage() {
                         <TableRow>
                             <TableHead className="w-[80px]">Severity</TableHead>
                             <TableHead>Device</TableHead>
-                            <TableHead>Event Type</TableHead>
+                            <TableHead className="hidden sm:table-cell">Event Type</TableHead>
                             <TableHead className="text-right">Time</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -164,7 +164,7 @@ export default function AdminDashboardPage() {
                             <TableRow key={index}>
                                 <TableCell className="font-medium">{getSeverityBadge(alert.severity)}</TableCell>
                                 <TableCell className="font-mono text-xs">{alert.device}</TableCell>
-                                <TableCell className="text-muted-foreground">{alert.type}</TableCell>
+                                <TableCell className="text-muted-foreground hidden sm:table-cell">{alert.type}</TableCell>
                                 <TableCell className="text-right text-muted-foreground">{alert.time}</TableCell>
                             </TableRow>
                         ))}

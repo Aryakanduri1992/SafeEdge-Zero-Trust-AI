@@ -25,6 +25,13 @@ import { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { AdminUser } from '@/lib/types';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreHorizontal } from "lucide-react";
 
 export default function SuperAdminDashboardPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -50,9 +57,28 @@ export default function SuperAdminDashboardPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Super Admin Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back, {user?.name}. Manage your platform admins here.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Super Admin Dashboard</h1>
+          <p className="text-muted-foreground">Welcome back, {user?.name}. Manage your platform admins here.</p>
+        </div>
+         <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+            <DialogTrigger asChild>
+              <Button className="hidden sm:flex">
+                <PlusCircle className="mr-2 h-4 w-4" />
+                Create New Admin
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Create New Admin</DialogTitle>
+                <DialogDescription>
+                  Enter the details for the new admin account. An email will not be sent; you must share the credentials securely.
+                </DialogDescription>
+              </DialogHeader>
+              <CreateAdminForm onFinished={() => setIsCreateDialogOpen(false)} />
+            </DialogContent>
+          </Dialog>
       </div>
       
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -71,41 +97,40 @@ export default function SuperAdminDashboardPage() {
       </div>
 
       <Card className="shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between">
-          <div>
+        <CardHeader>
             <CardTitle>
               Admin Management
             </CardTitle>
-            <CardDescription className="mt-1">
+            <CardDescription>
               Create and manage administrator accounts for SafeEdge.
             </CardDescription>
-          </div>
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <PlusCircle className="mr-2 h-4 w-4" />
-                Create New Admin
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Create New Admin</DialogTitle>
-                <DialogDescription>
-                  Enter the details for the new admin account. An email will not be sent; you must share the credentials securely.
-                </DialogDescription>
-              </DialogHeader>
-              <CreateAdminForm onFinished={() => setIsCreateDialogOpen(false)} />
-            </DialogContent>
-          </Dialog>
         </CardHeader>
         <CardContent>
+          <div className="sm:hidden mb-4">
+             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="w-full">
+                  <PlusCircle className="mr-2 h-4 w-4" />
+                  Create New Admin
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[425px]">
+                <DialogHeader>
+                  <DialogTitle>Create New Admin</DialogTitle>
+                  <DialogDescription>
+                    Enter the details for the new admin account. An email will not be sent; you must share the credentials securely.
+                  </DialogDescription>
+                </DialogHeader>
+                <CreateAdminForm onFinished={() => setIsCreateDialogOpen(false)} />
+              </DialogContent>
+            </Dialog>
+          </div>
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Date Joined</TableHead>
-                <TableHead className="text-center">Devices</TableHead>
+                <TableHead className="hidden md:table-cell">Email</TableHead>
+                <TableHead className="hidden lg:table-cell">Date Joined</TableHead>
                 <TableHead className="text-center">Plan</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -113,20 +138,32 @@ export default function SuperAdminDashboardPage() {
             <TableBody>
               {admins.map((admin) => (
                 <TableRow key={admin.id}>
-                  <TableCell className="font-medium">{admin.name}</TableCell>
-                  <TableCell className="text-muted-foreground">{admin.email}</TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell className="font-medium">
+                    <div>{admin.name}</div>
+                    <div className="text-muted-foreground md:hidden text-xs">{admin.email}</div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground hidden md:table-cell">{admin.email}</TableCell>
+                  <TableCell className="text-muted-foreground hidden lg:table-cell">
                     {new Date(admin.createdAt).toLocaleDateString()}
                   </TableCell>
-                  <TableCell className="text-center font-medium">{admin.devices}</TableCell>
                   <TableCell className="text-center">
                     <Badge variant={planVariant(admin.plan)}>{admin.plan}</Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button variant="outline" size="sm" onClick={() => handleEditClick(admin)}>
-                      <Edit className="mr-2 h-3 w-3" />
-                      Edit
-                    </Button>
+                     <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleEditClick(admin)}>
+                          <Edit className="mr-2 h-4 w-4" />
+                          <span>Edit</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
               ))}
