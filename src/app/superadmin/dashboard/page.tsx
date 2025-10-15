@@ -21,7 +21,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { CreateAdminForm } from '@/components/superadmin/create-admin-form';
 import { EditAdminForm } from '@/components/superadmin/edit-admin-form';
-import { PlusCircle, Users, Edit, Building, RadioTower, ShieldAlert, Power } from 'lucide-react';
+import { DeactivateAdminDialog } from '@/components/superadmin/deactivate-admin-dialog';
+import { PlusCircle, Users, Edit, Building, RadioTower, ShieldAlert, Power, CheckCircle, XCircle } from 'lucide-react';
 import { useState, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -37,8 +38,9 @@ import { MoreHorizontal } from "lucide-react";
 export default function SuperAdminDashboardPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeactivateDialogOpen, setIsDeactivateDialogOpen] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState<AdminUser | null>(null);
-  const { user, admins } = useAuth();
+  const { user, admins, deactivateAdmin } = useAuth();
 
   const { totalOrgs, totalDevices, totalAlerts } = useMemo(() => {
     const orgs = new Set(admins.map(a => a.organization));
@@ -64,11 +66,22 @@ export default function SuperAdminDashboardPage() {
     setSelectedAdmin(admin);
     setIsEditDialogOpen(true);
   };
+  
+  const handleDeactivateClick = (admin: AdminUser) => {
+    setSelectedAdmin(admin);
+    setIsDeactivateDialogOpen(true);
+  };
+
+  const handleDeactivateConfirm = () => {
+    if (selectedAdmin) {
+      deactivateAdmin(selectedAdmin.id);
+    }
+    setIsDeactivateDialogOpen(false);
+    setSelectedAdmin(null);
+  }
 
   return (
     <div className="space-y-8">
-      {/* Header is handled in layout */}
-      
       {/* Key Metrics Overview */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           <Card>
@@ -154,7 +167,7 @@ export default function SuperAdminDashboardPage() {
               <TableRow>
                 <TableHead>Admin Name</TableHead>
                 <TableHead className="hidden md:table-cell">Organization</TableHead>
-                <TableHead className="hidden lg:table-cell">Created At</TableHead>
+                <TableHead className="text-center hidden sm:table-cell">Status</TableHead>
                 <TableHead className="text-center">Plan</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -168,8 +181,12 @@ export default function SuperAdminDashboardPage() {
                     <div className="text-muted-foreground text-xs font-mono">{admin.email}</div>
                   </TableCell>
                   <TableCell className="text-muted-foreground hidden md:table-cell">{admin.organization}</TableCell>
-                  <TableCell className="text-muted-foreground hidden lg:table-cell">
-                    {new Date(admin.createdAt).toLocaleDateString()}
+                   <TableCell className="text-center hidden sm:table-cell">
+                    {admin.status === 'active' ? (
+                      <Badge variant="outline" className="text-green-400 border-green-400/50"><CheckCircle className="mr-1 h-3 w-3"/>Active</Badge>
+                    ) : (
+                       <Badge variant="destructive" className="bg-muted-foreground/20 text-muted-foreground border-muted-foreground/30"><XCircle className="mr-1 h-3 w-3"/>Inactive</Badge>
+                    )}
                   </TableCell>
                   <TableCell className="text-center">
                     <Badge variant={planVariant(admin.plan)}>{admin.plan}</Badge>
@@ -183,11 +200,15 @@ export default function SuperAdminDashboardPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEditClick(admin)}>
+                        <DropdownMenuItem onClick={() => handleEditClick(admin)} disabled={admin.status === 'inactive'}>
                           <Edit className="mr-2 h-4 w-4" />
                           <span>Edit Plan/Quota</span>
                         </DropdownMenuItem>
-                         <DropdownMenuItem className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                         <DropdownMenuItem 
+                            onClick={() => handleDeactivateClick(admin)} 
+                            className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                            disabled={admin.status === 'inactive'}
+                          >
                           <Power className="mr-2 h-4 w-4" />
                           <span>Deactivate</span>
                         </DropdownMenuItem>
@@ -202,16 +223,23 @@ export default function SuperAdminDashboardPage() {
       </Card>
 
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Edit Admin: {selectedAdmin?.name}</DialogTitle>
-                <DialogDescription>
-                  Update the plan and device allocation for this administrator.
-                </DialogDescription>
-              </DialogHeader>
-              {selectedAdmin && <EditAdminForm admin={selectedAdmin} onFinished={() => setIsEditDialogOpen(false)} />}
-            </DialogContent>
-          </Dialog>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Admin: {selectedAdmin?.name}</DialogTitle>
+            <DialogDescription>
+              Update the plan and device allocation for this administrator.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedAdmin && <EditAdminForm admin={selectedAdmin} onFinished={() => setIsEditDialogOpen(false)} />}
+        </DialogContent>
+      </Dialog>
+      
+      <DeactivateAdminDialog
+        isOpen={isDeactivateDialogOpen}
+        onOpenChange={setIsDeactivateDialogOpen}
+        admin={selectedAdmin}
+        onConfirm={handleDeactivateConfirm}
+      />
     </div>
   );
 }

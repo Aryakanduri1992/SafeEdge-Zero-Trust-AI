@@ -18,6 +18,7 @@ type AuthContextType = {
   logout: () => Promise<void>;
   createAdmin: (adminData: NewAdminData) => Promise<void>;
   updateAdmin: (adminId: string, adminData: UpdateAdminData) => Promise<void>;
+  deactivateAdmin: (adminId: string) => Promise<void>;
   refreshAdmins: () => Promise<void>;
 };
 
@@ -40,6 +41,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (firebaseUser) {
         try {
           const userProfile = await authService.fetchUserProfile(firebaseUser.uid);
+          
+          if (userProfile?.role === 'admin' && userProfile.status === 'inactive') {
+            await authService.logout();
+            setAppUser(null);
+            toast({
+              variant: 'destructive',
+              title: 'Account Deactivated',
+              description: 'Your account is inactive. Please contact support.',
+            });
+            router.replace('/admin-login');
+            return;
+          }
+
           setAppUser(userProfile);
           if (userProfile?.role === 'superadmin' && pathname.startsWith('/admin')) {
             router.replace('/superadmin/dashboard');
@@ -57,7 +71,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsAuthLoading(false);
     };
     handleAuthChange();
-  }, [firebaseUser, router, pathname]);
+  }, [firebaseUser, router, pathname, toast]);
 
   const refreshAdmins = useCallback(async () => {
     if (appUser?.role === 'superadmin' && firestore) {
@@ -107,7 +121,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       throw new Error("Unauthorized");
     }
     await authService.createAdmin(adminData, appUser.id);
-    // No need to call refreshAdmins, listener will update state.
   };
   
   const updateAdmin = async (adminId: string, adminData: UpdateAdminData) => {
@@ -115,7 +128,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       throw new Error("Unauthorized");
     }
     await authService.updateAdmin(adminId, adminData);
-    // No need to call refreshAdmins, listener will update state.
+  };
+
+  const deactivateAdmin = async (adminId: string) => {
+    if (!appUser || appUser.role !== 'superadmin') {
+      throw new Error("Unauthorized");
+    }
+    await authService.deactivateAdmin(adminId);
+    toast({
+      title: "Admin Deactivated",
+      description: "The admin account has been successfully deactivated.",
+    });
   };
 
   const isLoading = isFirebaseUserLoading || isAuthLoading;
@@ -137,6 +160,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     logout, 
     createAdmin, 
     updateAdmin, 
+    deactivateAdmin,
     refreshAdmins 
   };
 

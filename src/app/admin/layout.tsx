@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/use-auth';
 import { Loader2 } from 'lucide-react';
 import { Header } from '@/components/admin/header';
 import { Sidebar } from '@/components/admin/sidebar';
+import type { AdminUser } from '@/lib/types';
 
 export default function AdminLayout({
   children,
@@ -14,14 +15,15 @@ export default function AdminLayout({
 }) {
   const { user, isAuthenticated, isLoading } = useAuth();
   const router = useRouter();
+  const adminUser = user as AdminUser;
 
   useEffect(() => {
-    if (!isLoading && (!isAuthenticated || user?.role !== 'admin')) {
+    if (!isLoading && (!isAuthenticated || user?.role !== 'admin' || adminUser?.status === 'inactive')) {
       router.replace('/admin-login');
     }
-  }, [isLoading, isAuthenticated, user, router]);
+  }, [isLoading, isAuthenticated, user, router, adminUser?.status]);
 
-  if (isLoading || !isAuthenticated || user?.role !== 'admin') {
+  if (isLoading || !isAuthenticated || user?.role !== 'admin' || adminUser?.status === 'inactive') {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />

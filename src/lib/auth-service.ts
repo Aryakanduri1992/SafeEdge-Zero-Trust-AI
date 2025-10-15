@@ -54,6 +54,11 @@ export const login = async (credentials: LoginCredentials, role: 'admin' | 'supe
     await signOut(auth);
     throw new Error(`User does not have the required '${role}' role.`);
   }
+
+  if (userProfile.role === 'admin' && userProfile.status === 'inactive') {
+    await signOut(auth);
+    throw new Error('This account has been deactivated.');
+  }
   
   return userCredential.user;
 };
@@ -93,6 +98,7 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
             devices: 1,
             plan: 'Free',
             superAdminId: superAdminId,
+            status: 'active',
         };
 
         const adminDocRef = doc(firestore, "admins", newAdminUID);
@@ -128,6 +134,19 @@ export const updateAdmin = async (adminId: string, adminData: UpdateAdminData): 
             path: adminDocRef.path,
             operation: 'update',
             requestResourceData: adminData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        throw permissionError;
+    });
+};
+
+export const deactivateAdmin = async (adminId: string): Promise<void> => {
+    const adminDocRef = doc(firestore, "admins", adminId);
+    await updateDoc(adminDocRef, { status: 'inactive' }).catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+            path: adminDocRef.path,
+            operation: 'update',
+            requestResourceData: { status: 'inactive' },
         });
         errorEmitter.emit('permission-error', permissionError);
         throw permissionError;

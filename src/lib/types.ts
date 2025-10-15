@@ -4,6 +4,7 @@ export type DeviceStatus = 'online' | 'offline' | 'alerting';
 export type DeviceType = 'Sensor' | 'Gateway' | 'Actuator' | 'Camera';
 export type AlertStatus = 'new' | 'acknowledged' | 'resolved';
 export type AlertSeverity = 'critical' | 'high' | 'medium' | 'low';
+export type AdminStatus = 'active' | 'inactive';
 
 export interface BaseUser {
   id: string; // Firebase Auth UID
@@ -19,6 +20,7 @@ export interface AdminUser extends BaseUser {
   devices: number;
   plan: Plan;
   superAdminId: string; // UID of the superadmin who created this admin
+  status: AdminStatus;
 }
 
 export interface SuperAdminUser extends BaseUser {
