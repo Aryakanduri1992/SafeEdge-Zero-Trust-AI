@@ -7,7 +7,7 @@ import * as authService from '@/lib/auth-service';
 import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateAdminData } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
-import { useUser, useFirestore, FirestorePermissionError } from '@/firebase';
+import { useUser, useFirestore, FirestorePermissionError, errorEmitter } from '@/firebase';
 import { collection, onSnapshot, Unsubscribe, query, where } from 'firebase/firestore';
 
 type AuthContextType = {
@@ -66,7 +66,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           console.error("Failed to fetch user profile:", error);
           if (error instanceof FirestorePermissionError) {
              // The error is already being thrown globally, no need to toast here
-          } else if (error instanceof Error && error.message.includes('deactivated')) {
+          } else if (error instanceof Error) {
              toast({
               variant: 'destructive',
               title: 'Login Failed',
@@ -181,3 +181,5 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     </AuthContext.Provider>
   );
 };
+
+    

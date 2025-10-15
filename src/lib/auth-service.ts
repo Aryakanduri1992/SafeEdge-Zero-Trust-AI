@@ -79,7 +79,7 @@ export const login = async (credentials: LoginCredentials, role: 'admin' | 'supe
     }
 
     if (userProfile.role === 'admin' && userProfile.status === 'inactive') {
-      throw new Error('This account has been deactivated.');
+        throw new Error('Your account is inactive. Please contact your super admin.');
     }
     
     return userCredential.user;
@@ -143,6 +143,7 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
                 requestResourceData: newAdminProfile,
             });
             errorEmitter.emit('permission-error', permissionError);
+            // We still throw the original error to allow for specific handling if needed
             throw permissionError;
         });
 
@@ -153,7 +154,10 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
             throw new Error("This email is already registered in Firebase Authentication.");
         }
         
-        throw error;
+        // Re-throw if it's not a permission error we're already handling.
+        if (!(error instanceof FirestorePermissionError)) {
+          throw error;
+        }
     } finally {
         await deleteApp(tempApp);
     }
@@ -175,11 +179,12 @@ export const updateAdmin = async (adminId: string, adminData: UpdateAdminData): 
 
 export const deactivateAdmin = async (adminId: string): Promise<void> => {
     const adminDocRef = doc(firestore, "admins", adminId);
-    await updateDoc(adminDocRef, { status: 'inactive' }).catch(serverError => {
+    const updateData = { status: 'inactive' };
+    await updateDoc(adminDocRef, updateData).catch(serverError => {
         const permissionError = new FirestorePermissionError({
             path: adminDocRef.path,
             operation: 'update',
-            requestResourceData: { status: 'inactive' },
+            requestResourceData: updateData,
         });
         errorEmitter.emit('permission-error', permissionError);
         throw permissionError;
@@ -233,3 +238,5 @@ const seedSuperAdmin = async () => {
 };
 
 seedSuperAdmin();
+
+    

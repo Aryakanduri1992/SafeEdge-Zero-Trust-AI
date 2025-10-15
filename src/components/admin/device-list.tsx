@@ -40,7 +40,7 @@ import { useToast } from "@/hooks/use-toast";
 import { DeviceForm } from "./device-form";
 import { DeleteDeviceDialog } from "./delete-device-dialog";
 import { useAuth } from "@/hooks/use-auth";
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { useFirestore, useCollection, useMemoFirebase, FirestorePermissionError, errorEmitter } from "@/firebase";
 import { collection, doc, query, where, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
 import { Skeleton } from "../ui/skeleton";
 
@@ -123,42 +123,60 @@ export function DeviceList() {
     if (!user || !firestore) return;
     setIsMutationLoading(true);
     
-    try {
-      if (selectedDevice) {
-        // Edit mode
-        const deviceRef = doc(firestore, "devices", selectedDevice.id);
-        await updateDoc(deviceRef, values);
-        toast({
-          title: "Device Updated",
-          description: `"${values.name}" has been successfully updated.`,
+    if (selectedDevice) {
+      // Edit mode
+      const deviceRef = doc(firestore, "devices", selectedDevice.id);
+      updateDoc(deviceRef, values)
+        .then(() => {
+            toast({
+              title: "Device Updated",
+              description: `"${values.name}" has been successfully updated.`,
+            });
+            setIsFormOpen(false);
+            setSelectedDevice(null);
+        })
+        .catch((serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: deviceRef.path,
+                operation: 'update',
+                requestResourceData: values,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        })
+        .finally(() => {
+            setIsMutationLoading(false);
         });
-      } else {
-        // Create mode
-        const deviceId = values.id;
-        const deviceRef = doc(firestore, "devices", deviceId);
-        const newDevice: Omit<Device, 'id'> = {
-          ...values,
-          adminId: user.id,
-          status: "offline",
-          lastSeen: new Date().toISOString(),
-          sensorData: { temperature: 0, humidity: 0, motion: false, gas: 0 },
-        };
-        await setDoc(deviceRef, newDevice);
-        toast({
-          title: "Device Added",
-          description: `"${values.name}" has been added to your devices.`,
+    } else {
+      // Create mode
+      const deviceId = values.id;
+      const deviceRef = doc(firestore, "devices", deviceId);
+      const newDevice: Omit<Device, 'id'> = {
+        ...values,
+        adminId: user.id,
+        status: "offline",
+        lastSeen: new Date().toISOString(),
+        sensorData: { temperature: 0, humidity: 0, motion: false, gas: 0 },
+      };
+      setDoc(deviceRef, newDevice)
+        .then(() => {
+            toast({
+              title: "Device Added",
+              description: `"${values.name}" has been added to your devices.`,
+            });
+            setIsFormOpen(false);
+            setSelectedDevice(null);
+        })
+        .catch((serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: deviceRef.path,
+                operation: 'create',
+                requestResourceData: newDevice,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        })
+        .finally(() => {
+            setIsMutationLoading(false);
         });
-      }
-      setIsFormOpen(false);
-      setSelectedDevice(null);
-    } catch (error: any) {
-       toast({
-        variant: "destructive",
-        title: "Operation Failed",
-        description: error.message || "An unexpected error occurred.",
-      });
-    } finally {
-        setIsMutationLoading(false);
     }
   };
 
@@ -166,24 +184,26 @@ export function DeviceList() {
     if (!selectedDevice || !firestore) return;
     setIsMutationLoading(true);
 
-    try {
-        const deviceRef = doc(firestore, "devices", selectedDevice.id);
-        await deleteDoc(deviceRef);
-        toast({
-            title: "Device Removed",
-            description: `"${selectedDevice.name}" has been permanently removed.`,
+    const deviceRef = doc(firestore, "devices", selectedDevice.id);
+    deleteDoc(deviceRef)
+        .then(() => {
+            toast({
+                title: "Device Removed",
+                description: `"${selectedDevice.name}" has been permanently removed.`,
+            });
+            setIsDeleteOpen(false);
+            setSelectedDevice(null);
+        })
+        .catch((serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: deviceRef.path,
+                operation: 'delete',
+            });
+            errorEmitter.emit('permission-error', permissionError);
+        })
+        .finally(() => {
+            setIsMutationLoading(false);
         });
-        setIsDeleteOpen(false);
-        setSelectedDevice(null);
-    } catch (error: any) {
-        toast({
-            variant: "destructive",
-            title: "Deletion Failed",
-            description: error.message || "Could not remove the device.",
-        });
-    } finally {
-        setIsMutationLoading(false);
-    }
   };
 
   const EmptyState = () => (
@@ -331,3 +351,5 @@ export function DeviceList() {
     </>
   );
 }
+
+    
