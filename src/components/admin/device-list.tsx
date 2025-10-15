@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -35,14 +36,81 @@ import {
   Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Device, DeviceStatus, AdminUser } from "@/lib/types";
+import { Device, DeviceStatus, AdminUser, Alert, AlertSeverity, AlertStatus } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { DeviceForm } from "./device-form";
 import { DeleteDeviceDialog } from "./delete-device-dialog";
 import { useAuth } from "@/hooks/use-auth";
 import { useFirestore, useCollection, useMemoFirebase, FirestorePermissionError, errorEmitter } from "@/firebase";
-import { collection, doc, query, where, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, doc, query, where, setDoc, updateDoc, deleteDoc, addDoc } from "firebase/firestore";
 import { Skeleton } from "../ui/skeleton";
+
+// --- Custom Hook for Device Status Simulation ---
+const useDeviceStatusSimulation = (devices: Device[] | null, adminId: string) => {
+    const firestore = useFirestore();
+
+    useEffect(() => {
+        if (!devices || devices.length === 0 || !firestore) return;
+
+        const intervalId = setInterval(() => {
+            const deviceToUpdate = devices[Math.floor(Math.random() * devices.length)];
+            const statuses: DeviceStatus[] = ["online", "offline", "alerting"];
+            const newStatus = statuses[Math.floor(Math.random() * statuses.length)];
+
+            if (deviceToUpdate.status !== newStatus) {
+                const deviceRef = doc(firestore, "devices", deviceToUpdate.id);
+                const updatePayload = { status: newStatus, lastSeen: new Date().toISOString() };
+                
+                updateDoc(deviceRef, updatePayload).catch(serverError => {
+                    const permissionError = new FirestorePermissionError({
+                        path: deviceRef.path,
+                        operation: 'update',
+                        requestResourceData: updatePayload,
+                    });
+                    errorEmitter.emit('permission-error', permissionError);
+                });
+
+                // Create an alert if status is 'offline' or 'alerting'
+                if (newStatus === "offline" || newStatus === "alerting") {
+                    let severity: AlertSeverity;
+                    let type: string;
+
+                    if (newStatus === "offline") {
+                        severity = "high";
+                        type = "Device Offline";
+                    } else { // alerting
+                        severity = "critical";
+                        type = "Anomalous Behaviour";
+                    }
+
+                    const alertRef = collection(firestore, "alerts");
+                    const newAlert: Omit<Alert, 'id'> = {
+                        deviceId: deviceToUpdate.id,
+                        deviceName: deviceToUpdate.name,
+                        adminId: adminId,
+                        type: type,
+                        severity: severity,
+                        status: 'new' as AlertStatus,
+                        createdAt: new Date().toISOString(),
+                        details: `Device "${deviceToUpdate.name}" reported status: ${newStatus}.`,
+                    };
+
+                    addDoc(alertRef, newAlert).catch(serverError => {
+                       const permissionError = new FirestorePermissionError({
+                            path: 'alerts',
+                            operation: 'create',
+                            requestResourceData: newAlert,
+                        });
+                        errorEmitter.emit('permission-error', permissionError);
+                    });
+                }
+            }
+        }, 5000); // Run every 5 seconds
+
+        return () => clearInterval(intervalId);
+    }, [devices, firestore, adminId]);
+};
+
 
 const getStatusInfo = (status: DeviceStatus) => {
   switch (status) {
@@ -92,6 +160,9 @@ export function DeviceList() {
   }, [firestore, user?.id]);
 
   const { data: devices, isLoading: areDevicesLoading } = useCollection<Device>(devicesQuery);
+  
+  // Activate the device status simulation
+  useDeviceStatusSimulation(devices, user?.id ?? '');
 
   const devicesUsed = devices?.length ?? 0;
   const maxDevices = adminUser?.plan === 'Pro' ? 25 : adminUser?.plan === 'Enterprise' ? 100 : 10;
@@ -351,5 +422,7 @@ export function DeviceList() {
     </>
   );
 }
+
+    
 
     
