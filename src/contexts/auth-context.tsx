@@ -43,16 +43,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsAuthLoading(true);
         return;
       }
-
+      setIsAuthLoading(true);
       // If Firebase user exists, fetch their profile.
       if (firebaseUser) {
-        setIsAuthLoading(true); 
         try {
           const userProfile = await authService.fetchUserProfile(firebaseUser.uid);
           
           if (!userProfile) {
-             // This can happen if the Firestore doc isn't created yet or was deleted.
-             // It's a valid state, so we log them out.
              await authService.logout();
              setAppUser(null);
              toast({
@@ -83,9 +80,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const onAdminLoginPage = pathname.includes('admin-login');
           const onSuperAdminLoginPage = pathname.includes('superadmin-login');
 
-          if (userProfile.role === 'superadmin' && onSuperAdminLoginPage) {
+          if (userProfile.role === 'superadmin' && (onSuperAdminLoginPage || onAdminLoginPage)) {
             router.replace('/superadmin/dashboard');
-          } else if (userProfile.role === 'admin' && onAdminLoginPage) {
+          } else if (userProfile.role === 'admin' && (onAdminLoginPage || onSuperAdminLoginPage)) {
             router.replace('/admin/dashboard');
           }
 
@@ -99,7 +96,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               description: error.message || 'Could not retrieve user profile.',
             });
           }
-          // On any profile fetch error, ensure user is logged out.
           await authService.logout();
           setAppUser(null);
         } finally {
@@ -142,7 +138,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [appUser, firestore]);
 
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
-    // This is non-blocking. The useEffect above will handle profile fetching and redirection.
     await authService.login(credentials, role);
   };
 
@@ -183,7 +178,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
-  // The true loading state is a combination of the initial user check AND any subsequent profile fetching.
   const isLoading = isFirebaseUserLoading || isAuthLoading;
   
   const contextValue = { 
@@ -201,7 +195,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider value={contextValue}>
-      {isLoading && !appUser ? ( // Show loader only during initial auth check before we have a user
+      {isLoading ? (
         <div className="flex h-screen w-full items-center justify-center bg-background">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
         </div>
