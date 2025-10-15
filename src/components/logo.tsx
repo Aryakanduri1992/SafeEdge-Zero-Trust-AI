@@ -26,7 +26,7 @@ export function Logo({ className, ...props }: React.SVGProps<SVGSVGElement>) {
       />
 
       {/* Brain - Left Side (Detailed) */}
-      <g stroke="hsl(var(--primary))" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
+      <g stroke="url(#logo-gradient)" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
         <path d="M80 40V85" />
         <path d="M72 45C68 45 65 48 65 52C65 58 70 60 70 65C70 70 65 72 65 78" />
         <path d="M65 60C62 60 60 62 60 65C60 68 62 70 65 70" />
@@ -40,9 +40,9 @@ export function Logo({ className, ...props }: React.SVGProps<SVGSVGElement>) {
         <circle cx="88" cy="70" r="4" />
         <circle cx="80" cy="40" r="2.5" />
         <circle cx="80" cy="85" r="2.5" />
-        <path d="M80 40H95" stroke="hsl(var(--primary))" strokeWidth="2" />
-        <path d="M88 55H105" stroke="hsl(var(--primary))" strokeWidth="2" />
-        <path d="M88 70H105" stroke="hsl(var(--primary))" strokeWidth="2" />
+        <path d="M80 40H95" stroke="url(#logo-gradient)" strokeWidth="2" />
+        <path d="M88 55H105" stroke="url(#logo-gradient)" strokeWidth="2" />
+        <path d="M88 70H105" stroke="url(#logo-gradient)" strokeWidth="2" />
       </g>
       
       {/* Lock */}
@@ -54,17 +54,17 @@ export function Logo({ className, ...props }: React.SVGProps<SVGSVGElement>) {
 
       {/* Globe */}
       <g transform="translate(108 30)">
-        <circle cx="0" cy="0" r="8" stroke="hsl(var(--primary))" strokeWidth="2" fill="none" />
-        <path d="M-8 0H8" stroke="hsl(var(--primary))" strokeWidth="2" />
-        <path d="M-5 -6C-2 -4 2 -4 5 -6" stroke="hsl(var(--primary))" strokeWidth="2" fill="none" />
-        <path d="M-5 6C-2 4 2 4 5 6" stroke="hsl(var(--primary))" strokeWidth="2" fill="none" />
+        <circle cx="0" cy="0" r="8" stroke="hsl(var(--accent))" strokeWidth="2" fill="none" />
+        <path d="M-8 0H8" stroke="hsl(var(--accent))" strokeWidth="1.5" />
+        <path d="M-5 -6C-2 -4 2 -4 5 -6" stroke="hsl(var(--accent))" strokeWidth="1.5" fill="none" />
+        <path d="M-5 6C-2 4 2 4 5 6" stroke="hsl(var(--accent))" strokeWidth="1.5" fill="none" />
       </g>
 
       {/* Wifi Signal */}
-      <g transform="translate(45 75)" stroke="hsl(var(--primary))" fill="none" strokeWidth="2.5" strokeLinecap="round">
+      <g transform="translate(45 75)" stroke="hsl(var(--accent))" fill="none" strokeWidth="2.5" strokeLinecap="round">
          <path d="M-10 -5C-5 -10 5 -10 10 -5" />
          <path d="M-6 -1C-3 -4 3 -4 6 -1" />
-         <circle cx="0" cy="3" r="1.5" fill="hsl(var(--primary))" stroke="none" />
+         <circle cx="0" cy="3" r="1.5" fill="hsl(var(--accent))" stroke="none" />
       </g>
     </svg>
   );
