@@ -18,16 +18,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 
 const { auth, firestore } = initializeFirebase();
 
-const isSignedIn = () => {
-    return auth.currentUser != null;
-}
-
 export const fetchUserProfile = async (uid: string): Promise<SuperAdminUser | AdminUser | null> => {
-    // Prevent Firestore reads if auth state is not yet initialized
-    if (!isSignedIn()) {
-        return null;
-    }
-    
     const superAdminRef = doc(firestore, "roles_super_admin", uid);
     
     // Attempt to fetch Super Admin role
@@ -247,5 +238,3 @@ const seedSuperAdmin = async () => {
 };
 
 seedSuperAdmin();
-
-    
