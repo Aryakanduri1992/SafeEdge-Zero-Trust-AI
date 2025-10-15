@@ -12,8 +12,9 @@ import {
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateAdminData, Plan } from './types';
-import { setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { initializeFirebase } from '@/firebase';
+import { FirestorePermissionError } from '@/firebase/errors';
+import { errorEmitter } from '@/firebase/error-emitter';
 
 const { auth, firestore } = initializeFirebase();
 
@@ -98,9 +99,18 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
 
         const adminDocRef = doc(firestore, "admins", newAdminUID);
         
-        // Use setDocumentNonBlocking, which includes our permission error handling.
+        // Use setDoc and include our permission error handling.
         // The currently authenticated user (super admin) performs this action.
-        setDocumentNonBlocking(adminDocRef, newAdminProfile, {});
+        await setDoc(adminDocRef, newAdminProfile).catch(serverError => {
+            const permissionError = new FirestorePermissionError({
+                path: adminDocRef.path,
+                operation: 'create',
+                requestResourceData: newAdminProfile,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+            // Also throw an error to be caught by the form UI
+            throw permissionError;
+        });
 
     } catch (error: any) {
         console.error("Error creating admin user:", error);
@@ -120,7 +130,15 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
 
 export const updateAdmin = async (adminId: string, adminData: UpdateAdminData): Promise<void> => {
     const adminDocRef = doc(firestore, "admins", adminId);
-    updateDocumentNonBlocking(adminDocRef, adminData);
+    await updateDoc(adminDocRef, adminData).catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+            path: adminDocRef.path,
+            operation: 'update',
+            requestResourceData: adminData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        throw permissionError;
+    });
 };
 
 
@@ -137,13 +155,19 @@ const seedSuperAdmin = async () => {
     const superAdminEmail = 'super@authstation.com';
     const superAdminPassword = 'super-password';
 
+    // Use a temporary auth instance to avoid conflicts with logged-in users
+    const tempAppName = `temp-superadmin-check-${Date.now()}`;
+    const tempApp = initializeApp(firebaseConfig, tempAppName);
+    const tempAuth = getAuth(tempApp);
+
     try {
-        await signInWithEmailAndPassword(auth, superAdminEmail, superAdminPassword);
-        await signOut(auth);
+        // Try to sign in to see if user exists
+        await signInWithEmailAndPassword(tempAuth, superAdminEmail, superAdminPassword);
     } catch (error: any) {
+        // If user not found, create them
         if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
              try {
-                const userCredential = await createUserWithEmailAndPassword(auth, superAdminEmail, superAdminPassword);
+                const userCredential = await createUserWithEmailAndPassword(tempAuth, superAdminEmail, superAdminPassword);
                  const user = userCredential.user;
                  if(user) {
                     const superAdminProfile = {
@@ -152,8 +176,8 @@ const seedSuperAdmin = async () => {
                         name: "Super Admin",
                     };
                     const superAdminRoleRef = doc(firestore, 'roles_super_admin', user.uid);
+                    // Use the main firestore instance, permissions should allow this initial seed write.
                     await setDoc(superAdminRoleRef, superAdminProfile);
-                    await signOut(auth);
                     console.log("Super Admin seeded successfully.");
                 }
              } catch (seedError: any) {
@@ -162,6 +186,8 @@ const seedSuperAdmin = async () => {
                 }
              }
         }
+    } finally {
+        await deleteApp(tempApp);
     }
 };
 
