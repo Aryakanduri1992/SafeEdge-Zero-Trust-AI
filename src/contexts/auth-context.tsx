@@ -38,7 +38,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const handleAuthChange = async () => {
+      // Do not run logic until the initial user loading is complete.
+      if (isFirebaseUserLoading) {
+        return;
+      }
+      
       setIsAuthLoading(true);
+
       if (firebaseUser) {
         try {
           const userProfile = await authService.fetchUserProfile(firebaseUser.uid);
@@ -89,7 +95,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsAuthLoading(false);
     };
     handleAuthChange();
-  }, [firebaseUser, router, pathname, toast]);
+  }, [firebaseUser, isFirebaseUserLoading, router, pathname, toast]);
 
   const refreshAdmins = useCallback(async () => {
     if (appUser?.role === 'superadmin' && firestore) {
