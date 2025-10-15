@@ -60,40 +60,13 @@ export const fetchUserProfile = async (uid: string): Promise<SuperAdminUser | Ad
 }
 
 
-export const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin'): Promise<FirebaseUser> => {
+export const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin'): Promise<void> => {
   const { email, password } = credentials;
   if (!password) {
       throw new Error("Password is required for login.");
   }
-  const userCredential = await signInWithEmailAndPassword(auth, email, password);
-
-  try {
-    const userProfile = await fetchUserProfile(userCredential.user.uid);
-
-    if (!userProfile) {
-      throw new Error("User profile not found.");
-    }
-
-    if (userProfile.role !== role) {
-      throw new Error(`User does not have the required '${role}' role.`);
-    }
-
-    if (userProfile.role === 'admin' && userProfile.status === 'inactive') {
-        throw new Error('Your account is inactive. Please contact your super admin.');
-    }
-    
-    return userCredential.user;
-  } catch (error) {
-    // If any of the profile checks fail, sign the user out and re-throw the specific error.
-    await signOut(auth);
-    if (error instanceof Error) {
-        if (error.message.includes("Missing or insufficient permissions")) {
-            throw new Error("Your account has been de-activated or does not have the required permissions.");
-        }
-        throw error;
-    }
-    throw new Error("An unexpected error occurred during login.");
-  }
+  // This will trigger the onAuthStateChanged listener in AuthProvider, which handles the rest.
+  await signInWithEmailAndPassword(auth, email, password);
 };
 
 

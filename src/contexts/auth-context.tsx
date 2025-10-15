@@ -1,14 +1,14 @@
 
 "use client";
 
-import React, { createContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
+import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import * as authService from '@/lib/auth-service';
 import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateAdminData } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { useUser, useFirestore, FirestorePermissionError, errorEmitter } from '@/firebase';
-import { collection, onSnapshot, Unsubscribe, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, Unsubscribe } from 'firebase/firestore';
 
 type AuthContextType = {
   user: SuperAdminUser | AdminUser | null;
@@ -38,18 +38,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const handleAuthChange = async () => {
-      // This is the critical part: only proceed if loading is finished.
       if (isFirebaseUserLoading) {
-        return; // Wait until the initial auth state is resolved.
+        setIsAuthLoading(true);
+        return;
       }
 
-      setIsAuthLoading(true);
       if (firebaseUser) {
-        // User is signed in according to Firebase. Now, fetch their profile.
+        // User is signed in, start fetching profile but don't block UI with a global loader.
+        // The layout guard will handle showing a loader if profile is needed.
+        setIsAuthLoading(true); 
         try {
           const userProfile = await authService.fetchUserProfile(firebaseUser.uid);
           
-          if (userProfile?.role === 'admin' && userProfile.status === 'inactive') {
+          if (!userProfile) {
+             throw new Error("Your user profile could not be found. Please contact support.");
+          }
+
+          if (userProfile.role === 'admin' && userProfile.status === 'inactive') {
             await authService.logout();
             setAppUser(null);
             toast({
@@ -61,7 +66,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setIsAuthLoading(false);
             return;
           }
-
+          
           setAppUser(userProfile);
           if (userProfile?.role === 'superadmin' && (pathname.startsWith('/admin') || pathname ==='/')) {
             router.replace('/superadmin/dashboard');
@@ -69,22 +74,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             router.replace('/admin/dashboard');
           }
         } catch (error) {
-          if (error instanceof FirestorePermissionError) {
+           if (error instanceof FirestorePermissionError) {
              errorEmitter.emit('permission-error', error);
-          } else if (error instanceof Error) {
-            if (error.message.includes("inactive")) {
-               toast({
-                variant: 'destructive',
-                title: 'Login Failed',
-                description: error.message,
-              });
-            } else {
-               toast({
-                variant: 'destructive',
-                title: 'Login Error',
-                description: 'Could not retrieve user profile. Your account may be misconfigured.',
-              });
-            }
+           } else if (error instanceof Error) {
+            toast({
+              variant: 'destructive',
+              title: 'Login Error',
+              description: error.message || 'Could not retrieve user profile.',
+            });
           }
           await authService.logout();
           setAppUser(null);
@@ -92,7 +89,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setIsAuthLoading(false);
         }
       } else {
-        // If loading is finished and there's no user, we are definitively logged out.
         setAppUser(null);
         setIsAuthLoading(false);
       }
@@ -129,8 +125,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [appUser, firestore]);
 
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
+    // Non-blocking, the useEffect will handle profile fetching and redirection
     await authService.login(credentials, role);
-    // The useEffect will handle redirection after state update
   };
 
   const logout = async () => {
@@ -170,15 +166,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const isLoading = isFirebaseUserLoading || isAuthLoading;
-
-  if (isLoading) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-      </div>
-    );
-  }
-
+  
   const contextValue = { 
     user: appUser, 
     admins, 
@@ -194,7 +182,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider value={contextValue}>
-      {children}
+      {isLoading ? (
+        <div className="flex h-screen w-full items-center justify-center bg-background">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        </div>
+      ) : children}
     </AuthContext.Provider>
   );
 };
