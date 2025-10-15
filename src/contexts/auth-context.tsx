@@ -67,11 +67,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           if (error instanceof FirestorePermissionError) {
              // The error is already being thrown globally, no need to toast here
           } else if (error instanceof Error) {
-             toast({
-              variant: 'destructive',
-              title: 'Login Failed',
-              description: error.message,
-            });
+            if (error.message.includes("inactive")) {
+               toast({
+                variant: 'destructive',
+                title: 'Login Failed',
+                description: error.message,
+              });
+            }
           }
           await authService.logout();
           setAppUser(null);
@@ -94,9 +96,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let unsubscribe: Unsubscribe | undefined;
     if (appUser?.role === 'superadmin' && firestore) {
       const adminsCollection = collection(firestore, 'admins');
-      const q = query(adminsCollection, where('superAdminId', '==', appUser.id));
-
-      unsubscribe = onSnapshot(q, (snapshot) => {
+      
+      unsubscribe = onSnapshot(adminsCollection, (snapshot) => {
         const adminList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as AdminUser));
         setAdmins(adminList);
       }, (error) => {
@@ -181,5 +182,3 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     </AuthContext.Provider>
   );
 };
-
-    
