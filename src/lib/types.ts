@@ -2,6 +2,8 @@ export type UserRole = 'admin' | 'superadmin';
 export type Plan = 'Free' | 'Pro' | 'Enterprise';
 export type DeviceStatus = 'online' | 'offline' | 'alerting';
 export type DeviceType = 'Sensor' | 'Gateway' | 'Actuator' | 'Camera';
+export type AlertStatus = 'new' | 'acknowledged' | 'resolved';
+export type AlertSeverity = 'critical' | 'high' | 'medium' | 'low';
 
 export interface BaseUser {
   id: string; // Firebase Auth UID
@@ -39,6 +41,19 @@ export interface Device {
         gas: number;
     }
 }
+
+export interface Alert {
+  id: string;
+  deviceId: string;
+  deviceName: string;
+  adminId: string;
+  type: string;
+  severity: AlertSeverity;
+  status: AlertStatus;
+  createdAt: string; // ISO String
+  details?: string;
+}
+
 
 export interface LoginCredentials {
   email: string;
