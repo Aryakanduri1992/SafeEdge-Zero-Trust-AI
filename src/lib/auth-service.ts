@@ -48,19 +48,33 @@ export const login = async (credentials: LoginCredentials, role: 'admin' | 'supe
   }
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
 
-  const userProfile = await fetchUserProfile(userCredential.user.uid);
+  try {
+    const userProfile = await fetchUserProfile(userCredential.user.uid);
 
-  if (!userProfile || userProfile.role !== role) {
-    await signOut(auth);
-    throw new Error(`User does not have the required '${role}' role.`);
-  }
+    if (!userProfile) {
+      throw new Error("User profile not found.");
+    }
 
-  if (userProfile.role === 'admin' && userProfile.status === 'inactive') {
+    if (userProfile.role !== role) {
+      throw new Error(`User does not have the required '${role}' role.`);
+    }
+
+    if (userProfile.role === 'admin' && userProfile.status === 'inactive') {
+      throw new Error('This account has been deactivated.');
+    }
+    
+    return userCredential.user;
+  } catch (error) {
+    // If any of the profile checks fail, sign the user out and re-throw the specific error.
     await signOut(auth);
-    throw new Error('This account has been deactivated.');
+    if (error instanceof Error) {
+        if (error.message.includes("Missing or insufficient permissions")) {
+            throw new Error("Your account is inactive or does not have the required permissions.");
+        }
+        throw error;
+    }
+    throw new Error("An unexpected error occurred during login.");
   }
-  
-  return userCredential.user;
 };
 
 

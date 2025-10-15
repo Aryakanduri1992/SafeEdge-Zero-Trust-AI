@@ -48,9 +48,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             toast({
               variant: 'destructive',
               title: 'Account Deactivated',
-              description: 'Your account is inactive. Please contact support.',
+              description: 'Your account is inactive. Please contact your super admin.',
             });
             router.replace('/admin-login');
+            setIsAuthLoading(false);
             return;
           }
 
@@ -62,8 +63,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
         } catch (error) {
           console.error("Failed to fetch user profile:", error);
+          await authService.logout();
           setAppUser(null);
-          authService.logout();
         }
       } else {
         setAppUser(null);
