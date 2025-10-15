@@ -63,15 +63,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             router.replace('/admin/dashboard');
           }
         } catch (error) {
-          console.error("Failed to fetch user profile:", error);
           if (error instanceof FirestorePermissionError) {
-             // The error is already being thrown globally, no need to toast here
+             errorEmitter.emit('permission-error', error);
           } else if (error instanceof Error) {
             if (error.message.includes("inactive")) {
                toast({
                 variant: 'destructive',
                 title: 'Login Failed',
                 description: error.message,
+              });
+            } else {
+               toast({
+                variant: 'destructive',
+                title: 'Login Error',
+                description: 'Could not retrieve user profile. Your account may be misconfigured.',
               });
             }
           }
@@ -88,7 +93,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const refreshAdmins = useCallback(async () => {
     if (appUser?.role === 'superadmin' && firestore) {
-      // This will be handled by the real-time listener below
+      // This is handled by the real-time listener below
     }
   }, [appUser, firestore]);
 
@@ -100,8 +105,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       unsubscribe = onSnapshot(adminsCollection, (snapshot) => {
         const adminList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as AdminUser));
         setAdmins(adminList);
-      }, (error) => {
-        console.error("Failed to fetch admins:", error);
+      }, (serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: 'admins',
+            operation: 'list',
+        });
+        errorEmitter.emit('permission-error', permissionError);
         setAdmins([]);
       });
     } else {
@@ -112,7 +121,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
     await authService.login(credentials, role);
-    // Auth state will be handled by the useEffect hook watching firebaseUser
     const targetPath = role === 'superadmin' ? '/superadmin/dashboard' : '/admin/dashboard';
     router.push(targetPath);
   };
