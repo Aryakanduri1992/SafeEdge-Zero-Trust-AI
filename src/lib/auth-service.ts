@@ -1,26 +1,23 @@
+
 "use client";
 
-import { initializeFirebase } from '@/firebase';
+import { initializeApp, deleteApp } from 'firebase/app';
+import { firebaseConfig } from '@/firebase/config';
 import { 
   getAuth, 
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   signOut,
-  signInWithCredential,
-  EmailAuthProvider,
   type User as FirebaseUser
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
 import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateAdminData, Plan } from './types';
-import { setDocumentNonBlocking, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
-
+import { setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { initializeFirebase } from '@/firebase';
 
 const { auth, firestore } = initializeFirebase();
 
 export const fetchUserProfile = async (uid: string): Promise<SuperAdminUser | AdminUser | null> => {
-    // Check if the user is a super admin first
     const superAdminRef = doc(firestore, "roles_super_admin", uid);
     const superAdminSnap = await getDoc(superAdminRef);
     if (superAdminSnap.exists()) {
@@ -33,14 +30,12 @@ export const fetchUserProfile = async (uid: string): Promise<SuperAdminUser | Ad
         };
     }
 
-    // If not a super admin, check if they are a regular admin
     const adminRef = doc(firestore, "admins", uid);
     const adminSnap = await getDoc(adminRef);
     if (adminSnap.exists()) {
         return { ...adminSnap.data(), id: uid } as AdminUser;
     }
 
-    // User role not found
     return null;
 }
 
@@ -52,55 +47,45 @@ export const login = async (credentials: LoginCredentials, role: 'admin' | 'supe
   }
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
 
-  // After successful login, verify their role from the database
   const userProfile = await fetchUserProfile(userCredential.user.uid);
 
   if (!userProfile || userProfile.role !== role) {
-    await signOut(auth); // Sign out the user if their role doesn't match
+    await signOut(auth);
     throw new Error(`User does not have the required '${role}' role.`);
   }
   
-  // Store credentials for potential re-authentication
-  if (role === 'superadmin') {
-      sessionStorage.setItem('superAdminCreds', JSON.stringify(credentials));
-  }
-
-
   return userCredential.user;
 };
 
 
 export const logout = async (): Promise<void> => {
-  sessionStorage.removeItem('superAdminCreds');
   await signOut(auth);
 };
 
 export const createAdmin = async (adminData: NewAdminData, superAdminId: string): Promise<void> => {
-    const adminsRef = collection(firestore, 'admins');
-    const q = query(adminsRef, where("email", "==", adminData.email));
-    
+    // Create a temporary, secondary Firebase app instance.
+    // This allows us to create a new user without affecting the currently signed-in super admin's auth state.
+    const tempAppName = `temp-admin-creation-${Date.now()}`;
+    const tempApp = initializeApp(firebaseConfig, tempAppName);
+    const tempAuth = getAuth(tempApp);
+
     try {
+        // Check if an admin with this email already exists in Firestore before creating the auth user
+        const adminsRef = collection(firestore, 'admins');
+        const q = query(adminsRef, where("email", "==", adminData.email));
         const querySnapshot = await getDocs(q);
         if (!querySnapshot.empty) {
-            throw new Error("An admin with this email already exists in Firestore.");
+            throw new Error("An admin with this email already exists in the database.");
         }
-
-        const userCredential = await createUserWithEmailAndPassword(auth, adminData.email, adminData.password);
+        
+        // 1. Create the new user in the temporary auth instance.
+        const userCredential = await createUserWithEmailAndPassword(tempAuth, adminData.email, adminData.password);
         const newAdminUID = userCredential.user.uid;
 
-        // IMPORTANT: The auth state has now changed to the new user.
-        // We must re-authenticate the super admin to perform the Firestore write.
+        // The primary auth instance (the one for the main app) is still authenticated as the super admin.
+        // We can now safely write to Firestore with the super admin's permissions.
 
-        const storedCreds = sessionStorage.getItem('superAdminCreds');
-        if (!storedCreds) {
-            throw new Error("Super admin credentials not found. Please log out and log back in.");
-        }
-        const { email: superAdminEmail, password: superAdminPassword } = JSON.parse(storedCreds);
-
-        // Re-authenticate super admin
-        await signInWithEmailAndPassword(auth, superAdminEmail, superAdminPassword);
-        
-        // Now, with the super admin authenticated, create the Firestore document.
+        // 2. Create the Firestore document for the new admin.
         const newAdminProfile: Omit<AdminUser, 'id'> = {
             name: adminData.name,
             email: adminData.email,
@@ -113,30 +98,28 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
 
         const adminDocRef = doc(firestore, "admins", newAdminUID);
         
-        // Use setDocumentNonBlocking which includes our permission error handling
+        // Use setDocumentNonBlocking, which includes our permission error handling.
+        // The currently authenticated user (super admin) performs this action.
         setDocumentNonBlocking(adminDocRef, newAdminProfile, {});
 
     } catch (error: any) {
         console.error("Error creating admin user:", error);
         
-        // Handle specific Firebase auth errors
         if (error.code === 'auth/email-already-in-use') {
             throw new Error("This email is already registered in Firebase Authentication.");
         }
         
-        // Handle re-thrown contextual permission errors from our non-blocking helper
-        if (error instanceof FirestorePermissionError) {
-             throw new Error("Failed to save admin profile due to database permissions.");
-        }
-
-        // Re-throw other errors to be caught by the form
+        // Re-throw other errors to be caught by the form's UI.
         throw error;
+    } finally {
+        // 3. Clean up: delete the temporary app instance to prevent memory leaks.
+        await deleteApp(tempApp);
     }
 };
 
+
 export const updateAdmin = async (adminId: string, adminData: UpdateAdminData): Promise<void> => {
     const adminDocRef = doc(firestore, "admins", adminId);
-    // Use non-blocking update
     updateDocumentNonBlocking(adminDocRef, adminData);
 };
 
@@ -150,16 +133,13 @@ export const checkAuth = async (): Promise<FirebaseUser | null> => {
     });
 };
 
-// Seed initial super admin if it doesn't exist
 const seedSuperAdmin = async () => {
     const superAdminEmail = 'super@authstation.com';
     const superAdminPassword = 'super-password';
 
-    // This logic is tricky on the client-side. A better approach is a backend setup script or Cloud Function.
-    // For this demo, we'll simplify and assume if login fails, we might need to create it.
     try {
         await signInWithEmailAndPassword(auth, superAdminEmail, superAdminPassword);
-        await signOut(auth); // just checking, so sign out
+        await signOut(auth);
     } catch (error: any) {
         if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
              try {
@@ -167,13 +147,13 @@ const seedSuperAdmin = async () => {
                  const user = userCredential.user;
                  if(user) {
                     const superAdminProfile = {
-                        uid: user.uid,
+                        id: user.uid,
                         email: user.email,
                         name: "Super Admin",
                     };
                     const superAdminRoleRef = doc(firestore, 'roles_super_admin', user.uid);
                     await setDoc(superAdminRoleRef, superAdminProfile);
-                    await signOut(auth); // Sign out after seeding
+                    await signOut(auth);
                     console.log("Super Admin seeded successfully.");
                 }
              } catch (seedError: any) {
@@ -185,5 +165,4 @@ const seedSuperAdmin = async () => {
     }
 };
 
-// This function will run once when the module is loaded.
 seedSuperAdmin();
