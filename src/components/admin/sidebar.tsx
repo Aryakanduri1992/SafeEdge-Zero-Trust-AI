@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, RadioTower, Bell, User, Shield } from "lucide-react";
+import { LayoutDashboard, RadioTower, Bell, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Logo } from "@/components/logo";
 
 const navItems = [
   { href: "/admin/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -20,7 +21,7 @@ export function Sidebar() {
       <div className="flex h-full max-h-screen flex-col gap-2">
         <div className="flex h-16 items-center border-b px-6">
           <Link href="/admin/dashboard" className="flex items-center gap-2 font-semibold">
-            <Shield className="h-8 w-8 text-primary" />
+            <Logo className="h-8 w-8" />
             <span className="font-headline text-xl text-primary">SafeEdge</span>
           </Link>
         </div>
