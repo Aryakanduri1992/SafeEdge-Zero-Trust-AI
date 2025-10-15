@@ -9,15 +9,36 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { CreateAdminForm } from '@/components/superadmin/create-admin-form';
 import { PlusCircle, ShieldCheck, Users } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { AdminUser } from '@/lib/types';
 
 export default function SuperAdminDashboardPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { user, admins } = useAuth();
+
+  const planVariant = (plan: AdminUser['plan']) => {
+    switch (plan) {
+      case 'Pro':
+        return 'default';
+      case 'Enterprise':
+        return 'destructive';
+      default:
+        return 'secondary';
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -42,16 +63,15 @@ export default function SuperAdminDashboardPage() {
       </div>
 
       <Card className="shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-lg font-medium">
-            Admin Management
-          </CardTitle>
-          <ShieldCheck className="h-6 w-6 text-muted-foreground" />
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground mb-4">
-            Create and manage administrator accounts for AuthStation.
-          </p>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+          <div>
+            <CardTitle className="text-lg font-medium">
+              Admin Management
+            </CardTitle>
+            <p className="text-sm text-muted-foreground pt-1">
+              Create and manage administrator accounts for AuthStation.
+            </p>
+          </div>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -69,6 +89,34 @@ export default function SuperAdminDashboardPage() {
               <CreateAdminForm onFinished={() => setIsDialogOpen(false)} />
             </DialogContent>
           </Dialog>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Date Joined</TableHead>
+                <TableHead className="text-center">Devices</TableHead>
+                <TableHead className="text-right">Plan</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {admins.map((admin) => (
+                <TableRow key={admin.id}>
+                  <TableCell className="font-medium">{admin.name}</TableCell>
+                  <TableCell className="text-muted-foreground">{admin.email}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {new Date(admin.createdAt).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell className="text-center font-medium">{admin.devices}</TableCell>
+                  <TableCell className="text-right">
+                    <Badge variant={planVariant(admin.plan)}>{admin.plan}</Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </div>

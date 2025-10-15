@@ -9,10 +9,16 @@ export interface BaseUser {
 
 export interface User extends BaseUser {
   password?: string;
+  createdAt: string;
+  devices: number;
+  plan: 'Free' | 'Pro' | 'Enterprise';
 }
 
 export interface AdminUser extends BaseUser {
   role: 'admin';
+  createdAt: string;
+  devices: number;
+  plan: 'Free' | 'Pro' | 'Enterprise';
 }
 
 export interface SuperAdminUser extends BaseUser {
