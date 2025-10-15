@@ -1,6 +1,7 @@
 export type UserRole = 'admin' | 'superadmin';
 export type Plan = 'Free' | 'Pro' | 'Enterprise';
 export type DeviceStatus = 'online' | 'offline' | 'alerting';
+export type DeviceType = 'Sensor' | 'Gateway' | 'Actuator' | 'Camera';
 
 export interface BaseUser {
   id: string; // Firebase Auth UID
@@ -29,6 +30,8 @@ export interface Device {
     status: DeviceStatus;
     lastSeen: string; // ISO String
     adminId: string;
+    type: DeviceType;
+    description?: string;
     sensorData: {
         temperature: number;
         humidity: number;
