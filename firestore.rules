@@ -1,51 +1,97 @@
+/**
+ * @description This ruleset enforces a role-based access control system for the AuthStation application,
+ *              with a focus on SuperAdmin and Admin roles. It leverages the existence of documents
+ *              in specific collections to grant elevated privileges.
+ * @dataStructure
+ *  - /roles_super_admin/{superAdminId}: Documents representing SuperAdmin roles. The presence of a document
+ *    for a user in this collection grants them SuperAdmin privileges.
+ *  - /admins/{adminId}: Documents representing Admin profiles. Each document contains a `superAdminId`
+ *    field, linking it to the SuperAdmin who created it.
+ * @keySecurityDecisions
+ *  - SuperAdmin privileges are determined solely by the existence of a document in the `roles_super_admin`
+ *    collection.
+ *  - Listing of admins is restricted to SuperAdmins only. Regular users cannot list admin profiles.
+ *  - The `superAdminId` field in the `Admin` document is immutable after creation, ensuring the integrity
+ *    of the SuperAdmin-to-Admin relationship.
+ * @denormalizationForAuthorization
+ *  - The existence of a document in `/roles_super_admin/{superAdminId}` is used directly for authorization
+ *    checks, avoiding the need for `get()` calls to retrieve SuperAdmin profile data.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Manages Super Admin role assignments.
+     * @description Grants SuperAdmin privileges based on the existence of a document in this collection.
      * @path /roles_super_admin/{superAdminId}
-     * @allow (create) - A user with matching auth UID can create their Super Admin role document.
-     * @allow (get, list) - Any authenticated user can check for the existence of a Super Admin role document.
-     * @allow (update, delete) - No one can update or delete the super admin role once created.
-     * @deny (create) - A user cannot create a Super Admin document with an ID that doesn't match their auth UID.
-     * @deny (update, delete) - No one should be able to update or delete this document once created.
-     * @principle DBAC (Database Auth Based Control): Super Admin status is determined by the existence of a document.
+     * @allow (create) User with matching {superAdminId} in Firebase Auth can create their SuperAdmin role.
+     * @deny (create) User with mismatched {superAdminId} cannot create a SuperAdmin role.
+     * @allow (get) Any authenticated user can check if they have SuperAdmin role.
+     * @allow (list) SuperAdmin can list all SuperAdmin roles (for debugging, monitoring).
+     * @deny (update) No one can update a SuperAdmin role document, it's existence only matters.
+     * @deny (delete) SuperAdmin role document deletion is disallowed for security reasons.
+     * @principle Role-based access control using document existence.
      */
     match /roles_super_admin/{superAdminId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && request.auth.uid == superAdminId;
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && isOwner(superAdminId);
+      allow update, delete: if false;
     }
 
     /**
-     * @description Manages Admin profiles, only Super Admins can manage them.
+     * @description Manages Admin profiles, allowing SuperAdmins to create, read, update, and delete them.
      * @path /admins/{adminId}
-     * @allow (create) - A Super Admin can create a new Admin profile.
-     * @allow (get) - Any authenticated user can retrieve an Admin profile.
-     * @allow (list) - Only Super Admins can list Admin profiles.
-     * @allow (update, delete) - Only Super Admins can update or delete Admin profiles.
-     * @deny (create) - A non-Super Admin cannot create an Admin profile.
-     * @deny (update, delete) - A non-Super Admin cannot update or delete an Admin profile.
-     * @principle Enforces role-based access control; only Super Admins can manage Admin profiles.
+     * @allow (create) SuperAdmin can create a new Admin profile.
+     * @deny (create) Non-SuperAdmin cannot create an Admin profile.
+     * @allow (get) SuperAdmin can retrieve any Admin profile.
+     * @allow (list) Only SuperAdmin can list Admin profiles.
+     * @allow (update) SuperAdmin can update any Admin profile.
+     * @allow (delete) SuperAdmin can delete any Admin profile.
+     * @deny (update) Changing the superAdminId is forbidden to maintain data integrity.
+     * @principle Restricts Admin management to SuperAdmins only.
      */
     match /admins/{adminId} {
-      allow get: if isSignedIn();
-      allow list: if isSuperAdmin();
-      allow create: if isSuperAdmin();
-      allow update: if isSuperAdmin();
-      allow delete: if isSuperAdmin();
+      allow get: if isSignedIn() && isSuperAdmin();
+      allow list: if isSignedIn() && isSuperAdmin();
+      allow create: if isSignedIn() && isSuperAdmin() && request.resource.data.superAdminId == request.auth.uid;
+      allow update: if isSignedIn() && isSuperAdmin() && isExistingAdmin() && resource.data.superAdminId == request.resource.data.superAdminId;
+      allow delete: if isSignedIn() && isSuperAdmin() && isExistingAdmin();
     }
-  }
 
-  // Helper functions
-  function isSignedIn() {
-    return request.auth != null;
-  }
+    // --- Helper functions ---
 
-  function isSuperAdmin() {
-    return exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
+    /**
+     * @description Checks if the user is signed in.
+     * @return True if the user is signed in, false otherwise.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the authenticated user's UID matches the provided userId.
+     * @param userId The user ID to compare against the authenticated user's UID.
+     * @return True if the UIDs match, false otherwise.
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the authenticated user has SuperAdmin privileges.
+     *              This is determined by the existence of a document in the `/roles_super_admin/{uid}` collection.
+     * @return True if the user has SuperAdmin privileges, false otherwise.
+     */
+    function isSuperAdmin() {
+        return exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
+    }
+
+    /**
+     * @description Checks if an admin document exists before update or delete operations.
+     * @return True if the document exists, false otherwise.
+     */
+    function isExistingAdmin() {
+        return resource != null;
+    }
   }
 }
