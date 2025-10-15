@@ -23,7 +23,7 @@ import { EditAdminForm } from '@/components/superadmin/edit-admin-form';
 import { PlusCircle, Users, Edit } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { AdminUser } from '@/lib/types';
 
 export default function SuperAdminDashboardPage() {
@@ -55,7 +55,7 @@ export default function SuperAdminDashboardPage() {
         <p className="text-muted-foreground">Welcome back, {user?.name}. Manage your platform admins here.</p>
       </div>
       
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Admins</CardTitle>
@@ -71,14 +71,14 @@ export default function SuperAdminDashboardPage() {
       </div>
 
       <Card className="shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle className="text-lg font-medium">
+            <CardTitle>
               Admin Management
             </CardTitle>
-            <p className="text-sm text-muted-foreground pt-1">
-              Create and manage administrator accounts for AuthStation.
-            </p>
+            <CardDescription className="mt-1">
+              Create and manage administrator accounts for SafeEdge.
+            </CardDescription>
           </div>
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>

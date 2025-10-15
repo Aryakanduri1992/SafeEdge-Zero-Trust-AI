@@ -21,6 +21,10 @@ export default function AdminDashboardPage() {
     }
   };
 
+  if (!adminUser) {
+    return null;
+  }
+
   return (
     <div className="space-y-8">
        <div>
