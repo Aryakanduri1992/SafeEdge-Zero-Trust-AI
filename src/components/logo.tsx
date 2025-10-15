@@ -4,7 +4,7 @@ export function Logo({ className, ...props }: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      viewBox="0 0 160 120"
+      viewBox="0 0 100 100"
       className={cn("text-primary", className)}
       {...props}
     >
@@ -15,57 +15,56 @@ export function Logo({ className, ...props }: React.SVGProps<SVGSVGElement>) {
         </linearGradient>
       </defs>
       
-      {/* Shield */}
-      <path
-        d="M80 10C80 10 130 20 130 55C130 90 80 110 80 110C80 110 30 90 30 55C30 20 80 10 80 10Z"
-        stroke="hsl(var(--primary))"
-        strokeWidth="4"
+      {/* Shield Outline */}
+      <path 
+        d="M50 5 C 85 15, 95 45, 95 60 C 95 85, 50 95, 50 95 C 50 95, 5 85, 5 60 C 5 45, 15 15, 50 5 Z"
         fill="hsl(var(--background))"
-        strokeLinejoin="round"
-        strokeLinecap="round"
+        stroke="hsl(var(--primary))"
+        strokeWidth="3"
       />
-
-      {/* Brain - Left Side (Detailed) */}
-      <g stroke="url(#logo-gradient)" strokeWidth="2.5" fill="none" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M80 40V85" />
-        <path d="M72 45C68 45 65 48 65 52C65 58 70 60 70 65C70 70 65 72 65 78" />
-        <path d="M65 60C62 60 60 62 60 65C60 68 62 70 65 70" />
-        <path d="M75 50C78 50 80 48 80 45" />
-        <path d="M75 80C78 80 80 82 80 85" />
-      </g>
-
-      {/* Brain - Right Side (Circuit) */}
-      <g fill="hsl(var(--primary))">
-        <circle cx="88" cy="55" r="4" />
-        <circle cx="88" cy="70" r="4" />
-        <circle cx="80" cy="40" r="2.5" />
-        <circle cx="80" cy="85" r="2.5" />
-        <path d="M80 40H95" stroke="url(#logo-gradient)" strokeWidth="2" />
-        <path d="M88 55H105" stroke="url(#logo-gradient)" strokeWidth="2" />
-        <path d="M88 70H105" stroke="url(#logo-gradient)" strokeWidth="2" />
-      </g>
       
-      {/* Lock */}
-      <g transform="translate(105 62)">
-        <rect x="0" y="2" width="14" height="10" rx="2" stroke="hsl(var(--primary))" fill="hsl(var(--background))" strokeWidth="2" />
-        <path d="M7 2V-2C7 -5 3 -5 3 -2V2" stroke="hsl(var(--primary))" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-        <circle cx="7" cy="7" r="1" fill="hsl(var(--primary))"/>
+      {/* Abstract Lock Body */}
+      <path 
+        d="M35 50 V 75 H 65 V 50 A 15 15 0 0 0 35 50 Z"
+        fill="none"
+        stroke="url(#logo-gradient)"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      
+       {/* Lock Keyhole */}
+      <circle cx="50" cy="62" r="4" fill="hsl(var(--background))" stroke="hsl(var(--primary))" strokeWidth="1.5" />
+
+      {/* Lock Shackle */}
+      <path 
+        d="M40 50 V 40 C 40 32, 60 32, 60 40 V 50"
+        fill="none"
+        stroke="hsl(var(--primary))"
+        strokeWidth="3"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      
+      {/* Abstract Circuit/Data Lines */}
+      <g stroke="hsl(var(--accent))" strokeWidth="1.5" fill="none" strokeLinecap="round">
+        <path d="M35 55 H 20" />
+        <path d="M65 55 H 80" />
+        <path d="M35 65 H 25" />
+        <path d="M65 65 H 75" />
+        
+        {/* Radiating lines from top */}
+        <path d="M50 15 L 40 30" />
+        <path d="M50 15 L 60 30" />
+        <path d="M50 15 L 50 25" />
       </g>
 
-      {/* Globe */}
-      <g transform="translate(108 30)">
-        <circle cx="0" cy="0" r="8" stroke="hsl(var(--accent))" strokeWidth="2" fill="none" />
-        <path d="M-8 0H8" stroke="hsl(var(--accent))" strokeWidth="1.5" />
-        <path d="M-5 -6C-2 -4 2 -4 5 -6" stroke="hsl(var(--accent))" strokeWidth="1.5" fill="none" />
-        <path d="M-5 6C-2 4 2 4 5 6" stroke="hsl(var(--accent))" strokeWidth="1.5" fill="none" />
-      </g>
+       {/* Corner Dots */}
+      <circle cx="20" cy="30" r="2" fill="hsl(var(--primary))" />
+      <circle cx="80" cy="30" r="2" fill="hsl(var(--primary))" />
+      <circle cx="25" cy="80" r="2" fill="hsl(var(--accent))" />
+      <circle cx="75" cy="80" r="2" fill="hsl(var(--accent))" />
 
-      {/* Wifi Signal */}
-      <g transform="translate(45 75)" stroke="hsl(var(--accent))" fill="none" strokeWidth="2.5" strokeLinecap="round">
-         <path d="M-10 -5C-5 -10 5 -10 10 -5" />
-         <path d="M-6 -1C-3 -4 3 -4 6 -1" />
-         <circle cx="0" cy="3" r="1.5" fill="hsl(var(--accent))" stroke="none" />
-      </g>
     </svg>
   );
 }
