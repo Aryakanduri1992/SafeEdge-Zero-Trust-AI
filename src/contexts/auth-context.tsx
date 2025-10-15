@@ -38,20 +38,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const handleAuthChange = async () => {
+      // Only proceed when the initial auth state has been determined.
       if (isFirebaseUserLoading) {
         setIsAuthLoading(true);
         return;
       }
 
+      // If Firebase user exists, fetch their profile.
       if (firebaseUser) {
-        // User is signed in, start fetching profile but don't block UI with a global loader.
-        // The layout guard will handle showing a loader if profile is needed.
         setIsAuthLoading(true); 
         try {
           const userProfile = await authService.fetchUserProfile(firebaseUser.uid);
           
           if (!userProfile) {
-             throw new Error("Your user profile could not be found. Please contact support.");
+             // This can happen if the Firestore doc isn't created yet or was deleted.
+             // It's a valid state, so we log them out.
+             await authService.logout();
+             setAppUser(null);
+             toast({
+                variant: 'destructive',
+                title: 'Profile Not Found',
+                description: 'Your user profile could not be found. Please log in again.',
+             });
+             router.replace('/admin-login');
+             setIsAuthLoading(false);
+             return;
           }
 
           if (userProfile.role === 'admin' && userProfile.status === 'inactive') {
@@ -69,11 +80,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           
           setAppUser(userProfile);
           
-          const onLoginPage = pathname.includes('login');
+          const onAdminLoginPage = pathname.includes('admin-login');
+          const onSuperAdminLoginPage = pathname.includes('superadmin-login');
 
-          if (userProfile.role === 'superadmin' && onLoginPage) {
+          if (userProfile.role === 'superadmin' && onSuperAdminLoginPage) {
             router.replace('/superadmin/dashboard');
-          } else if (userProfile.role === 'admin' && onLoginPage) {
+          } else if (userProfile.role === 'admin' && onAdminLoginPage) {
             router.replace('/admin/dashboard');
           }
 
@@ -87,12 +99,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               description: error.message || 'Could not retrieve user profile.',
             });
           }
+          // On any profile fetch error, ensure user is logged out.
           await authService.logout();
           setAppUser(null);
         } finally {
             setIsAuthLoading(false);
         }
-      } else {
+      } else { // No Firebase user
         setAppUser(null);
         setIsAuthLoading(false);
       }
@@ -129,7 +142,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [appUser, firestore]);
 
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
-    // Non-blocking, the useEffect will handle profile fetching and redirection
+    // This is non-blocking. The useEffect above will handle profile fetching and redirection.
     await authService.login(credentials, role);
   };
 
@@ -137,6 +150,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const previousRole = appUser?.role;
     await authService.logout();
     setAppUser(null);
+    setAdmins([]); // Clear admin list on logout
     if (previousRole === 'superadmin') {
       router.push('/superadmin-login');
     } else {
@@ -169,6 +183,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
+  // The true loading state is a combination of the initial user check AND any subsequent profile fetching.
   const isLoading = isFirebaseUserLoading || isAuthLoading;
   
   const contextValue = { 
@@ -186,7 +201,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider value={contextValue}>
-      {isLoading ? (
+      {isLoading && !appUser ? ( // Show loader only during initial auth check before we have a user
         <div className="flex h-screen w-full items-center justify-center bg-background">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
         </div>
