@@ -63,9 +63,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
 
           setAppUser(userProfile);
-          if (userProfile?.role === 'superadmin' && pathname.startsWith('/admin')) {
+          if (userProfile?.role === 'superadmin' && (pathname.startsWith('/admin') || pathname ==='/')) {
             router.replace('/superadmin/dashboard');
-          } else if (userProfile?.role === 'admin' && pathname.startsWith('/superadmin')) {
+          } else if (userProfile?.role === 'admin' && (pathname.startsWith('/superadmin') || pathname ==='/')) {
             router.replace('/admin/dashboard');
           }
         } catch (error) {
@@ -127,8 +127,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
     await authService.login(credentials, role);
-    const targetPath = role === 'superadmin' ? '/superadmin/dashboard' : '/admin/dashboard';
-    router.push(targetPath);
+    // The useEffect will handle redirection after state update
   };
 
   const logout = async () => {

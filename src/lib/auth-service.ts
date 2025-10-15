@@ -191,16 +191,6 @@ export const deactivateAdmin = async (adminId: string): Promise<void> => {
     });
 };
 
-
-export const checkAuth = async (): Promise<FirebaseUser | null> => {
-    return new Promise(resolve => {
-        const unsubscribe = auth.onAuthStateChanged(user => {
-            unsubscribe();
-            resolve(user);
-        });
-    });
-};
-
 const seedSuperAdmin = async () => {
     const superAdminEmail = 'super@authstation.com';
     const superAdminPassword = 'super-password';
