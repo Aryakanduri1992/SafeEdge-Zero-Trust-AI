@@ -21,58 +21,47 @@ const { auth, firestore } = initializeFirebase();
 export const fetchUserProfile = async (uid: string): Promise<SuperAdminUser | AdminUser | null> => {
     const superAdminRef = doc(firestore, "roles_super_admin", uid);
     
-    // Attempt to fetch Super Admin role
-    const superAdminSnap = await getDoc(superAdminRef).catch(serverError => {
-        const permissionError = new FirestorePermissionError({
-            path: superAdminRef.path,
-            operation: 'get',
-        });
+    try {
+        const superAdminSnap = await getDoc(superAdminRef);
+        if (superAdminSnap.exists()) {
+            const superAdminData = superAdminSnap.data();
+            return {
+                id: uid,
+                name: superAdminData.name,
+                email: superAdminData.email,
+                role: 'superadmin'
+            };
+        }
+    } catch (serverError: any) {
+        const permissionError = new FirestorePermissionError({ path: superAdminRef.path, operation: 'get' });
         errorEmitter.emit('permission-error', permissionError);
         throw permissionError;
-    });
-
-    if (superAdminSnap.exists()) {
-        const superAdminData = superAdminSnap.data();
-        return {
-            id: uid,
-            name: superAdminData.name,
-            email: superAdminData.email,
-            role: 'superadmin'
-        };
     }
 
-    // If not a Super Admin, attempt to fetch Admin profile
     const adminRef = doc(firestore, "admins", uid);
-    const adminSnap = await getDoc(adminRef).catch(serverError => {
-        const permissionError = new FirestorePermissionError({
-            path: adminRef.path,
-            operation: 'get',
-        });
+    try {
+        const adminSnap = await getDoc(adminRef);
+        if (adminSnap.exists()) {
+            return { ...adminSnap.data(), id: uid } as AdminUser;
+        }
+    } catch (serverError: any) {
+         const permissionError = new FirestorePermissionError({ path: adminRef.path, operation: 'get' });
         errorEmitter.emit('permission-error', permissionError);
         throw permissionError;
-    });
-
-    if (adminSnap.exists()) {
-        return { ...adminSnap.data(), id: uid } as AdminUser;
     }
 
     return null;
 }
 
 
-export const login = (credentials: LoginCredentials, role: 'admin' | 'superadmin'): void => {
+export const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin'): Promise<void> => {
   const { email, password } = credentials;
   if (!password) {
       throw new Error("Password is required for login.");
   }
-  // This will trigger the onAuthStateChanged listener in AuthProvider, which handles the rest.
-  signInWithEmailAndPassword(auth, email, password).catch(error => {
-    // This catch block handles immediate login errors like invalid credentials,
-    // which won't trigger the auth state change listener.
-    console.error("Login failed:", error);
-    // You might want to throw a specific error or use a toast notification here
-    // For now, we will rely on the UI form's error handling.
-  });
+  // We await here to catch immediate errors like wrong password
+  await signInWithEmailAndPassword(auth, email, password);
+  // Successful login will trigger onAuthStateChanged in AuthProvider
 };
 
 
@@ -122,22 +111,21 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
                 requestResourceData: newAdminProfile,
             });
             errorEmitter.emit('permission-error', permissionError);
-            // We still throw the original error to allow for specific handling if needed
             throw permissionError;
         });
 
     } catch (error: any) {
         console.error("Error creating admin user:", error);
-        
         if (error.code === 'auth/email-already-in-use') {
             throw new Error("This email is already registered in Firebase Authentication.");
         }
-        
-        // Re-throw if it's not a permission error we're already handling.
-        if (!(error instanceof FirestorePermissionError)) {
-          throw error;
-        }
+        throw error; // Re-throw other errors to be caught by the form
     } finally {
+        // Sign out from the temp auth instance and delete the app
+        const tempUser = tempAuth.currentUser;
+        if (tempUser) {
+            await signOut(tempAuth);
+        }
         await deleteApp(tempApp);
     }
 };
@@ -202,8 +190,12 @@ const seedSuperAdmin = async () => {
              }
         }
     } finally {
+        await signOut(tempAuth).catch(() => {}); // Sign out from temp app
         await deleteApp(tempApp);
     }
 };
 
-seedSuperAdmin();
+// Run this only once on client-side initialization
+if (typeof window !== 'undefined') {
+    seedSuperAdmin();
+}

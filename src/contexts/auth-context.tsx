@@ -38,7 +38,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const handleAuthChange = async () => {
-      // Only proceed when the initial auth state has been determined.
+      // Only proceed when the initial auth state from Firebase has been determined.
       if (isFirebaseUserLoading) {
         setIsAuthLoading(true);
         return;
@@ -59,7 +59,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 title: 'Profile Not Found',
                 description: 'Your user profile could not be found. Please log in again.',
              });
-             router.replace('/admin-login');
+             // Redirect only if not already on a public login page
+             if (!pathname.includes('login')) {
+                router.replace('/admin-login');
+             }
              setIsAuthLoading(false);
              return;
           }
@@ -106,6 +109,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       } else { // No Firebase user
         setAppUser(null);
         setIsAuthLoading(false);
+        const isAuthProtectedRoute = pathname.startsWith('/admin') || pathname.startsWith('/superadmin');
+        if (isAuthProtectedRoute) {
+            if (pathname.startsWith('/superadmin')) {
+                 router.replace('/superadmin-login');
+            } else {
+                 router.replace('/admin-login');
+            }
+        }
       }
     };
     handleAuthChange();
@@ -140,9 +151,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [appUser, firestore]);
 
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
-    // We don't await here to make login feel faster.
-    // The onAuthStateChanged listener will handle the profile fetching and redirection.
-    authService.login(credentials, role);
+    setIsAuthLoading(true);
+    try {
+        await authService.login(credentials, role);
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Login Failed',
+            description: error.message || "Invalid credentials. Please try again."
+        });
+        setIsAuthLoading(false);
+    }
+    // The onAuthStateChanged listener will handle profile fetching and redirection.
   };
 
   const logout = async (): Promise<void> => {
@@ -182,6 +202,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
+  // Combines Firebase loading state with our application's auth processing state.
   const isLoading = isFirebaseUserLoading || isAuthLoading;
   
   const contextValue = { 
@@ -199,7 +220,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider value={contextValue}>
-      {isLoading ? (
+      {isLoading && !appUser ? (
         <div className="flex h-screen w-full items-center justify-center bg-background">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
         </div>
