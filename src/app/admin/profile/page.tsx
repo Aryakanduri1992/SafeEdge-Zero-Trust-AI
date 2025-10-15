@@ -2,12 +2,14 @@
 "use client";
 
 import { useAuth } from "@/hooks/use-auth";
-import { AdminUser } from "@/lib/types";
+import { AdminUser, Device } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { User, Building, Star, HardDrive, Calendar, CheckCircle, XCircle } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, query, where } from "firebase/firestore";
 
 const LoadingSkeleton = () => (
   <div className="space-y-8">
@@ -15,7 +17,7 @@ const LoadingSkeleton = () => (
       <Skeleton className="h-9 w-72 mb-2" />
       <Skeleton className="h-5 w-96" />
     </div>
-    <div className="grid gap-8 md:grid-cols-2">
+    <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
       <Skeleton className="h-64" />
       <Skeleton className="h-64" />
     </div>
@@ -23,12 +25,24 @@ const LoadingSkeleton = () => (
 );
 
 export default function ProfilePage() {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const adminUser = user as AdminUser;
+  const firestore = useFirestore();
+
+  const devicesQuery = useMemoFirebase(() => {
+    if (!firestore || !user?.id) return null;
+    return query(collection(firestore, "devices"), where("adminId", "==", user.id));
+  }, [firestore, user?.id]);
+
+  const { data: devices, isLoading: areDevicesLoading } = useCollection<Device>(devicesQuery);
+
+  const isLoading = isAuthLoading || areDevicesLoading;
 
   if (isLoading || !adminUser) {
     return <LoadingSkeleton />;
   }
+
+  const devicesUsed = devices?.length ?? 0;
 
   const planVariant = (plan: AdminUser['plan']) => {
     switch (plan) {
@@ -100,7 +114,7 @@ export default function ProfilePage() {
               <HardDrive className="h-5 w-5 text-muted-foreground" />
               <div>
                 <p className="text-sm font-medium">Device Quota</p>
-                <p className="text-sm text-foreground">{adminUser.devices} Devices</p>
+                <p className="text-sm text-foreground">{devicesUsed} / {adminUser.devices} Devices</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
