@@ -1,11 +1,13 @@
 "use client";
 
-import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { createContext, useState, useEffect, ReactNode, useCallback, useMemo } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import * as authService from '@/lib/auth-service';
 import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateAdminData } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
+import { useUser, useFirestore } from '@/firebase';
+import { collection, onSnapshot, Unsubscribe, query, where } from 'firebase/firestore';
 
 type AuthContextType = {
   user: SuperAdminUser | AdminUser | null;
@@ -14,85 +16,109 @@ type AuthContextType = {
   isLoading: boolean;
   login: (credentials: LoginCredentials, role: 'admin' | 'superadmin') => Promise<void>;
   logout: () => Promise<void>;
-  createAdmin: (adminData: NewAdminData) => Promise<AdminUser>;
-  updateAdmin: (adminId: string, adminData: UpdateAdminData) => Promise<AdminUser>;
+  createAdmin: (adminData: NewAdminData) => Promise<void>;
+  updateAdmin: (adminId: string, adminData: UpdateAdminData) => Promise<void>;
   refreshAdmins: () => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<SuperAdminUser | AdminUser | null>(null);
+  const [appUser, setAppUser] = useState<SuperAdminUser | AdminUser | null>(null);
   const [admins, setAdmins] = useState<AdminUser[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
   const router = useRouter();
+  const pathname = usePathname();
   const { toast } = useToast();
 
-  const refreshAdmins = useCallback(async () => {
-    if (user?.role === 'superadmin') {
-      try {
-        const adminList = await authService.getAdmins();
-        setAdmins(adminList);
-      } catch (error) {
-        console.error('Failed to fetch admins:', error);
-        setAdmins([]);
-      }
-    }
-  }, [user]);
+  const { user: firebaseUser, isUserLoading: isFirebaseUserLoading } = useUser();
+  const firestore = useFirestore();
 
   useEffect(() => {
-    const checkUser = async () => {
-      try {
-        const sessionUser = await authService.checkAuth();
-        setUser(sessionUser);
-      } catch (error) {
-        setUser(null);
-      } finally {
-        setIsLoading(false);
+    const handleAuthChange = async () => {
+      setIsAuthLoading(true);
+      if (firebaseUser) {
+        try {
+          const userProfile = await authService.fetchUserProfile(firebaseUser.uid);
+          setAppUser(userProfile);
+          if (userProfile?.role === 'superadmin' && pathname.startsWith('/admin')) {
+            router.replace('/superadmin/dashboard');
+          } else if (userProfile?.role === 'admin' && pathname.startsWith('/superadmin')) {
+            router.replace('/admin/dashboard');
+          }
+        } catch (error) {
+          console.error("Failed to fetch user profile:", error);
+          setAppUser(null);
+          authService.logout();
+        }
+      } else {
+        setAppUser(null);
       }
+      setIsAuthLoading(false);
     };
-    checkUser();
-  }, []);
+    handleAuthChange();
+  }, [firebaseUser, router, pathname]);
+
+  const refreshAdmins = useCallback(async () => {
+    if (appUser?.role === 'superadmin' && firestore) {
+      // This will be handled by the real-time listener below
+    }
+  }, [appUser, firestore]);
 
   useEffect(() => {
-    if (user?.role === 'superadmin') {
-      refreshAdmins();
+    let unsubscribe: Unsubscribe | undefined;
+    if (appUser?.role === 'superadmin' && firestore) {
+      const adminsCollection = collection(firestore, 'admins');
+      const q = query(adminsCollection, where('superAdminId', '==', appUser.id));
+
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        const adminList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as AdminUser));
+        setAdmins(adminList);
+      }, (error) => {
+        console.error("Failed to fetch admins:", error);
+        setAdmins([]);
+      });
+    } else {
+        setAdmins([]);
     }
-  }, [user, refreshAdmins]);
+    return () => unsubscribe && unsubscribe();
+  }, [appUser, firestore]);
 
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
-    const loginFn = role === 'superadmin' ? authService.superAdminLogin : authService.adminLogin;
-    const sessionUser = await loginFn(credentials);
-    setUser(sessionUser as SuperAdminUser | AdminUser);
-    if (sessionUser.role === 'superadmin') {
-      router.push('/superadmin/dashboard');
-    } else {
-      router.push('/admin/dashboard');
-    }
+    await authService.login(credentials, role);
+    // Auth state will be handled by the useEffect hook watching firebaseUser
+    const targetPath = role === 'superadmin' ? '/superadmin/dashboard' : '/admin/dashboard';
+    router.push(targetPath);
   };
 
   const logout = async () => {
-    const previousRole = user?.role;
+    const previousRole = appUser?.role;
     await authService.logout();
-    setUser(null);
+    setAppUser(null);
     if (previousRole === 'superadmin') {
-        router.push('/superadmin-login');
+      router.push('/superadmin-login');
     } else {
-        router.push('/admin-login');
+      router.push('/admin-login');
     }
   };
 
   const createAdmin = async (adminData: NewAdminData) => {
-    const newAdmin = await authService.createAdmin(adminData);
-    await refreshAdmins();
-    return newAdmin;
+    if (!appUser || appUser.role !== 'superadmin') {
+      throw new Error("Unauthorized");
+    }
+    await authService.createAdmin(adminData, appUser.id);
+    // No need to call refreshAdmins, listener will update state.
   };
   
   const updateAdmin = async (adminId: string, adminData: UpdateAdminData) => {
-    const updatedAdmin = await authService.updateAdmin(adminId, adminData);
-    await refreshAdmins();
-    return updatedAdmin;
+     if (!appUser || appUser.role !== 'superadmin') {
+      throw new Error("Unauthorized");
+    }
+    await authService.updateAdmin(adminId, adminData);
+    // No need to call refreshAdmins, listener will update state.
   };
+
+  const isLoading = isFirebaseUserLoading || isAuthLoading;
 
   if (isLoading) {
     return (
@@ -102,8 +128,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     );
   }
 
+  const contextValue = { 
+    user: appUser, 
+    admins, 
+    isAuthenticated: !!appUser, 
+    isLoading, 
+    login, 
+    logout, 
+    createAdmin, 
+    updateAdmin, 
+    refreshAdmins 
+  };
+
   return (
-    <AuthContext.Provider value={{ user, admins, isAuthenticated: !!user, isLoading, login, logout, createAdmin, updateAdmin, refreshAdmins }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

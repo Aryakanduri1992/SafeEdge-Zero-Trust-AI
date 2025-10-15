@@ -1,7 +1,8 @@
 import type { Metadata } from 'next';
 import './globals.css';
-import { AuthProvider } from '@/contexts/auth-context';
 import { Toaster } from "@/components/ui/toaster";
+import { AuthProvider } from '@/contexts/auth-context';
+import { FirebaseClientProvider } from '@/firebase';
 
 export const metadata: Metadata = {
   title: 'AuthStation',
@@ -21,9 +22,11 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700&family=Lilita+One&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
-        <AuthProvider>
-          {children}
-        </AuthProvider>
+        <FirebaseClientProvider>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
+        </FirebaseClientProvider>
         <Toaster />
       </body>
     </html>

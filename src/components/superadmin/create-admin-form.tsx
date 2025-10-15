@@ -40,8 +40,8 @@ export function CreateAdminForm({ onFinished }: CreateAdminFormProps) {
     try {
       await createAdmin(values);
       toast({
-        title: 'Admin Created',
-        description: `Account for ${values.name} has been successfully created.`,
+        title: 'Admin Creation Initiated',
+        description: `Account for ${values.name} is being created.`,
       });
       form.reset();
       onFinished();

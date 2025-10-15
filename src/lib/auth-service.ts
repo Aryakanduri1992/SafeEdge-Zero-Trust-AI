@@ -1,164 +1,161 @@
 "use client";
 
-import type { User, AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateAdminData, Plan } from './types';
+import { initializeFirebase } from '@/firebase';
+import { 
+  getAuth, 
+  createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword, 
+  signOut,
+  type User as FirebaseUser
+} from 'firebase/auth';
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateAdminData, Plan } from './types';
+import { setDocumentNonBlocking, addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
-// Mock user database
-let users: User[] = [
-  // Pre-created super admin
-  {
-    id: 'super-001',
-    name: 'Super Admin',
-    email: 'super@authstation.com',
-    password: 'super-password', // In a real app, this would be a hashed password
-    role: 'superadmin',
-    createdAt: new Date().toISOString(),
-    devices: 1,
-    plan: 'Enterprise',
-  },
-];
 
-const getSession = (): SuperAdminUser | AdminUser | null => {
-  if (typeof window === 'undefined') return null;
-  const session = localStorage.getItem('auth-session');
-  if (session) {
-    return JSON.parse(session);
+const { auth, firestore } = initializeFirebase();
+
+export const fetchUserProfile = async (uid: string): Promise<SuperAdminUser | AdminUser | null> => {
+    // Check if the user is a super admin first
+    const superAdminRef = doc(firestore, "roles_super_admin", uid);
+    const superAdminSnap = await getDoc(superAdminRef);
+    if (superAdminSnap.exists()) {
+        const superAdminData = superAdminSnap.data();
+        return {
+            id: uid,
+            name: superAdminData.name,
+            email: superAdminData.email,
+            role: 'superadmin'
+        };
+    }
+
+    // If not a super admin, check if they are a regular admin
+    const adminRef = doc(firestore, "admins", uid);
+    const adminSnap = await getDoc(adminRef);
+    if (adminSnap.exists()) {
+        return { ...adminSnap.data(), id: uid } as AdminUser;
+    }
+
+    // User role not found
+    return null;
+}
+
+
+export const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin'): Promise<FirebaseUser> => {
+  const { email, password } = credentials;
+  if (!password) {
+      throw new Error("Password is required for login.");
   }
-  return null;
-};
+  const userCredential = await signInWithEmailAndPassword(auth, email, password);
 
-const setSession = (user: SuperAdminUser | AdminUser | null) => {
-  if (typeof window === 'undefined') return;
-  if (user) {
-    localStorage.setItem('auth-session', JSON.stringify(user));
-  } else {
-    localStorage.removeItem('auth-session');
+  // After successful login, verify their role from the database
+  const userProfile = await fetchUserProfile(userCredential.user.uid);
+
+  if (!userProfile || userProfile.role !== role) {
+    await signOut(auth); // Sign out the user if their role doesn't match
+    throw new Error(`User does not have the required '${role}' role.`);
   }
+
+  return userCredential.user;
 };
 
-export const superAdminLogin = async (credentials: LoginCredentials): Promise<SuperAdminUser> => {
-  return new Promise((resolve, reject) => {
-    setTimeout(() => {
-      const user = users.find(
-        (u) => u.email === credentials.email && u.role === 'superadmin'
-      ) as User | undefined;
-
-      if (user && user.password === credentials.password) {
-        const sessionUser: SuperAdminUser = { id: user.id, name: user.name, email: user.email, role: 'superadmin' };
-        setSession(sessionUser);
-        resolve(sessionUser);
-      } else {
-        reject(new Error('Invalid credentials or not a super admin.'));
-      }
-    }, 1000);
-  });
-};
-
-export const adminLogin = async (credentials: LoginCredentials): Promise<AdminUser> => {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        const user = users.find(
-          (u) => u.email === credentials.email && u.role === 'admin'
-        ) as User | undefined;
-  
-        if (user && user.password === credentials.password) {
-          const sessionUser: AdminUser = { id: user.id, name: user.name, email: user.email, role: 'admin', createdAt: user.createdAt, devices: user.devices, plan: user.plan };
-          setSession(sessionUser);
-          resolve(sessionUser);
-        } else {
-          reject(new Error('Admin account not found or invalid credentials.'));
-        }
-      }, 1000);
-    });
-  };
 
 export const logout = async (): Promise<void> => {
-  setSession(null);
-  return Promise.resolve();
+  await signOut(auth);
 };
 
-export const createAdmin = async (adminData: NewAdminData): Promise<AdminUser> => {
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            const currentUser = getSession();
-            if(!currentUser || currentUser.role !== 'superadmin') {
-                return reject(new Error('Unauthorized: Only super admins can create new admins.'));
-            }
+export const createAdmin = async (adminData: NewAdminData, superAdminId: string): Promise<void> => {
+    // This function now only handles creating the auth user.
+    // The profile document creation is handled by a Cloud Function (or should be).
+    // For client-side only demo, we create auth user then profile.
+    
+    // Check if an admin with this email already exists in Firestore
+    const adminsRef = collection(firestore, 'admins');
+    const q = query(adminsRef, where("email", "==", adminData.email));
+    const querySnapshot = await getDocs(q);
 
-            if (users.some(u => u.email === adminData.email)) {
-                return reject(new Error('An account with this email already exists.'));
-            }
+    if (!querySnapshot.empty) {
+        throw new Error("An admin with this email already exists.");
+    }
+    
+    // Create a temporary auth instance to create the user, to avoid auto-signing in the new user
+    const tempAuth = getAuth(initializeFirebase().firebaseApp);
 
-            const newAdmin: User = {
-                id: `admin-${Date.now()}`,
-                ...adminData,
-                role: 'admin',
-                createdAt: new Date().toISOString(),
-                devices: 1,
-                plan: 'Free',
-            };
-            users.push(newAdmin);
-            
-            const adminUser: AdminUser = { id: newAdmin.id, name: newAdmin.name, email: newAdmin.email, role: 'admin', createdAt: newAdmin.createdAt, devices: newAdmin.devices, plan: newAdmin.plan };
-            console.log('Current users:', users);
-            resolve(adminUser);
-        }, 1000);
+    try {
+        const userCredential = await createUserWithEmailAndPassword(tempAuth, adminData.email, adminData.password);
+        const newAdminUID = userCredential.user.uid;
+
+        const newAdminProfile: Omit<AdminUser, 'id'> = {
+            name: adminData.name,
+            email: adminData.email,
+            role: 'admin',
+            createdAt: new Date().toISOString(),
+            devices: 1,
+            plan: 'Free',
+            superAdminId: superAdminId,
+        };
+
+        const adminDocRef = doc(firestore, "admins", newAdminUID);
+        // Use non-blocking update
+        setDocumentNonBlocking(adminDocRef, newAdminProfile, { merge: false });
+
+    } catch (error: any) {
+        // Firebase auth errors (e.g., 'auth/email-already-in-use')
+        if (error.code === 'auth/email-already-in-use') {
+            throw new Error("An account with this email already exists in Firebase Authentication.");
+        }
+        console.error("Error creating admin user:", error);
+        throw new Error("Failed to create admin user.");
+    }
+};
+
+export const updateAdmin = async (adminId: string, adminData: UpdateAdminData): Promise<void> => {
+    const adminDocRef = doc(firestore, "admins", adminId);
+    // Use non-blocking update
+    updateDocumentNonBlocking(adminDocRef, adminData);
+};
+
+
+export const checkAuth = async (): Promise<FirebaseUser | null> => {
+    return new Promise(resolve => {
+        const unsubscribe = auth.onAuthStateChanged(user => {
+            unsubscribe();
+            resolve(user);
+        });
     });
 };
 
-export const getAdmins = async (): Promise<AdminUser[]> => {
-  return new Promise((resolve, reject) => {
-      setTimeout(() => {
-          const currentUser = getSession();
-          if(!currentUser || currentUser.role !== 'superadmin') {
-              return reject(new Error('Unauthorized: Only super admins can view admins.'));
-          }
-          const admins = users
-            .filter(u => u.role === 'admin')
-            .map(u => ({
-                id: u.id,
-                name: u.name,
-                email: u.email,
-                role: 'admin' as const,
-                createdAt: u.createdAt,
-                devices: u.devices,
-                plan: u.plan,
-            }));
-          resolve(admins);
-      }, 500);
-  });
-};
+// Seed initial super admin if it doesn't exist
+const seedSuperAdmin = async () => {
+    const superAdminEmail = 'super@authstation.com';
+    const superAdminPassword = 'super-password';
 
-export const updateAdmin = async (adminId: string, adminData: UpdateAdminData): Promise<AdminUser> => {
-    return new Promise((resolve, reject) => {
-        setTimeout(() => {
-            const currentUser = getSession();
-            if(!currentUser || currentUser.role !== 'superadmin') {
-                return reject(new Error('Unauthorized: Only super admins can update admins.'));
-            }
-
-            const userIndex = users.findIndex(u => u.id === adminId && u.role === 'admin');
-
-            if (userIndex === -1) {
-                return reject(new Error('Admin not found.'));
-            }
-
-            users[userIndex] = { ...users[userIndex], ...adminData };
-
-            const updatedUser = users[userIndex];
-            const adminUser: AdminUser = {
-                id: updatedUser.id,
-                name: updatedUser.name,
-                email: updatedUser.email,
-                role: 'admin',
-                createdAt: updatedUser.createdAt,
-                devices: updatedUser.devices,
-                plan: updatedUser.plan,
+    try {
+        // We can't easily check if a user exists by email on the client-side without logging them in.
+        // A robust solution uses a Cloud Function on user creation to assign roles.
+        // For this demo, we'll try to create the user and if it fails because it exists, we assume it's set up.
+        await createUserWithEmailAndPassword(auth, superAdminEmail, superAdminPassword);
+        
+        const user = auth.currentUser;
+        if(user) {
+            const superAdminProfile = {
+                uid: user.uid,
+                email: user.email,
+                name: "Super Admin",
             };
-            resolve(adminUser);
-        }, 1000);
-    });
+            const superAdminRoleRef = doc(firestore, 'roles_super_admin', user.uid);
+            await setDoc(superAdminRoleRef, superAdminProfile);
+            await signOut(auth); // Sign out after seeding
+            console.log("Super Admin seeded successfully.");
+        }
+    } catch (error: any) {
+        if (error.code === 'auth/email-already-in-use') {
+            console.log("Super Admin already exists.");
+        } else {
+            console.error("Error seeding Super Admin:", error);
+        }
+    }
 };
 
-export const checkAuth = async (): Promise<SuperAdminUser | AdminUser | null> => {
-  return getSession();
-};
+// This function will run once when the module is loaded.
+seedSuperAdmin();
