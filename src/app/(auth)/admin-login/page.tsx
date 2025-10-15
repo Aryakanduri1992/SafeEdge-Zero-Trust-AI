@@ -9,7 +9,7 @@ export default function AdminLoginPage() {
       <div className="flex flex-col items-center gap-4">
         <Logo />
         <div className="flex flex-col">
-           <h1 className="font-headline text-3xl font-bold tracking-tight text-foreground">
+           <h1 className="font-headline text-3xl font-bold tracking-tight text-primary">
             SafeEdge Cyber System
           </h1>
           <p className="text-muted-foreground">Admin Portal</p>
