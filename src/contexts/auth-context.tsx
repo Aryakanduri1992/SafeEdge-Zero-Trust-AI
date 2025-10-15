@@ -43,7 +43,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setIsAuthLoading(true);
         return;
       }
+      
       setIsAuthLoading(true);
+
       // If Firebase user exists, fetch their profile.
       if (firebaseUser) {
         try {
@@ -138,10 +140,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [appUser, firestore]);
 
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
-    await authService.login(credentials, role);
+    // We don't await here to make login feel faster.
+    // The onAuthStateChanged listener will handle the profile fetching and redirection.
+    authService.login(credentials, role);
   };
 
-  const logout = async () => {
+  const logout = async (): Promise<void> => {
     const previousRole = appUser?.role;
     await authService.logout();
     setAppUser(null);

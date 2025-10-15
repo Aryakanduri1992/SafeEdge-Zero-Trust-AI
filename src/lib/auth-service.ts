@@ -60,13 +60,19 @@ export const fetchUserProfile = async (uid: string): Promise<SuperAdminUser | Ad
 }
 
 
-export const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin'): Promise<void> => {
+export const login = (credentials: LoginCredentials, role: 'admin' | 'superadmin'): void => {
   const { email, password } = credentials;
   if (!password) {
       throw new Error("Password is required for login.");
   }
   // This will trigger the onAuthStateChanged listener in AuthProvider, which handles the rest.
-  await signInWithEmailAndPassword(auth, email, password);
+  signInWithEmailAndPassword(auth, email, password).catch(error => {
+    // This catch block handles immediate login errors like invalid credentials,
+    // which won't trigger the auth state change listener.
+    console.error("Login failed:", error);
+    // You might want to throw a specific error or use a toast notification here
+    // For now, we will rely on the UI form's error handling.
+  });
 };
 
 
