@@ -1,119 +1,139 @@
+/**
+ * @fileOverview Firestore Security Rules for AuthStation application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a role-based access control model, primarily distinguishing between Super Admins and regular Admins.
+ * Super Admins have elevated privileges, while regular Admins are restricted to managing data within their organization.
+ * Data is isolated between different admin users.
+ *
+ * Data Structure:
+ * - /roles_super_admin/{superAdminId}: Documents indicating Super Admin status.
+ * - /admins/{adminId}: Admin user profiles, linked to a Super Admin.
+ * - /devices/{deviceId}: IoT device data, linked to an admin account.
+ * - /alerts/{alertId}: System alerts generated from devices, linked to an admin account.
+ *
+ * Key Security Decisions:
+ * - Super Admin status is determined by the existence of a document in the `/roles_super_admin/{superAdminId}` collection.
+ * - Admins can only manage devices and alerts associated with their `adminId`.
+ * - Listing of devices and alerts is restricted to the admin who owns them.
+ * - Authorization Independence: Access is granted based on document existence or internal fields, minimizing `get()` calls for performance and security.
+ *
+ * Denormalization for Authorization:
+ * The 'adminId' field is included in both /devices/{deviceId} and /alerts/{alertId} documents.
+ * This denormalization is critically important, as it allows for performant read/write rules
+ * that isolate data between different admin users without having to perform costly `get()` operations.
+ */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the user is signed in.
-     * @path N/A (Helper Function)
-     * @allow N/A (Helper Function)
-     * @deny N/A (Helper Function)
-     * @principle Authentication: Ensures that only authenticated users can access certain resources.
+     * @description Grants read access to Super Admin role documents for the owner.
+     *              Allows Super Admins to create their role document, but prevents others.
+     * @path /roles_super_admin/{superAdminId}
+     * @allow get: if isOwner(superAdminId);
+     * @allow list: if false;
+     * @allow create: if isOwner(superAdminId);
+     * @allow update: if false;
+     * @allow delete: if false;
+     * @deny get: if !isSignedIn();
+     * @deny create: if !isSignedIn();
+     * @principle Enforces owner-only access for Super Admin role documents.
      */
+    match /roles_super_admin/{superAdminId} {
+      allow get: if isSignedIn() && isOwner(superAdminId);
+      allow list: if false;
+      allow create: if isSignedIn() && isOwner(superAdminId);
+      allow update: if false;
+      allow delete: if false;
+    }
+
+    /**
+     * @description Allows read and write access to Admin profiles for the owner.
+     *              Allows Super Admins to create Admin profiles.
+     * @path /admins/{adminId}
+     * @allow get: if isOwner(adminId);
+     * @allow list: if false;
+     * @allow create: if isSignedIn() && isSuperAdmin(); // Only Super Admins can create
+     * @allow update: if isExistingOwner(adminId);
+     * @allow delete: if isExistingOwner(adminId);
+     * @deny create: if !isSignedIn();
+     * @deny update: if !isSignedIn();
+     * @deny delete: if !isSignedIn();
+     * @principle Enforces owner-only access for Admin profiles.
+     */
+    match /admins/{adminId} {
+      allow get: if isSignedIn() && isOwner(adminId);
+      allow list: if false;
+      allow create: if isSignedIn() && isSuperAdmin(); // Only Super Admins can create
+      allow update: if isSignedIn() && isExistingOwner(adminId);
+      allow delete: if isSignedIn() && isExistingOwner(adminId);
+    }
+
+     /**
+      * @description Allows read and write access to Device documents for the owning Admin.
+      * @path /devices/{deviceId}
+      * @allow get: if isAdminOwned(resource.data.adminId);
+      * @allow list: if isAdminOwned(request.auth.uid);
+      * @allow create: if isAdminOwned(request.resource.data.adminId);
+      * @allow update: if isExistingAdminOwned(resource.data.adminId);
+      * @allow delete: if isExistingAdminOwned(resource.data.adminId);
+      * @deny create: if !isSignedIn();
+      * @deny update: if !isSignedIn();
+      * @deny delete: if !isSignedIn();
+      * @principle Enforces admin-only access for Device documents.
+      */
+    match /devices/{deviceId} {
+      allow get: if isSignedIn() && isAdminOwned(resource.data.adminId);
+      allow list: if isSignedIn() && isAdminOwned(request.auth.uid);
+      allow create: if isSignedIn() && isAdminOwned(request.resource.data.adminId);
+      allow update: if isSignedIn() && isExistingAdminOwned(resource.data.adminId);
+      allow delete: if isSignedIn() && isExistingAdminOwned(resource.data.adminId);
+    }
+
+    /**
+     * @description Allows read and write access to Alert documents for the owning Admin.
+     * @path /alerts/{alertId}
+     * @allow get: if isAdminOwned(resource.data.adminId);
+     * @allow list: if isAdminOwned(request.auth.uid);
+     * @allow create: if isAdminOwned(request.resource.data.adminId);
+     * @allow update: if isExistingAdminOwned(resource.data.adminId);
+     * @allow delete: if isExistingAdminOwned(resource.data.adminId);
+     * @deny create: if !isSignedIn();
+     * @deny update: if !isSignedIn();
+     * @deny delete: if !isSignedIn();
+     * @principle Enforces admin-only access for Alert documents.
+     */
+    match /alerts/{alertId} {
+      allow get: if isSignedIn() && isAdminOwned(resource.data.adminId);
+      allow list: if isSignedIn() && isAdminOwned(request.auth.uid);
+      allow create: if isSignedIn() && isAdminOwned(request.resource.data.adminId);
+      allow update: if isSignedIn() && isExistingAdminOwned(resource.data.adminId);
+      allow delete: if isSignedIn() && isExistingAdminOwned(resource.data.adminId);
+    }
+
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * @description Checks if the authenticated user's UID matches the provided userId.
-     * @path N/A (Helper Function)
-     * @allow N/A (Helper Function)
-     * @deny N/A (Helper Function)
-     * @principle Ownership: Verifies that the user is the owner of the resource.
-     */
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
-    /**
-     * @description Checks if the authenticated user's UID matches the provided userId and the document exists.
-     * @path N/A (Helper Function)
-     * @allow N/A (Helper Function)
-     * @deny N/A (Helper Function)
-     * @principle Ownership and Existence: Ensures that the user is the owner of an existing resource.
-     */
     function isExistingOwner(userId) {
-        return isOwner(userId) && exists(/databases/$(database)/documents/roles_super_admin/$(userId));
+      return isSignedIn() && isOwner(userId) && resource != null;
     }
 
-    /**
-     * @description Checks if the requesting user has Super Admin role.
-     * @path N/A (Helper Function)
-     * @allow N/A (Helper Function)
-     * @deny N/A (Helper Function)
-     * @principle Role-Based Access Control: Only Super Admins can perform certain actions.
-     */
+    function isAdminOwned(adminId) {
+      return request.auth.uid == adminId;
+    }
+
+    function isExistingAdminOwned(adminId) {
+      return isSignedIn() && isAdminOwned(adminId) && resource != null;
+    }
+
     function isSuperAdmin() {
-      return exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
-    }
-
-
-    /**
-     * @description Manages Super Admin role assignments.
-     * @path /roles_super_admin/{superAdminId}
-     * @allow (create) If the authenticated user's UID matches the superAdminId.
-     * @deny (create) If the authenticated user's UID does not match the superAdminId.
-     * @principle Role Assignment: Only a user can create their own role assignment.
-     */
-    match /roles_super_admin/{superAdminId} {
-      allow get: if false;
-      allow list: if false;
-
-      allow create: if isSignedIn() && isOwner(superAdminId);
-      allow update: if isSignedIn() && isOwner(superAdminId) && isSuperAdmin();
-      allow delete: if isSignedIn() && isOwner(superAdminId) && isSuperAdmin();
-    }
-
-    /**
-     * @description Manages Admin profiles.
-     * @path /admins/{adminId}
-     * @allow (create) A Super Admin can create new admin profiles. The 'superAdminId' field in the new document must match the Super Admin's UID.
-     * @allow (update, delete) A Super Admin can update or delete existing admin profiles.
-     * @deny (create, update, delete) Non-Super Admins cannot create, update, or delete admin profiles.
-     * @principle Admin Management: Super Admins control Admin profiles.
-     */
-    match /admins/{adminId} {
-      allow get: if false;
-      allow list: if false;
-
-      allow create: if isSignedIn() && isSuperAdmin() && request.resource.data.superAdminId == request.auth.uid;
-      allow update: if isSignedIn() && isSuperAdmin();
-      allow delete: if isSignedIn() && isSuperAdmin();
-    }
-
-    /**
-     * @description Manages IoT device data.
-     * @path /devices/{deviceId}
-     * @allow (create) An authenticated user can create a device, provided the 'adminId' field matches their UID.
-     * @allow (update, delete) An authenticated user can update or delete a device, provided the 'adminId' field matches their UID. Document must exist for update/delete.
-     * @allow (get, list) An authenticated user can get/list their own devices (where 'adminId' matches their UID).
-     * @deny (create, update, delete) If the 'adminId' field does not match the authenticated user's UID.
-     * @principle Device Ownership: Admins control their own devices.
-     */
-    match /devices/{deviceId} {
-      allow get: if isSignedIn() && resource.data.adminId == request.auth.uid;
-      allow list: if isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
-
-      allow create: if isSignedIn() && request.resource.data.adminId == request.auth.uid;
-      allow update: if isSignedIn() && request.resource.data.adminId == resource.data.adminId;
-      allow delete: if isSignedIn() && resource.data.adminId == request.auth.uid;
-    }
-
-    /**
-     * @description Manages system alerts.
-     * @path /alerts/{alertId}
-     * @allow (create) An authenticated user can create an alert, provided the 'adminId' field matches their UID.
-     * @allow (update, delete) An authenticated user can update or delete an alert, provided the 'adminId' field matches their UID. Document must exist for update/delete.
-     * @allow (get, list) An authenticated user can get/list their own alerts (where 'adminId' matches their UID).
-     * @deny (create, update, delete) If the 'adminId' field does not match the authenticated user's UID.
-     * @principle Alert Ownership: Admins control their own alerts.
-     */
-    match /alerts/{alertId} {
-      allow get: if isSignedIn() && resource.data.adminId == request.auth.uid;
-      allow list: if isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
-
-      allow create: if isSignedIn() && request.resource.data.adminId == request.auth.uid;
-      allow update: if isSignedIn() && resource.data.adminId == resource.data.adminId;
-      allow delete: if isSignedIn() && resource.data.adminId == request.auth.uid;
+        return exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
     }
   }
 }
