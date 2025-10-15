@@ -10,8 +10,8 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['"Space Mono"', 'monospace'],
-        headline: ['"Orbitron"', 'sans-serif'],
+        body: ['var(--font-body)', 'Inter', 'sans-serif'],
+        headline: ['var(--font-headline)', 'Orbitron', 'sans-serif'],
         code: ['"Space Mono"', 'monospace'],
       },
       colors: {

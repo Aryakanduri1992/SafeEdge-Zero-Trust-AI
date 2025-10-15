@@ -3,11 +3,23 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/contexts/auth-context';
 import { FirebaseClientProvider } from '@/firebase';
+import { Inter, Orbitron } from 'next/font/google';
+import { cn } from '@/lib/utils';
 
 export const metadata: Metadata = {
   title: 'SafeEdge Cyber System',
   description: 'Advanced Cybersecurity Solutions',
 };
+
+const fontHeadline = Orbitron({ 
+  subsets: ['latin'],
+  variable: '--font-headline',
+  weight: "700"
+});
+const fontBody = Inter({ 
+  subsets: ['latin'],
+  variable: '--font-body',
+});
 
 export default function RootLayout({
   children,
@@ -16,12 +28,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark" style={{ colorScheme: 'dark' }} suppressHydrationWarning>
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
-      </head>
-      <body className="font-body antialiased">
+      <body className={cn("font-body antialiased", fontHeadline.variable, fontBody.variable)}>
         <FirebaseClientProvider>
           <AuthProvider>
             {children}
