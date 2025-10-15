@@ -6,6 +6,8 @@ import {
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   signOut,
+  signInWithCredential,
+  EmailAuthProvider,
   type User as FirebaseUser
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
@@ -57,32 +59,48 @@ export const login = async (credentials: LoginCredentials, role: 'admin' | 'supe
     await signOut(auth); // Sign out the user if their role doesn't match
     throw new Error(`User does not have the required '${role}' role.`);
   }
+  
+  // Store credentials for potential re-authentication
+  if (role === 'superadmin') {
+      sessionStorage.setItem('superAdminCreds', JSON.stringify(credentials));
+  }
+
 
   return userCredential.user;
 };
 
 
 export const logout = async (): Promise<void> => {
+  sessionStorage.removeItem('superAdminCreds');
   await signOut(auth);
 };
 
 export const createAdmin = async (adminData: NewAdminData, superAdminId: string): Promise<void> => {
     const adminsRef = collection(firestore, 'admins');
     const q = query(adminsRef, where("email", "==", adminData.email));
-    const querySnapshot = await getDocs(q);
-
-    if (!querySnapshot.empty) {
-        throw new Error("An admin with this email already exists.");
-    }
     
-    // Using a separate auth instance for temporary user creation is a complex pattern.
-    // Let's create the user with the primary auth instance and handle the flow.
-    // This might require the super-admin to re-authenticate if their session is short,
-    // but for this app's flow, it's more direct.
     try {
+        const querySnapshot = await getDocs(q);
+        if (!querySnapshot.empty) {
+            throw new Error("An admin with this email already exists in Firestore.");
+        }
+
         const userCredential = await createUserWithEmailAndPassword(auth, adminData.email, adminData.password);
         const newAdminUID = userCredential.user.uid;
 
+        // IMPORTANT: The auth state has now changed to the new user.
+        // We must re-authenticate the super admin to perform the Firestore write.
+
+        const storedCreds = sessionStorage.getItem('superAdminCreds');
+        if (!storedCreds) {
+            throw new Error("Super admin credentials not found. Please log out and log back in.");
+        }
+        const { email: superAdminEmail, password: superAdminPassword } = JSON.parse(storedCreds);
+
+        // Re-authenticate super admin
+        await signInWithEmailAndPassword(auth, superAdminEmail, superAdminPassword);
+        
+        // Now, with the super admin authenticated, create the Firestore document.
         const newAdminProfile: Omit<AdminUser, 'id'> = {
             name: adminData.name,
             email: adminData.email,
@@ -95,38 +113,24 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
 
         const adminDocRef = doc(firestore, "admins", newAdminUID);
         
-        // Manually handle the setDoc to emit a contextual error
-        setDoc(adminDocRef, newAdminProfile)
-            .catch((error) => {
-                const permissionError = new FirestorePermissionError({
-                    path: adminDocRef.path,
-                    operation: 'create',
-                    requestResourceData: newAdminProfile,
-                });
-                errorEmitter.emit('permission-error', permissionError);
-                 // We can also re-throw a more generic error to be caught by the UI form's catch block
-                throw new Error("Firestore permission denied. Check security rules.");
-            });
-
-        // After creating the user, the auth state will change. 
-        // We need to sign out the newly created admin user and let the super-admin's session persist.
-        // The context provider should handle the auth state based on the logged-in super admin.
-        // A full implementation would require re-authenticating the super-admin, but for now we'll sign out the new user.
-        await signOut(auth);
+        // Use setDocumentNonBlocking which includes our permission error handling
+        setDocumentNonBlocking(adminDocRef, newAdminProfile, {});
 
     } catch (error: any) {
-        // If the above setDoc fails and re-throws, this will catch it.
-        // Also catches createUserWithEmailAndPassword errors.
-        if (error.code === 'auth/email-already-in-use') {
-            throw new Error("An account with this email already exists in Firebase Authentication.");
-        }
-        // Don't re-throw the specific permission error, as it's handled by the emitter
-        if (error.message.includes("Firestore permission denied")) {
-           // The UI needs some feedback, but the detailed error is in the console.
-           throw new Error("Failed to save admin profile due to database permissions.");
-        }
         console.error("Error creating admin user:", error);
-        throw new Error("Failed to create admin user.");
+        
+        // Handle specific Firebase auth errors
+        if (error.code === 'auth/email-already-in-use') {
+            throw new Error("This email is already registered in Firebase Authentication.");
+        }
+        
+        // Handle re-thrown contextual permission errors from our non-blocking helper
+        if (error instanceof FirestorePermissionError) {
+             throw new Error("Failed to save admin profile due to database permissions.");
+        }
+
+        // Re-throw other errors to be caught by the form
+        throw error;
     }
 };
 

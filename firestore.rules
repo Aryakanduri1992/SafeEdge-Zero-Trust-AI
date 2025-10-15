@@ -1,113 +1,81 @@
 /**
- * @fileoverview Firestore Security Rules for AuthStation application.
+ * @description This ruleset enforces a role-based access control model for the AuthStation application,
+ *              with a focus on Super Admins and Admins. Super Admin status is determined by the
+ *              existence of a document in the `/roles_super_admin/{superAdminId}` collection.
+ *              Admin profiles are stored in the `/admins/{adminId}` collection and linked to their
+ *              creating Super Admin via the `superAdminId` field.
  *
- * Core Philosophy:
- * This ruleset enforces a role-based access control model, primarily centered around
- * SuperAdmin and Admin roles. Authorization is based on the existence of documents
- * in specific collections (`/roles_super_admin/{superAdminId}`) and ownership of
- * documents via denormalized `superAdminId` fields.
+ * @dataStructure
+ *   /roles_super_admin/{superAdminId}: Super Admin role documents.
+ *   /admins/{adminId}: Admin profile documents.
  *
- * Data Structure:
- * - `/roles_super_admin/{superAdminId}`: Indicates a SuperAdmin role. Document
- *   existence is sufficient for authorization.
- * - `/admins/{adminId}`: Stores Admin profiles, linked to a SuperAdmin via the
- *   `superAdminId` field. Authorization Independence is maintained, as access does NOT
- *   depend on reading the SuperAdmin document.
+ * @keySecurityDecisions
+ *   - Super Admin privileges are granted based on the existence of a document in
+ *     `/roles_super_admin/{superAdminId}`, without requiring data validation.
+ *   - Authorization Independence: Admin document access does NOT depend on the content of the superAdmin document.
+ *   - Users cannot list all admins. Only super admins can list the admins.
  *
- * Key Security Decisions:
- * - SuperAdmin role is verified by the existence of a document in `/roles_super_admin/{superAdminId}`.
- * - Admin creation and modification are restricted to SuperAdmins.
- * - Authorization Independence is prioritized to avoid costly `get()` calls.
- * - The `list` operation on `/admins` is restricted to authenticated SuperAdmins only.
- *
- * Denormalization for Authorization:
- * The `superAdminId` field is denormalized within the `/admins/{adminId}` documents to
- * directly link Admins to their SuperAdmin creator. This avoids the need for complex
- * queries or `get()` calls to determine authorization.
- *
- * Structural Segregation:
- * Roles are managed in separate collections (`/roles_super_admin/{superAdminId}`) rather
- * than embedding roles within user documents. This provides a cleaner separation of
- * concerns and simplifies authorization logic.
+ * @denormalizationForAuthorization
+ *   - Super Admin status is determined by the existence of a document in `/roles_super_admin/{superAdminId}`.
+ *     This avoids the need to read a Super Admin profile to verify their role.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the user is signed in.
-     * @path N/A (helper function)
-     * @allow N/A (helper function)
-     * @deny N/A (helper function)
-     * @principle Ensures that only authenticated users can perform certain actions.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the user is a SuperAdmin based on the existence of a document in the /roles_super_admin collection.
-     * @path N/A (helper function)
-     * @allow N/A (helper function)
-     * @deny N/A (helper function)
-     * @principle Implements role-based access control.
-     */
-    function isSuperAdmin(superAdminId) {
-      return exists(/databases/$(database)/documents/roles_super_admin/$(superAdminId));
-    }
-
-    /**
-     * @description Checks if the requesting user is the owner of the document, based on the document ID.
-     * @path N/A (helper function)
-     * @allow N/A (helper function)
-     * @deny N/A (helper function)
-     * @principle Enforces document ownership for data access.
-     */
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    /**
-     * @description Checks if the user is both signed in and the owner of the existing document.
-     */
-    function isExistingOwner(userId) {
-        return isSignedIn() && isOwner(userId) && resource != null;
-    }
-
-    /**
-     * @description
-     * Rules for SuperAdmin role documents.
-     *
+     * @description Grants Super Admin privileges based on the existence of a document.
      * @path /roles_super_admin/{superAdminId}
-     * @allow (create) User with matching UID can create their SuperAdmin document.
-     * @deny (create) User attempts to create a SuperAdmin document with a mismatched UID.
-     * @principle Self-Creation: Allows users to create their SuperAdmin document if the UID matches the document ID.
+     * @allow (create) - A user with UID 'user_abc' can create this document if request.auth.uid == 'user_abc'.
+     * @deny (create) - A user with UID 'user_xyz' cannot create this document if request.auth.uid != 'user_xyz'.
+     * @principle Path-based authorization: Access is controlled by the document's path, matching the authenticated user's ID.
      */
     match /roles_super_admin/{superAdminId} {
-      allow get: if isSignedIn() && isOwner(superAdminId);
+      // DBAC: Using document existence in place of Custom Claims or additional role properties
+
+      function isSuperAdmin() {
+        return request.auth != null && request.auth.uid == superAdminId;
+      }
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      allow get: if isSignedIn();
       allow list: if false;
-      allow create: if isSignedIn() && isOwner(superAdminId);
-      allow update: if false;
-      allow delete: if isExistingOwner(superAdminId);
+      allow create: if isSuperAdmin();
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
     }
 
     /**
-     * @description
-     * Rules for Admin profile documents.
-     *
+     * @description Manages Admin profiles, linking them to a Super Admin.
      * @path /admins/{adminId}
-     * @allow (create) SuperAdmin can create an Admin profile with a matching `superAdminId`.
-     * @deny (create) Non-SuperAdmin attempts to create an Admin profile.
-     * @deny (update) Attempt to change superAdminId.
-     * @principle Role-Based Access Control: Restricts Admin creation to SuperAdmins.
-     * @principle Authorization Independence: Access does NOT depend on the superAdmin document.
+     * @allow (create) - A Super Admin with UID 'super_admin_abc' can create an Admin profile in /admins/{adminId} if the admin's superAdminId is also 'super_admin_abc'.
+     * @deny (create) - A user who is not a Super Admin cannot create an Admin profile.
+     * @allow (update) - A Super Admin who created the admin can update it.
+     * @deny (update) - A regular user cannot update an Admin profile.
+     * @principle Ownership: Super Admins can manage Admin profiles they create.
      */
     match /admins/{adminId} {
-      allow get: if isSuperAdmin(request.auth.uid);
-      allow list: if isSuperAdmin(request.auth.uid);
-      allow create: if isSuperAdmin(request.auth.uid) && request.resource.data.superAdminId == request.auth.uid;
-      allow update: if isSuperAdmin(request.auth.uid) && resource.data.superAdminId == request.resource.data.superAdminId;
-      allow delete: if isSuperAdmin(request.auth.uid);
+
+      function isSuperAdminForAdmin() {
+        return exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid))
+              && request.resource.data.superAdminId == request.auth.uid;
+      }
+      function isExistingOwner() {
+          return resource != null && resource.data.superAdminId == request.auth.uid && exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
+      }
+      function isSignedIn() {
+        return request.auth != null;
+      }
+      function isSuperAdmin() {
+        return request.auth != null && exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
+      }
+      allow get: if isSuperAdmin();
+      allow list: if isSuperAdmin();
+      allow create: if isSignedIn() && isSuperAdminForAdmin();
+      allow update: if isExistingOwner();
+      allow delete: if isExistingOwner();
     }
   }
 }
