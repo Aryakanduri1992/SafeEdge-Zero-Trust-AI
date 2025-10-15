@@ -67,8 +67,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (sessionUser.role === 'superadmin') {
       router.push('/superadmin/dashboard');
     } else {
-      // Placeholder for admin dashboard
-      router.push('/');
+      router.push('/admin/dashboard');
     }
   };
 
