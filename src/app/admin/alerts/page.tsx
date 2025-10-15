@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { useFirestore, useCollection, useMemoFirebase, FirestorePermissionError, errorEmitter } from "@/firebase";
 import { collection, query, where, doc, updateDoc, orderBy } from "firebase/firestore";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -79,22 +79,28 @@ export default function AlertsPage() {
   const handleAcknowledge = async (alertId: string) => {
     if (!firestore) return;
     setIsUpdating(alertId);
-    try {
-      const alertRef = doc(firestore, "alerts", alertId);
-      await updateDoc(alertRef, { status: "acknowledged" });
-      toast({
-        title: "Alert Acknowledged",
-        description: "The alert has been marked as acknowledged.",
-      });
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Update Failed",
-        description: error.message || "Could not acknowledge the alert.",
-      });
-    } finally {
+    
+    const alertRef = doc(firestore, "alerts", alertId);
+    const updatedData = { status: "acknowledged" };
+
+    updateDoc(alertRef, updatedData)
+      .then(() => {
+        toast({
+          title: "Alert Acknowledged",
+          description: "The alert has been marked as acknowledged.",
+        });
+      })
+      .catch((serverError) => {
+        const permissionError = new FirestorePermissionError({
+            path: alertRef.path,
+            operation: 'update',
+            requestResourceData: updatedData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
         setIsUpdating(null);
-    }
+      });
   };
 
   const handleFilterChange = (setter: React.Dispatch<React.SetStateAction<string[]>>) => (key: string) => {
