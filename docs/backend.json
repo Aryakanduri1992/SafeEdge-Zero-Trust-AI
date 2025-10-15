@@ -1,0 +1,104 @@
+{
+  "entities": {
+    "SuperAdmin": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SuperAdmin",
+      "type": "object",
+      "description": "Represents a super administrator user in the AuthStation application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the SuperAdmin entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the super administrator.",
+          "format": "email"
+        },
+        "name": {
+          "type": "string",
+          "description": "Full name of the super administrator."
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "name"
+      ]
+    },
+    "Admin": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Admin",
+      "type": "object",
+      "description": "Represents an administrator user in the AuthStation application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Admin entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the administrator.",
+          "format": "email"
+        },
+        "name": {
+          "type": "string",
+          "description": "Full name of the administrator."
+        },
+        "superAdminId": {
+          "type": "string",
+          "description": "Reference to the SuperAdmin who created this admin account. (Relationship: SuperAdmin 1:N Admin)"
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "name",
+        "superAdminId"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/roles_super_admin/{superAdminId}",
+        "definition": {
+          "entityName": "SuperAdmin",
+          "schema": {
+            "$ref": "#/backend/entities/SuperAdmin"
+          },
+          "description": "Indicates a Firebase Auth user is a Super Admin, granting elevated privileges. Existence of a document here is sufficient for role verification.",
+          "params": [
+            {
+              "name": "superAdminId",
+              "description": "The Firebase Auth UID of the Super Admin."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/admins/{adminId}",
+        "definition": {
+          "entityName": "Admin",
+          "schema": {
+            "$ref": "#/backend/entities/Admin"
+          },
+          "description": "Stores Admin profiles. Includes 'superAdminId' to reference the Super Admin who created the admin. Note that access does NOT depend on the superAdmin document's content, ensuring Authorization Independence.",
+          "params": [
+            {
+              "name": "adminId",
+              "description": "The unique identifier for the Admin user."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "This Firestore data structure is designed to support the AuthStation application, focusing on secure authentication and access control for Super Admins and Admins. It prioritizes Authorization Independence, DBAC (Database Auth Based Control), and clear separation of concerns. Key aspects include:\n\n1.  **Super Admins Collection:** Stores Super Admin profiles. Access is restricted to Firebase Auth-authenticated users that exist in this collection, preventing unauthorized access to super-admin-only functionalities.\n\n2.  **Admins Collection:** Stores Admin profiles. Each admin document includes the `superAdminId` to link it back to the Super Admin who created it.  However, authorization does NOT depend on the superAdmin document, ensuring Authorization Independence.\n\n3.  **Role-Based Access Control (DBAC):** Global roles are implemented using dedicated collections (`/roles_super_admin/{uid}`), enabling simple existence checks for authorization without relying on custom claims.\n\n**Authorization Independence & Denormalization:**\nThe structure avoids `get()` calls in security rules by storing the necessary authorization context directly within each document or relying on the existence of documents in specific role collections.  This is especially important for atomic operations and debugging.  For example, admin user creation is gated by the existence of a document in `/roles_super_admin/{uid}`, not by reading properties from the super admin's profile.\n\n**QAPs (Rules are not Filters):**\nThe structure enables secure `list` operations by segregating data based on access requirements. Only authenticated super admins can list documents in `/admins`. Regular users cannot list admins. The `/roles_super_admin/{uid}` collection allows for secure list operations; only Firebase Auth-authenticated users whose UIDs match a document in `/roles_super_admin/{uid}` can perform certain actions (e.g., creating admins).\n\n**Invariants:**\nThe `superAdminId` field in the `Admin` document maintains the integrity of the SuperAdmin-to-Admin relationship.  This ID, coupled with security rules, ensures only the creating Super Admin (or another authorized entity) can manage the Admin user. Timestamps can be added to each entity for auditing purposes, if needed."
+  }
+}
