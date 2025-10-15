@@ -105,6 +105,11 @@
         }
       },
       "required": ["id", "name", "status", "adminId"]
+    },
+    "DeviceStatus": {
+      "type": "string",
+      "enum": ["online", "offline", "alerting"],
+      "description": "The current status of the device."
     }
   },
   "auth": {
