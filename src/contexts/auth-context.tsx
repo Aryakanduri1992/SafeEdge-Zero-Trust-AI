@@ -38,14 +38,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const handleAuthChange = async () => {
-      // Do not run logic until the initial user loading is complete.
-      if (isFirebaseUserLoading) {
-        return;
-      }
-      
-      setIsAuthLoading(true);
-
-      if (firebaseUser) {
+      // This is the critical part: only proceed if loading is finished AND we have a user.
+      if (!isFirebaseUserLoading && firebaseUser) {
+        setIsAuthLoading(true);
         try {
           const userProfile = await authService.fetchUserProfile(firebaseUser.uid);
           
@@ -88,11 +83,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
           await authService.logout();
           setAppUser(null);
+        } finally {
+            setIsAuthLoading(false);
         }
-      } else {
+      } else if (!isFirebaseUserLoading) {
+        // If loading is finished and there's no user, we are definitively logged out.
         setAppUser(null);
+        setIsAuthLoading(false);
       }
-      setIsAuthLoading(false);
     };
     handleAuthChange();
   }, [firebaseUser, isFirebaseUserLoading, router, pathname, toast]);
