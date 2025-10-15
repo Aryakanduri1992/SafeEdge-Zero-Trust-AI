@@ -20,7 +20,17 @@ const { auth, firestore } = initializeFirebase();
 
 export const fetchUserProfile = async (uid: string): Promise<SuperAdminUser | AdminUser | null> => {
     const superAdminRef = doc(firestore, "roles_super_admin", uid);
-    const superAdminSnap = await getDoc(superAdminRef);
+    
+    // Attempt to fetch Super Admin role
+    const superAdminSnap = await getDoc(superAdminRef).catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+            path: superAdminRef.path,
+            operation: 'get',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        throw permissionError;
+    });
+
     if (superAdminSnap.exists()) {
         const superAdminData = superAdminSnap.data();
         return {
@@ -31,8 +41,17 @@ export const fetchUserProfile = async (uid: string): Promise<SuperAdminUser | Ad
         };
     }
 
+    // If not a Super Admin, attempt to fetch Admin profile
     const adminRef = doc(firestore, "admins", uid);
-    const adminSnap = await getDoc(adminRef);
+    const adminSnap = await getDoc(adminRef).catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+            path: adminRef.path,
+            operation: 'get',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        throw permissionError;
+    });
+
     if (adminSnap.exists()) {
         return { ...adminSnap.data(), id: uid } as AdminUser;
     }
@@ -69,7 +88,7 @@ export const login = async (credentials: LoginCredentials, role: 'admin' | 'supe
     await signOut(auth);
     if (error instanceof Error) {
         if (error.message.includes("Missing or insufficient permissions")) {
-            throw new Error("Your account is inactive or does not have the required permissions.");
+            throw new Error("Your account has been de-activated or does not have the required permissions.");
         }
         throw error;
     }
