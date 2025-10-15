@@ -48,7 +48,8 @@ export function Logo({ className, ...props }: React.SVGProps<SVGSVGElement>) {
       {/* Lock */}
       <g transform="translate(105 62)">
         <rect x="0" y="2" width="14" height="10" rx="2" stroke="hsl(var(--primary))" fill="hsl(var(--background))" strokeWidth="2" />
-        <path d="M7 2V-2C7 -5 3 -5 3 -2V2" stroke="hsl(var(--primary))" strokeWidth="2" fill="none" strokeLinecap="round" />
+        <path d="M7 2V-2C7 -5 3 -5 3 -2V2" stroke="hsl(var(--primary))" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+        <circle cx="7" cy="7" r="1" fill="hsl(var(--primary))"/>
       </g>
 
       {/* Globe */}
