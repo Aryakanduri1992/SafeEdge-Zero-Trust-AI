@@ -10,8 +10,8 @@ import {
   signOut,
   type User as FirebaseUser
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
-import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateAdminData, Plan } from './types';
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateAdminData } from './types';
 import { initializeFirebase } from '@/firebase';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -83,13 +83,11 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
         const userCredential = await createUserWithEmailAndPassword(tempAuth, adminData.email, adminData.password);
         const newAdminUID = userCredential.user.uid;
 
-        // The primary auth instance (the one for the main app) is still authenticated as the super admin.
-        // We can now safely write to Firestore with the super admin's permissions.
-
         // 2. Create the Firestore document for the new admin.
         const newAdminProfile: Omit<AdminUser, 'id'> = {
             name: adminData.name,
             email: adminData.email,
+            organization: adminData.organization,
             role: 'admin',
             createdAt: new Date().toISOString(),
             devices: 1,
@@ -99,8 +97,6 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
 
         const adminDocRef = doc(firestore, "admins", newAdminUID);
         
-        // Use setDoc and include our permission error handling.
-        // The currently authenticated user (super admin) performs this action.
         await setDoc(adminDocRef, newAdminProfile).catch(serverError => {
             const permissionError = new FirestorePermissionError({
                 path: adminDocRef.path,
@@ -108,7 +104,6 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
                 requestResourceData: newAdminProfile,
             });
             errorEmitter.emit('permission-error', permissionError);
-            // Also throw an error to be caught by the form UI
             throw permissionError;
         });
 
@@ -119,10 +114,8 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
             throw new Error("This email is already registered in Firebase Authentication.");
         }
         
-        // Re-throw other errors to be caught by the form's UI.
         throw error;
     } finally {
-        // 3. Clean up: delete the temporary app instance to prevent memory leaks.
         await deleteApp(tempApp);
     }
 };
@@ -155,16 +148,13 @@ const seedSuperAdmin = async () => {
     const superAdminEmail = 'super@authstation.com';
     const superAdminPassword = 'super-password';
 
-    // Use a temporary auth instance to avoid conflicts with logged-in users
     const tempAppName = `temp-superadmin-check-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
 
     try {
-        // Try to sign in to see if user exists
         await signInWithEmailAndPassword(tempAuth, superAdminEmail, superAdminPassword);
     } catch (error: any) {
-        // If user not found, create them
         if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
              try {
                 const userCredential = await createUserWithEmailAndPassword(tempAuth, superAdminEmail, superAdminPassword);
@@ -176,7 +166,6 @@ const seedSuperAdmin = async () => {
                         name: "Super Admin",
                     };
                     const superAdminRoleRef = doc(firestore, 'roles_super_admin', user.uid);
-                    // Use the main firestore instance, permissions should allow this initial seed write.
                     await setDoc(superAdminRoleRef, superAdminProfile);
                     console.log("Super Admin seeded successfully.");
                 }

@@ -45,6 +45,10 @@
           "type": "string",
           "description": "Full name of the administrator."
         },
+        "organization": {
+          "type": "string",
+          "description": "The name of the organization or startup the admin belongs to."
+        },
         "superAdminId": {
           "type": "string",
           "description": "Reference to the SuperAdmin who created this admin account. (Relationship: SuperAdmin 1:N Admin)"
@@ -54,8 +58,53 @@
         "id",
         "email",
         "name",
+        "organization",
         "superAdminId"
       ]
+    },
+    "Device": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Device",
+      "type": "object",
+      "description": "Represents an IoT device registered to an organization.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the IoT device."
+        },
+        "name": {
+          "type": "string",
+          "description": "A user-friendly name for the device (e.g., 'Living Room Sensor')."
+        },
+        "location": {
+          "type": "string",
+          "description": "The physical location of the device."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["online", "offline", "alerting"],
+          "description": "The current status of the device."
+        },
+        "lastSeen": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The ISO timestamp of when the device last reported its status."
+        },
+        "adminId": {
+          "type": "string",
+          "description": "The ID of the admin account this device is registered under."
+        },
+        "sensorData": {
+          "type": "object",
+          "properties": {
+            "temperature": { "type": "number" },
+            "humidity": { "type": "number" },
+            "motion": { "type": "boolean" },
+            "gas": { "type": "number", "description": "Gas concentration in PPM." }
+          }
+        }
+      },
+      "required": ["id", "name", "status", "adminId"]
     }
   },
   "auth": {
@@ -94,6 +143,22 @@
             {
               "name": "adminId",
               "description": "The unique identifier for the Admin user."
+            }
+          ]
+        }
+      },
+       {
+        "path": "/devices/{deviceId}",
+        "definition": {
+          "entityName": "Device",
+          "schema": {
+            "$ref": "#/backend/entities/Device"
+          },
+          "description": "Stores IoT device data, linked to an admin account.",
+          "params": [
+            {
+              "name": "deviceId",
+              "description": "The unique identifier for the device."
             }
           ]
         }

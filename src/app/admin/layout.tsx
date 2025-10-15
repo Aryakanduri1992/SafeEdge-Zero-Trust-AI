@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { Loader2 } from 'lucide-react';
 import { Header } from '@/components/admin/header';
+import { Sidebar } from '@/components/admin/sidebar';
 
 export default function AdminLayout({
   children,
@@ -29,11 +30,14 @@ export default function AdminLayout({
   }
 
   return (
-    <div className="flex min-h-screen w-full flex-col">
-      <Header />
-      <main className="flex-1 p-4 sm:p-6 md:p-8">
-        {children}
-      </main>
+    <div className="grid min-h-screen w-full grid-cols-[240px_1fr]">
+      <Sidebar />
+      <div className="flex flex-col">
+        <Header />
+        <main className="flex-1 overflow-y-auto bg-muted/40 p-4 sm:p-6 md:p-8">
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
