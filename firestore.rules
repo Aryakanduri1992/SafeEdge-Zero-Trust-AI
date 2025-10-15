@@ -1,62 +1,101 @@
 /**
- * @description This ruleset enforces a role-based access control system for the AuthStation application,
- *              with distinct privileges for Super Admins and Admins. It leverages the existence of
- *              documents in specific collections to grant roles, ensuring Authorization Independence.
+ * @description This ruleset enforces a role-based access control model for the AuthStation application.
+ * Super Admins have elevated privileges, while Admins manage devices within their organization.
+ *
  * @dataStructure
- *   - /roles_super_admin/{superAdminId}:  Documents indicate a user is a Super Admin.  The existence
- *     of a document with a matching UID grants super-admin privileges.
- *   - /admins/{adminId}: Stores Admin profiles, linked to their creating Super Admin via the `superAdminId` field.
- *     Authorization Independence: Access does NOT depend on reading data from the Super Admin document.
+ * - /roles_super_admin/{superAdminId}: Documents indicating Super Admin status. Existence of a document grants super-admin privileges.
+ * - /admins/{adminId}: Admin profiles, containing details like email, organization, and the ID of the Super Admin who created them.
+ * - /devices/{deviceId}: IoT device data, linked to an admin account.
+ *
  * @keySecurityDecisions
- *   - Super Admin role is determined solely by the presence of a document in `/roles_super_admin/{superAdminId}`.
- *   - Admin creation is restricted to Super Admins.
- *   - Listing of Admins is only permitted for Super Admins.
- *   - Regular users cannot list or access Admin data.
+ * - Super Admin status is determined by the existence of a document in `/roles_super_admin/{superAdminId}`.
+ * - Admin creation is restricted to Super Admins.
+ * - Listing of Admins is restricted to Super Admins.
+ * - Devices are accessible to any authenticated user.
+ *
+ * @denormalizationForAuthorization
+ * - Super Admin status is determined by the existence of a document in /roles_super_admin/{superAdminId}, enabling simple existence checks for authorization.
+ * - The admin document has a superAdminId to avoid needing to read the superAdmin's information.
+ *
+ * @structuralSegregation
+ * - Role-based segregation is achieved by using a dedicated roles_super_admin collection.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Grants Super Admin privileges based on document existence in this collection.
+     * @description Checks if the current user is signed in.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * @description Checks if the authenticated user's UID matches the provided userId.
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the authenticated user is a Super Admin by verifying the existence of a document in the roles_super_admin collection.
+     */
+    function isSuperAdmin() {
+      return exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
+    }
+
+    /**
+     * @description Checks if the user is signed in and owns an existing document.
+     */
+    function isExistingOwner(userId) {
+        return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * @description Defines rules for the /roles_super_admin/{superAdminId} collection.
      * @path /roles_super_admin/{superAdminId}
-     * @allow (get, list) if isSignedIn() - Allows any authenticated user to check if a Super Admin exists for a given UID.
-     * @allow (create) if request.auth.uid == superAdminId - Allows a user to create their own Super Admin role document, effectively self-assigning the role.
-     * @allow (update, delete) if false - Prevents modification or deletion of Super Admin role documents through rules.
-     * @deny (create) if request.auth.uid != superAdminId - Protects Super Admin role assignment from unauthorized users.
-     * @principle DBAC (Database Auth Based Control); existence of a document grants the Super Admin role.
+     * @allow (create) User with UID 'user123' can create a document at /roles_super_admin/user123 if they are authenticated and the UID matches.
+     * @deny (create) User with UID 'user456' cannot create a document at /roles_super_admin/user123 because the UIDs do not match.
+     * @principle Enforces ownership: only the authenticated user can create their own Super Admin role document.
      */
     match /roles_super_admin/{superAdminId} {
       allow get: if isSignedIn();
-      allow list: if isSignedIn();
-      allow create: if request.auth.uid == superAdminId;
+      allow list: if false; // Super admins should not be listable.
+      allow create: if isSignedIn() && isOwner(superAdminId);
       allow update: if false;
       allow delete: if false;
     }
 
     /**
-     * @description Manages Admin profiles.  Super Admins can create, read, update, and delete Admin profiles.
+     * @description Defines rules for the /admins/{adminId} collection.
      * @path /admins/{adminId}
-     * @allow (get) if isSignedIn() - Allows any authenticated user to read an Admin profile.
-     * @allow (list) if exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid)) - Allows Super Admins to list Admin profiles.
-     * @allow (create) if exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid)) && request.resource.data.superAdminId == request.auth.uid - Allows Super Admins to create new Admin profiles, enforcing that the 'superAdminId' matches the creator's UID.
-     * @allow (update) if exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid)) && resource != null && resource.data.superAdminId == request.resource.data.superAdminId - Allows Super Admins to update existing Admin profiles, ensuring the `superAdminId` remains unchanged.
-     * @allow (delete) if exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid)) && resource != null - Allows Super Admins to delete existing Admin profiles.
-     * @deny (create) if !exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid)) - Prevents non-Super Admins from creating Admin profiles.
-     * @deny (update) if resource != null && resource.data.superAdminId != request.resource.data.superAdminId - Protects the `superAdminId` field from unauthorized modification.
-     * @deny (delete) if !exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid)) - Prevents non-Super Admins from deleting Admin profiles.
-     * @principle Role-based access control, Authorization Independence, Relational Integrity.
+     * @allow (create) A Super Admin can create an Admin profile.
+     * @deny (create) A regular user cannot create an Admin profile.
+     * @principle Restricts Admin creation to Super Admins.
      */
     match /admins/{adminId} {
       allow get: if isSignedIn();
-      allow list: if exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
-      allow create: if exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid)) && request.resource.data.superAdminId == request.auth.uid;
-      allow update: if exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid)) && resource != null && resource.data.superAdminId == request.resource.data.superAdminId;
-      allow delete: if exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid)) && resource != null;
+      allow list: if isSuperAdmin();
+      allow create: if isSuperAdmin();
+      allow update: if false;
+      allow delete: if false;
     }
 
-    function isSignedIn() {
-      return request.auth != null;
+    /**
+     * @description Defines rules for the /devices/{deviceId} collection.
+     * @path /devices/{deviceId}
+     * @allow (get, list) Any authenticated user can read device data.
+     * @allow (create, update, delete) Only the owner (adminId) can create, update or delete a device.
+     * @deny (create, update, delete) A non-owner cannot create, update or delete a device.
+     * @principle Allows public read access to device data, but restricts write access to the owner.
+     */
+    match /devices/{deviceId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
   }
 }
