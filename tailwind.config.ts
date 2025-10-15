@@ -10,9 +10,9 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        body: ['Inter', 'sans-serif'],
-        headline: ['"Lilita One"', 'sans-serif'],
-        code: ['monospace'],
+        body: ['"Space Mono"', 'monospace'],
+        headline: ['"Orbitron"', 'sans-serif'],
+        code: ['"Space Mono"', 'monospace'],
       },
       colors: {
         background: 'hsl(var(--background))',

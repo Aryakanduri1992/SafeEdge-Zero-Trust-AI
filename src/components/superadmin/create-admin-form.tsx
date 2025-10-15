@@ -107,7 +107,7 @@ export function CreateAdminForm({ onFinished }: CreateAdminFormProps) {
             <FormItem>
               <FormLabel>Organization</FormLabel>
               <FormControl>
-                <Input placeholder="Acme Inc." {...field} />
+                <Input placeholder="Client Company Name" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

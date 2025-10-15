@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShieldCheck, LayoutDashboard, RadioTower, Bell, User } from "lucide-react";
+import { Shield, LayoutDashboard, RadioTower, Bell, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const navItems = [
@@ -20,8 +20,8 @@ export function Sidebar() {
       <div className="flex h-full max-h-screen flex-col gap-2">
         <div className="flex h-16 items-center border-b px-6">
           <Link href="/admin/dashboard" className="flex items-center gap-2 font-semibold">
-            <ShieldCheck className="h-7 w-7 text-primary" />
-            <span className="font-headline text-2xl text-primary">AuthStation</span>
+            <Shield className="h-7 w-7 text-primary" />
+            <span className="font-headline text-xl text-primary">SafeEdge</span>
           </Link>
         </div>
         <div className="flex-1">

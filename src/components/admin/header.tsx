@@ -13,7 +13,7 @@ export function Header() {
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 shadow-sm backdrop-blur-sm sm:px-6">
       <div className="flex items-center gap-4">
         <span className="font-headline text-2xl font-bold text-primary">
-          {adminUser?.organization || 'AuthStation'}
+          {adminUser?.organization || 'SafeEdge Cyber System'}
         </span>
       </div>
       <div className='flex items-center gap-4'>
