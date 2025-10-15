@@ -99,6 +99,19 @@ export const createAdmin = async (adminData: NewAdminData): Promise<AdminUser> =
     });
 };
 
+export const getAdmins = async (): Promise<AdminUser[]> => {
+  return new Promise((resolve, reject) => {
+      setTimeout(() => {
+          const currentUser = getSession();
+          if(!currentUser || currentUser.role !== 'superadmin') {
+              return reject(new Error('Unauthorized: Only super admins can view admins.'));
+          }
+          const admins = users.filter(u => u.role === 'admin') as AdminUser[];
+          resolve(admins);
+      }, 500);
+  });
+};
+
 export const checkAuth = async (): Promise<SuperAdminUser | AdminUser | null> => {
   return getSession();
 };

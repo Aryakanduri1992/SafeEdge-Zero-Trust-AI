@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import * as authService from '@/lib/auth-service';
 import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData } from '@/lib/types';
@@ -9,20 +9,35 @@ import { Loader2 } from 'lucide-react';
 
 type AuthContextType = {
   user: SuperAdminUser | AdminUser | null;
+  admins: AdminUser[];
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (credentials: LoginCredentials, role: 'admin' | 'superadmin') => Promise<void>;
   logout: () => Promise<void>;
   createAdmin: (adminData: NewAdminData) => Promise<AdminUser>;
+  refreshAdmins: () => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<SuperAdminUser | AdminUser | null>(null);
+  const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   const { toast } = useToast();
+
+  const refreshAdmins = useCallback(async () => {
+    if (user?.role === 'superadmin') {
+      try {
+        const adminList = await authService.getAdmins();
+        setAdmins(adminList);
+      } catch (error) {
+        console.error('Failed to fetch admins:', error);
+        setAdmins([]);
+      }
+    }
+  }, [user]);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -37,6 +52,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     };
     checkUser();
   }, []);
+
+  useEffect(() => {
+    if (user?.role === 'superadmin') {
+      refreshAdmins();
+    }
+  }, [user, refreshAdmins]);
 
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
     const loginFn = role === 'superadmin' ? authService.superAdminLogin : authService.adminLogin;
@@ -63,6 +84,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const createAdmin = async (adminData: NewAdminData) => {
     const newAdmin = await authService.createAdmin(adminData);
+    await refreshAdmins();
     return newAdmin;
   };
   
@@ -75,7 +97,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }
 
   return (
-    <AuthContext.Provider value={{ user, isAuthenticated: !!user, isLoading, login, logout, createAdmin }}>
+    <AuthContext.Provider value={{ user, admins, isAuthenticated: !!user, isLoading, login, logout, createAdmin, refreshAdmins }}>
       {children}
     </AuthContext.Provider>
   );

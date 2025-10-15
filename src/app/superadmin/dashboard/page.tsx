@@ -10,14 +10,14 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { CreateAdminForm } from '@/components/superadmin/create-admin-form';
-import { PlusCircle, ShieldCheck } from 'lucide-react';
+import { PlusCircle, ShieldCheck, Users } from 'lucide-react';
 import { useState } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function SuperAdminDashboardPage() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const { user } = useAuth();
+  const { user, admins } = useAuth();
 
   return (
     <div className="space-y-8">
@@ -26,6 +26,21 @@ export default function SuperAdminDashboardPage() {
         <p className="text-muted-foreground">Welcome back, {user?.name}. Manage your platform admins here.</p>
       </div>
       
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Admins</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{admins.length}</div>
+              <p className="text-xs text-muted-foreground">
+                Currently active administrators
+              </p>
+            </CardContent>
+          </Card>
+      </div>
+
       <Card className="shadow-sm">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
           <CardTitle className="text-lg font-medium">
