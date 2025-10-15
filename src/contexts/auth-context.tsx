@@ -68,11 +68,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
           
           setAppUser(userProfile);
-          if (userProfile?.role === 'superadmin' && (pathname.startsWith('/admin') || pathname ==='/')) {
+          
+          const onLoginPage = pathname.includes('login');
+
+          if (userProfile.role === 'superadmin' && onLoginPage) {
             router.replace('/superadmin/dashboard');
-          } else if (userProfile?.role === 'admin' && (pathname.startsWith('/superadmin') || pathname ==='/')) {
+          } else if (userProfile.role === 'admin' && onLoginPage) {
             router.replace('/admin/dashboard');
           }
+
         } catch (error) {
            if (error instanceof FirestorePermissionError) {
              errorEmitter.emit('permission-error', error);
