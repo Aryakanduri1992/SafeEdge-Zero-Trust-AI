@@ -32,71 +32,17 @@ import {
   Signal,
   SignalLow,
   SignalHigh,
+  Loader2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Device, DeviceStatus } from "@/lib/types";
+import { Device, DeviceStatus, AdminUser } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { DeviceForm } from "./device-form";
 import { DeleteDeviceDialog } from "./delete-device-dialog";
-import { z } from "zod";
-
-const mockDevices: Device[] = [
-  {
-    id: "DEV001",
-    name: "Mainframe-A",
-    status: "online",
-    lastSeen: "2024-07-31T10:00:00Z",
-    location: "Data Center 1",
-    type: "Gateway",
-    description: "Primary server mainframe.",
-    adminId: "admin1",
-    sensorData: { temperature: 45, humidity: 30, motion: false, gas: 10 },
-  },
-  {
-    id: "DEV002",
-    name: "Sensor-B2",
-    status: "offline",
-    lastSeen: "2024-07-30T14:30:00Z",
-    location: "Floor 2, Hallway",
-    type: "Sensor",
-    description: "Motion and temperature sensor.",
-    adminId: "admin1",
-    sensorData: { temperature: 22, humidity: 45, motion: false, gas: 5 },
-  },
-  {
-    id: "DEV003",
-    name: "Gateway-C",
-    status: "alerting",
-    lastSeen: "2024-07-31T10:05:00Z",
-    location: "Data Center 2",
-    type: "Gateway",
-    description: "Backup server mainframe.",
-    adminId: "admin1",
-    sensorData: { temperature: 65, humidity: 25, motion: false, gas: 50 },
-  },
-  {
-    id: "DEV004",
-    name: "AccessPoint-D1",
-    status: "online",
-    lastSeen: "2024-07-31T09:58:00Z",
-    location: "Lobby",
-    type: "Actuator",
-    description: "Main door access control.",
-    adminId: "admin1",
-    sensorData: { temperature: 25, humidity: 50, motion: true, gas: 8 },
-  },
-  {
-    id: "DEV005",
-    name: "Server-E",
-    status: "online",
-    lastSeen: "2024-07-31T10:02:00Z",
-    location: "Data Center 1",
-    type: "Camera",
-    description: "Security camera feed.",
-    adminId: "admin1",
-    sensorData: { temperature: 30, humidity: 35, motion: true, gas: 7 },
-  },
-];
+import { useAuth } from "@/hooks/use-auth";
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, doc, query, where, setDoc, updateDoc, deleteDoc } from "firebase/firestore";
+import { Skeleton } from "../ui/skeleton";
 
 const getStatusInfo = (status: DeviceStatus) => {
   switch (status) {
@@ -131,22 +77,31 @@ const getStatusInfo = (status: DeviceStatus) => {
 };
 
 export function DeviceList() {
-  const [devices, setDevices] = useState<Device[]>(mockDevices);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isMutationLoading, setIsMutationLoading] = useState(false);
   const { toast } = useToast();
+  const { user } = useAuth();
+  const adminUser = user as AdminUser;
+  const firestore = useFirestore();
 
-  const maxDevices = 10;
-  const devicesUsed = devices.length;
+  const devicesQuery = useMemoFirebase(() => {
+    if (!firestore || !user?.id) return null;
+    return query(collection(firestore, "devices"), where("adminId", "==", user.id));
+  }, [firestore, user?.id]);
+
+  const { data: devices, isLoading: areDevicesLoading } = useCollection<Device>(devicesQuery);
+
+  const devicesUsed = devices?.length ?? 0;
+  const maxDevices = adminUser?.plan === 'Pro' ? 25 : adminUser?.plan === 'Enterprise' ? 100 : 10;
 
   const handleAddClick = () => {
     if (devicesUsed >= maxDevices) {
       toast({
         variant: "destructive",
         title: "Quota Exceeded",
-        description: "You have reached your device limit. Please upgrade your plan.",
+        description: `You have reached your device limit of ${maxDevices}. Please upgrade your plan.`,
       });
       return;
     }
@@ -165,53 +120,70 @@ export function DeviceList() {
   };
 
   const handleFormSubmit = async (values: any) => {
-    setIsLoading(true);
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    if (selectedDevice) {
-      // Edit mode
-      setDevices(
-        devices.map((d) =>
-          d.id === selectedDevice.id ? { ...d, ...values } : d
-        )
-      );
-      toast({
-        title: "Device Updated",
-        description: `"${values.name}" has been successfully updated.`,
+    if (!user || !firestore) return;
+    setIsMutationLoading(true);
+    
+    try {
+      if (selectedDevice) {
+        // Edit mode
+        const deviceRef = doc(firestore, "devices", selectedDevice.id);
+        await updateDoc(deviceRef, values);
+        toast({
+          title: "Device Updated",
+          description: `"${values.name}" has been successfully updated.`,
+        });
+      } else {
+        // Create mode
+        const deviceId = values.id;
+        const deviceRef = doc(firestore, "devices", deviceId);
+        const newDevice: Omit<Device, 'id'> = {
+          ...values,
+          adminId: user.id,
+          status: "offline",
+          lastSeen: new Date().toISOString(),
+          sensorData: { temperature: 0, humidity: 0, motion: false, gas: 0 },
+        };
+        await setDoc(deviceRef, newDevice);
+        toast({
+          title: "Device Added",
+          description: `"${values.name}" has been added to your devices.`,
+        });
+      }
+      setIsFormOpen(false);
+      setSelectedDevice(null);
+    } catch (error: any) {
+       toast({
+        variant: "destructive",
+        title: "Operation Failed",
+        description: error.message || "An unexpected error occurred.",
       });
-    } else {
-      // Create mode
-      const newDevice: Device = {
-        ...values,
-        status: "offline",
-        lastSeen: new Date().toISOString(),
-        adminId: "admin1", // Mock
-        sensorData: { temperature: 0, humidity: 0, motion: false, gas: 0 },
-      };
-      setDevices([...devices, newDevice]);
-      toast({
-        title: "Device Added",
-        description: `"${values.name}" has been added to your devices.`,
-      });
+    } finally {
+        setIsMutationLoading(false);
     }
-    setIsLoading(false);
-    setIsFormOpen(false);
   };
 
   const handleDeleteConfirm = async () => {
-    if (!selectedDevice) return;
-    setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    if (!selectedDevice || !firestore) return;
+    setIsMutationLoading(true);
 
-    setDevices(devices.filter((d) => d.id !== selectedDevice.id));
-    toast({
-      title: "Device Removed",
-      description: `"${selectedDevice.name}" has been permanently removed.`,
-    });
-    setIsLoading(false);
-    setIsDeleteOpen(false);
-    setSelectedDevice(null);
+    try {
+        const deviceRef = doc(firestore, "devices", selectedDevice.id);
+        await deleteDoc(deviceRef);
+        toast({
+            title: "Device Removed",
+            description: `"${selectedDevice.name}" has been permanently removed.`,
+        });
+        setIsDeleteOpen(false);
+        setSelectedDevice(null);
+    } catch (error: any) {
+        toast({
+            variant: "destructive",
+            title: "Deletion Failed",
+            description: error.message || "Could not remove the device.",
+        });
+    } finally {
+        setIsMutationLoading(false);
+    }
   };
 
   const EmptyState = () => (
@@ -228,6 +200,14 @@ export function DeviceList() {
       </div>
     </div>
   );
+  
+  const LoadingState = () => (
+    <div className="space-y-2">
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+        <Skeleton className="h-12 w-full" />
+    </div>
+  );
 
   return (
     <>
@@ -241,14 +221,14 @@ export function DeviceList() {
               </span>
               /{maxDevices} Devices Used
             </div>
-            <Button onClick={handleAddClick}>
+            <Button onClick={handleAddClick} disabled={areDevicesLoading}>
               <PlusCircle className="mr-2 h-4 w-4" />
               Add Device
             </Button>
           </div>
         </CardHeader>
         <CardContent>
-          {devices.length > 0 ? (
+          {areDevicesLoading ? <LoadingState /> : (devices && devices.length > 0) ? (
             <Table>
               <TableHeader>
                 <TableRow>
@@ -321,7 +301,6 @@ export function DeviceList() {
         </CardContent>
       </Card>
       
-      {/* Add/Edit Dialog */}
       <Dialog open={isFormOpen} onOpenChange={setIsFormOpen}>
         <DialogContent className="sm:max-w-[480px]">
           <DialogHeader>
@@ -338,12 +317,11 @@ export function DeviceList() {
           <DeviceForm
             device={selectedDevice}
             onSubmit={handleFormSubmit}
-            isLoading={isLoading}
+            isLoading={isMutationLoading}
           />
         </DialogContent>
       </Dialog>
       
-      {/* Delete Confirmation Dialog */}
       <DeleteDeviceDialog
         isOpen={isDeleteOpen}
         onOpenChange={setIsDeleteOpen}
