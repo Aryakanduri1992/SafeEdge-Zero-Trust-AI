@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { Button } from '@/components/ui/button';
@@ -23,11 +22,11 @@ import { Badge } from "@/components/ui/badge";
 import { CreateAdminForm } from '@/components/superadmin/create-admin-form';
 import { EditAdminForm } from '@/components/superadmin/edit-admin-form';
 import { DeactivateAdminDialog } from '@/components/superadmin/deactivate-admin-dialog';
-import { PlusCircle, Users, Edit, Building, RadioTower, ShieldAlert, Power, CheckCircle, XCircle, MoreHorizontal, User, Server, Camera, HardDrive, Cpu, Radio, ShieldCheck } from 'lucide-react';
+import { PlusCircle, Users, Edit, Building, RadioTower, ShieldAlert, Power, CheckCircle, XCircle, MoreHorizontal, User, Server, Camera, HardDrive, Cpu, Radio, ShieldCheck, SignalHigh, Signal, SignalLow } from 'lucide-react';
 import { useState, useMemo, ReactNode } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { AdminUser, Device, DeviceType } from '@/lib/types';
+import { AdminUser, Device, DeviceType, DeviceStatus } from '@/lib/types';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,6 +51,38 @@ const getDeviceTypeIcon = (type: DeviceType): ReactNode => {
             return <HardDrive className="h-4 w-4 text-muted-foreground" />;
     }
 }
+
+const getStatusInfo = (status: DeviceStatus) => {
+  switch (status) {
+    case "online":
+      return {
+        variant: "default",
+        className: "bg-green-500/20 text-green-400 border-green-500/30",
+        icon: <SignalHigh className="h-3.5 w-3.5" />,
+        label: "Online",
+      };
+    case "offline":
+      return {
+        variant: "secondary",
+        className: "bg-gray-500/20 text-gray-400 border-gray-500/30",
+        icon: <Signal className="h-3.5 w-3.5" />,
+        label: "Offline",
+      };
+    case "alerting":
+      return {
+        variant: "destructive",
+        className: "bg-red-500/20 text-red-400 border-red-500/30",
+        icon: <SignalLow className="h-3.5 w-3.5" />,
+        label: "Alerting",
+      };
+    default:
+      return {
+        variant: "outline",
+        icon: <Signal className="h-3.5 w-3.5" />,
+        label: "Unknown",
+      };
+  }
+};
 
 
 export default function SuperAdminDashboardPage() {
@@ -254,18 +285,68 @@ export default function SuperAdminDashboardPage() {
           </DialogContent>
         </Dialog>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Devices</CardTitle>
-              <RadioTower className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalDevices}</div>
-              <p className="text-xs text-muted-foreground">
-                Aggregate devices across all orgs
-              </p>
-            </CardContent>
-          </Card>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Card className="cursor-pointer hover:border-primary/50 transition-colors">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Devices</CardTitle>
+                <RadioTower className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{totalDevices}</div>
+                <p className="text-xs text-muted-foreground">
+                  Aggregate devices across all orgs
+                </p>
+              </CardContent>
+            </Card>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>All Registered Devices</DialogTitle>
+              <DialogDescription>
+                A complete list of all IoT devices across all organizations.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[400px] overflow-y-auto pr-4">
+               <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Device</TableHead>
+                        <TableHead>Organization</TableHead>
+                        <TableHead>Admin</TableHead>
+                        <TableHead className="text-center">Status</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {allDevices.map((device) => {
+                       const admin = admins.find(a => a.id === device.adminId);
+                       const statusInfo = getStatusInfo(device.status);
+                       return (
+                        <TableRow key={device.id}>
+                            <TableCell>
+                                <div className="font-medium">{device.name}</div>
+                                <div className="text-xs text-muted-foreground font-mono">{device.id}</div>
+                            </TableCell>
+                            <TableCell>{admin?.organization || 'N/A'}</TableCell>
+                            <TableCell>{admin?.name || 'N/A'}</TableCell>
+                            <TableCell className="text-center">
+                                <Badge
+                                  variant={statusInfo.variant as any}
+                                  className={statusInfo.className}
+                                >
+                                  {statusInfo.icon}
+                                  <span className="ml-1.5">{statusInfo.label}</span>
+                                </Badge>
+                            </TableCell>
+                        </TableRow>
+                       )
+                    })}
+                </TableBody>
+               </Table>
+            </div>
+          </DialogContent>
+        </Dialog>
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Active Alerts</CardTitle>
@@ -404,5 +485,7 @@ export default function SuperAdminDashboardPage() {
     </div>
   );
 }
+
+    
 
     
