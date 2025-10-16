@@ -69,6 +69,9 @@ export const logout = async (): Promise<void> => {
 
 export const createAdmin = async (adminData: NewAdminData, superAdminId: string): Promise<void> => {
     const isAddingDepartment = !!adminData.organizationId;
+    
+    // Use a temporary, secondary Firebase app for creating users
+    // to avoid logging in the current superadmin as the new user.
     const tempAppName = `temp-admin-creation-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
@@ -103,7 +106,7 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
             });
 
         } else {
-            // Logic for creating a new organization
+            // Logic for creating a new organization and its first department
             const orgsRef = collection(firestore, 'organizations');
             const q = query(orgsRef, where("email", "==", adminData.email));
             const querySnapshot = await getDocs(q);
@@ -114,6 +117,7 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
             const userCredential = await createUserWithEmailAndPassword(tempAuth, adminData.email, adminData.password);
             const newOrgUID = userCredential.user.uid;
 
+            // Create the main organization profile
             const newOrgProfile: Omit<Organization, 'id' | 'role'> = {
                 organizationName: adminData.organizationName,
                 email: adminData.email,
@@ -128,6 +132,7 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
                     requestResourceData: newOrgProfile,
                 });
                 errorEmitter.emit('permission-error', permissionError);
+                // Cleanup orphaned auth user if firestore write fails
                 await userCredential.user.delete().catch(delError => console.error("Failed to delete orphaned auth user", delError));
                 throw permissionError;
             });
@@ -156,6 +161,7 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
                     requestResourceData: newDepartmentProfile,
                 });
                 errorEmitter.emit('permission-error', permissionError);
+                 // Cleanup orphaned auth user if firestore write fails
                  await userCredential.user.delete().catch(delError => console.error("Failed to delete orphaned auth user", delError));
                 throw permissionError;
             });
@@ -167,6 +173,7 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
         }
         throw error;
     } finally {
+        // Clean up the temporary app instance
         const tempUser = tempAuth.currentUser;
         if (tempUser) {
             await signOut(tempAuth);
@@ -218,17 +225,22 @@ export const activateAdmin = async (adminId: string): Promise<void> => {
 };
 
 
+// This function ensures the Super Admin user exists in Auth and Firestore.
 const seedSuperAdmin = async () => {
     const superAdminEmail = 'super@authstation.com';
     const superAdminPassword = 'super-password';
 
+    // Use a temporary, separate Firebase app instance to check/create the super admin
+    // without affecting the current user's auth state.
     const tempAppName = `temp-superadmin-check-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
 
     try {
+        // Try to sign in to see if the user exists
         await signInWithEmailAndPassword(tempAuth, superAdminEmail, superAdminPassword);
     } catch (error: any) {
+        // If user not found, create them
         if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
              try {
                 const userCredential = await createUserWithEmailAndPassword(tempAuth, superAdminEmail, superAdminPassword);
@@ -244,12 +256,14 @@ const seedSuperAdmin = async () => {
                     console.log("Super Admin seeded successfully.");
                 }
              } catch (seedError: any) {
+                // If the user already exists (e.g., race condition), we can ignore the error.
                 if (seedError.code !== 'auth/email-already-in-use') {
                     console.error("Error seeding Super Admin:", seedError);
                 }
              }
         }
     } finally {
+        // Always clean up the temporary app instance
         await signOut(tempAuth).catch(() => {}); // Sign out from temp app
         await deleteApp(tempApp);
     }

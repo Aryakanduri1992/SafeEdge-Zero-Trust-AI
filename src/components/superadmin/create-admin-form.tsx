@@ -17,7 +17,7 @@ const formSchema = z.object({
   departmentName: z.string().min(2, { message: 'Department Name must be at least 2 characters.' }),
   organizationName: z.string().min(2, { message: 'Organization Name must be at least 2 characters.' }),
   email: z.string().email({ message: 'Please enter a valid email.' }),
-  password: z.string().min(8, { message: 'Password must be at least 8 characters.' }).optional(),
+  password: z.string().min(8, { message: 'Password must be at least 8 characters.' }),
   building: z.string().min(1, { message: 'Building is required.' }),
   floor: z.string().min(1, { message: 'Floor is required.' }),
   location: z.string().min(2, { message: 'Location is required.' }),
@@ -38,9 +38,14 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
   const { toast } = useToast();
 
   const isAddingDepartment = !!initialValues.organizationId;
+  
+  // Dynamically adjust validation schema based on whether we're adding a department or creating a new org
+  const currentSchema = isAddingDepartment
+    ? formSchema.omit({ password: true, email: true, organizationName: true })
+    : formSchema;
 
   const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(currentSchema),
     defaultValues: {
       departmentName: '',
       organizationName: initialValues.organizationName || '',
@@ -51,21 +56,8 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
       location: '',
     },
   });
-  
-  // Dynamically adjust validation schema
-  useEffect(() => {
-    if (isAddingDepartment) {
-      form.clearErrors("password");
-    }
-  }, [isAddingDepartment, form]);
-  
-  const currentSchema = isAddingDepartment
-    ? formSchema.omit({ password: true })
-    : formSchema.extend({ password: z.string().min(8, 'Password of at least 8 characters is required.') });
 
-
-  form.watch(); // to trigger re-renders on value changes
-
+  // Reset form when initial values change
   useEffect(() => {
     form.reset({
       departmentName: '',
@@ -85,6 +77,8 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
       ...values,
       password: values.password || '', // ensure password is not undefined
       organizationId: initialValues.organizationId,
+      email: initialValues.email || values.email, // Use initial email if available
+      organizationName: initialValues.organizationName || values.organizationName,
     };
     
     try {
@@ -93,13 +87,14 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
         title: isAddingDepartment ? 'Department Created' : 'Organization Created',
         description: `Department ${values.departmentName} has been created.`,
       });
+      // Reset only department-specific fields after successful submission
       form.reset({
         ...form.getValues(),
         departmentName: '',
         building: '',
         floor: '',
         location: '',
-        password: '', // Clear password after submission
+        password: '',
       });
       onFinished();
     } catch (error: any) {
@@ -142,33 +137,35 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Organization Email</FormLabel>
-              <FormControl>
-                <Input placeholder="admin@example.com" {...field} disabled={isAddingDepartment} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
         {!isAddingDepartment && (
-          <FormField
-            control={form.control}
-            name="password"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Password</FormLabel>
-                <FormControl>
-                    <Input type="password" placeholder="Generate or enter a strong password" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+            <>
+                <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Organization Email</FormLabel>
+                    <FormControl>
+                        <Input placeholder="admin@example.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                        <Input type="password" placeholder="Generate or enter a strong password" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            </>
         )}
          <FormField
           control={form.control}

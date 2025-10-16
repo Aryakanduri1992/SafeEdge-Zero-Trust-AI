@@ -149,6 +149,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
 
       } else if (appUser?.role === 'admin') {
+          // An 'admin' user is an 'Organization'. Fetch all 'AdminUser' (department) docs for that org.
           const departmentsQuery = query(collection(firestore, 'admins'), where("organizationId", "==", appUser.id));
           departmentsUnsubscribe = onSnapshot(departmentsQuery, (snapshot) => {
               const deptList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as AdminUser));

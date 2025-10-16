@@ -75,7 +75,7 @@ export type NewAdminData = {
   departmentName: string, 
   organizationName: string,
   email: string,
-  password?: string, // Optional for adding departments to existing orgs
+  password: string,
   building: string, 
   floor: string,
   location: string,
