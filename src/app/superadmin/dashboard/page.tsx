@@ -43,7 +43,10 @@ export default function SuperAdminDashboardPage() {
   const { user, admins, deactivateAdmin } = useAuth();
 
   const { totalOrgs, totalDevices, totalAlerts, organizationNames } = useMemo(() => {
-    const orgs = new Set(admins.map(a => a.organization));
+    const validOrgs = admins
+      .map(a => a.organization)
+      .filter(org => org && org.trim() !== '');
+    const orgs = new Set(validOrgs);
     const devices = admins.reduce((sum, admin) => sum + (admin.devices || 0), 0);
     // This is a placeholder until global alerts are fetched.
     const alerts = 0; 
