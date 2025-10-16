@@ -22,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { CreateAdminForm } from '@/components/superadmin/create-admin-form';
 import { EditAdminForm } from '@/components/superadmin/edit-admin-form';
 import { DeactivateAdminDialog } from '@/components/superadmin/deactivate-admin-dialog';
-import { PlusCircle, Users, Edit, Building, RadioTower, ShieldAlert, Power, CheckCircle, XCircle, MoreHorizontal, User, Server, Camera, HardDrive, Cpu, Radio, ShieldCheck, SignalHigh, Signal, SignalLow, Search, Filter, MapPin } from 'lucide-react';
+import { PlusCircle, Users, Edit, Building, RadioTower, ShieldAlert, Power, CheckCircle, XCircle, MoreHorizontal, User, Server, Camera, HardDrive, Cpu, Radio, ShieldCheck, SignalHigh, Signal, SignalLow, Search, Filter, MapPin, UserPlus } from 'lucide-react';
 import { useState, useMemo, ReactNode } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -153,6 +153,11 @@ export default function SuperAdminDashboardPage() {
     setSelectedAdmin(admin);
     setIsEditDialogOpen(true);
   };
+
+  const handleAddDepartmentClick = (admin: AdminUser) => {
+    setLastUsedOrg(admin.organizationName);
+    setIsCreateDialogOpen(true);
+  };
   
   const handleDeactivateClick = (admin: AdminUser) => {
     setSelectedAdmin(admin);
@@ -267,7 +272,7 @@ export default function SuperAdminDashboardPage() {
           
         <Dialog>
           <DialogTrigger asChild>
-            <Card className="cursor-pointer hover*border-primary/50 transition-colors">
+            <Card className="cursor-pointer hover:border-primary/50 transition-colors">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Organizations</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
@@ -321,7 +326,7 @@ export default function SuperAdminDashboardPage() {
 
         <Dialog>
           <DialogTrigger asChild>
-            <Card className="cursor-pointer hover*border-primary/50 transition-colors">
+            <Card className="cursor-pointer hover:border-primary/50 transition-colors">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Devices</CardTitle>
                 <RadioTower className="h-4 w-4 text-muted-foreground" />
@@ -407,7 +412,7 @@ export default function SuperAdminDashboardPage() {
               </div>
                <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button>
+                    <Button onClick={() => setLastUsedOrg('')}>
                       <PlusCircle className="mr-2 h-4 w-4" />
                       Add Organization
                     </Button>
@@ -500,6 +505,10 @@ export default function SuperAdminDashboardPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleAddDepartmentClick(admin)}>
+                          <UserPlus className="mr-2 h-4 w-4" />
+                          <span>Add Department</span>
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleEditClick(admin)}>
                           <Edit className="mr-2 h-4 w-4" />
                           <span>Edit Plan/Quota</span>
@@ -567,3 +576,5 @@ export default function SuperAdminDashboardPage() {
 }
 
     
+
+      
