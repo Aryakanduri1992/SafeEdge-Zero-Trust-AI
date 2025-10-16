@@ -353,68 +353,19 @@ export default function SuperAdminDashboardPage() {
           </DialogContent>
         </Dialog>
 
-        <Dialog>
-          <DialogTrigger asChild>
-            <Card className="cursor-pointer hover:border-primary/50 transition-colors">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+         <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Devices</CardTitle>
                 <RadioTower className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
+            </CardHeader>
+            <CardContent>
                 <div className="text-2xl font-bold">{totalDevices}</div>
                 <p className="text-xs text-muted-foreground">
-                  Aggregate devices across all organizations
+                Aggregate devices across all organizations
                 </p>
-              </CardContent>
-            </Card>
-          </DialogTrigger>
-          <DialogContent className="sm:max-w-3xl">
-            <DialogHeader>
-              <DialogTitle>All Registered Devices</DialogTitle>
-              <DialogDescription>
-                A complete list of all IoT devices across all organizations.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="max-h-[400px] overflow-y-auto pr-4">
-               <Table>
-                <TableHeader>
-                    <TableRow>
-                        <TableHead>Device</TableHead>
-                        <TableHead>Department</TableHead>
-                        <TableHead>Organization</TableHead>
-                        <TableHead className="text-center">Status</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {allDevices.map((device) => {
-                       const admin = admins.find(a => a.id === device.adminId);
-                       const statusInfo = getStatusInfo(device.status);
-                       return (
-                        <TableRow key={device.id}>
-                            <TableCell>
-                                <div className="font-medium">{device.name}</div>
-                                <div className="text-xs text-muted-foreground font-mono">{device.id}</div>
-                            </TableCell>
-                            <TableCell>{admin?.departmentName || 'N/A'}</TableCell>
-                            <TableCell>{admin?.organizationName || 'N/A'}</TableCell>
-                            <TableCell className="text-center">
-                                <Badge
-                                  variant={statusInfo.variant as any}
-                                  className={statusInfo.className}
-                                >
-                                  {statusInfo.icon}
-                                  <span className="ml-1.5">{statusInfo.label}</span>
-                                </Badge>
-                            </TableCell>
-                        </TableRow>
-                       )
-                    })}
-                </TableBody>
-               </Table>
-            </div>
-          </DialogContent>
-        </Dialog>
-
+            </CardContent>
+          </Card>
+        
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Active Alerts</CardTitle>
