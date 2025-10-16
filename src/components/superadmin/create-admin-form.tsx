@@ -11,19 +11,16 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, UserPlus } from 'lucide-react';
-import { AdminUser } from '@/lib/types';
 
-// Base schema for all fields
 const baseSchema = z.object({
   departmentName: z.string().min(2, { message: 'Department Name must be at least 2 characters.' }),
   organizationName: z.string().min(2, { message: 'Organization Name must be at least 2 characters.' }),
   email: z.string().email({ message: 'Please enter a valid email.' }),
-  password: z.string().optional(), // Optional for the base, will be enforced dynamically
+  password: z.string().optional(),
   building: z.string().min(1, { message: 'Building is required.' }),
   floor: z.string().min(1, { message: 'Floor is required.' }),
   location: z.string().min(2, { message: 'Location is required.' }),
 });
-
 
 type CreateAdminFormProps = {
   onFinished: () => void;
@@ -40,8 +37,7 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
   const { toast } = useToast();
 
   const isAddingDepartment = !!initialValues.organizationId;
-  
-  // Dynamically create the schema based on the context
+
   const formSchema = baseSchema.refine(data => isAddingDepartment || (data.password && data.password.length >= 8), {
     message: 'Password must be at least 8 characters for new organizations.',
     path: ['password'],
@@ -60,13 +56,12 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
     },
   });
 
-  // Reset form when initial values change, preserving org details if they exist
   useEffect(() => {
     form.reset({
       departmentName: '',
       organizationName: initialValues.organizationName || '',
       email: initialValues.email || '',
-      password: '', // Always clear password
+      password: '',
       building: '',
       floor: '',
       location: '',
@@ -76,7 +71,6 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     
-    // Ensure all required values are passed correctly, including the orgId
     const finalValues = {
       ...values,
       organizationId: initialValues.organizationId,

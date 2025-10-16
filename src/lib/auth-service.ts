@@ -113,10 +113,10 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
         const tempAuth = getAuth(tempApp);
 
         try {
-            const orgsRef = collection(firestore, 'organizations');
-            const q = query(orgsRef, where("email", "==", adminData.email));
-            const querySnapshot = await getDocs(q);
-            if (!querySnapshot.empty) {
+            // Check if an organization with this email already has an auth account
+            const orgsQuery = query(collection(firestore, 'organizations'), where("email", "==", adminData.email));
+            const orgsSnapshot = await getDocs(orgsQuery);
+            if (!orgsSnapshot.empty) {
                 throw new Error(`An organization with the email ${adminData.email} already exists.`);
             }
 
@@ -167,6 +167,8 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
                 });
                 errorEmitter.emit('permission-error', permissionError);
                  await userCredential.user.delete().catch(delError => console.error("Failed to delete orphaned auth user", delError));
+                 const orgDocToDeleteRef = doc(firestore, "organizations", newOrgUID);
+                 await deleteDoc(orgDocToDeleteRef).catch(delError => console.error("Failed to delete orphaned organization document", delError));
                 throw permissionError;
             });
         } catch (error: any) {
