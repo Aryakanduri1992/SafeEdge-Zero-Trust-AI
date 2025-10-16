@@ -33,10 +33,10 @@ export function ActivateAdminDialog({
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Activate Organization Account?</AlertDialogTitle>
+          <AlertDialogTitle>Activate Department?</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to reactivate the account for "{admin.departmentName}"?
-            They will immediately regain access to their dashboard.
+            Are you sure you want to reactivate the department "{admin.departmentName}"?
+            They will immediately regain access.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -52,3 +52,5 @@ export function ActivateAdminDialog({
     </AlertDialog>
   );
 }
+
+    

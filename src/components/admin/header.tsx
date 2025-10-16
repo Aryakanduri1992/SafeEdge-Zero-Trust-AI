@@ -4,7 +4,7 @@
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
 import { LogOut, Bell, Menu } from 'lucide-react';
-import { AdminUser } from '@/lib/types';
+import { Organization } from '@/lib/types';
 import Link from 'next/link';
 import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
 import { navItems } from './sidebar';
@@ -14,7 +14,7 @@ import { Logo } from '../logo';
 
 export function Header() {
   const { logout, user } = useAuth();
-  const adminUser = user as AdminUser;
+  const orgUser = user as Organization;
   const pathname = usePathname();
 
   return (
@@ -34,7 +34,7 @@ export function Header() {
                 className="flex items-center gap-2 text-lg font-semibold mb-4"
                 >
                 <Logo className="h-8 w-8" />
-                <span className="sr-only">{adminUser?.organizationName}</span>
+                <span className="sr-only">{orgUser?.organizationName}</span>
                 </Link>
                 {navItems.map((item) => (
                     <Link
@@ -53,7 +53,7 @@ export function Header() {
           </SheetContent>
         </Sheet>
         <span className="font-headline text-2xl font-bold text-primary">
-          {adminUser?.organizationName || ''}
+          {orgUser?.organizationName || ''}
         </span>
       </div>
       <div className='flex items-center gap-4'>
@@ -62,7 +62,7 @@ export function Header() {
             <span className="sr-only">Notifications</span>
         </Button>
         <span className="text-sm text-muted-foreground hidden sm:inline">
-            Welcome, {user?.departmentName}
+            {orgUser?.organizationName}
         </span>
         <Button variant="ghost" size="sm" onClick={logout}>
           <LogOut className="mr-2 h-4 w-4" />

@@ -11,8 +11,8 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PieChart, Pie, Cell } from "recharts";
-import { Star, RadioTower, ShieldAlert, HeartPulse, Bell, AlertCircle, AlertTriangle, Info, WifiOff, ServerCrash } from "lucide-react";
-import { AdminUser, DeviceStatus, Device } from "@/lib/types";
+import { Star, RadioTower, ShieldAlert, HeartPulse, Bell, AlertCircle, AlertTriangle, Info, WifiOff, ServerCrash, Users } from "lucide-react";
+import { Organization, DeviceStatus, Device, AdminUser } from "@/lib/types";
 
 const getSeverityBadge = (severity: string) => {
   switch (severity) {
@@ -48,16 +48,20 @@ const LoadingSkeleton = () => (
 
 
 export default function AdminDashboardPage() {
-  const { user } = useAuth();
-  const adminUser = user as AdminUser;
+  const { user, departments } = useAuth();
+  const orgUser = user as Organization;
   const firestore = useFirestore();
 
+  const departmentIds = useMemo(() => departments.map(d => d.id), [departments]);
+
   const devicesQuery = useMemoFirebase(() => {
-    if (!firestore || !user?.id) return null;
-    return query(collection(firestore, "devices"), where("adminId", "==", user.id));
-  }, [firestore, user?.id]);
+    if (!firestore || departmentIds.length === 0) return null;
+    return query(collection(firestore, "devices"), where("adminId", "in", departmentIds));
+  }, [firestore, departmentIds]);
 
   const { data: devices, isLoading: areDevicesLoading } = useCollection<Device>(devicesQuery);
+  
+  const isLoading = areDevicesLoading || departments.length === 0 && !areDevicesLoading;
 
   const {
     onlineDevices,
@@ -111,36 +115,39 @@ export default function AdminDashboardPage() {
     };
   }, [devices]);
 
-  if (areDevicesLoading || !devices) {
+  if (isLoading) {
     return <LoadingSkeleton />;
   }
   
-  if (!adminUser) {
+  if (!orgUser) {
     return null;
   }
 
   const criticalAlerts = alerts.filter(a => a.severity === 'Critical').length;
   const highAlerts = alerts.filter(a => a.severity === 'High').length;
-  const totalDevices = devices.length;
+  const totalDevices = devices?.length ?? 0;
   const totalAlerts = alerts.length;
+  const totalDepartments = departments.length;
+  const totalDeviceQuota = departments.reduce((acc, dept) => acc + dept.devices, 0);
+
 
   return (
     <div className="flex flex-col gap-8">
       <div>
         <h1 className="font-headline text-3xl font-bold tracking-tight">Organization Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back, {user?.departmentName}. Here is the real-time status of your protected assets.</p>
+        <p className="text-muted-foreground">Welcome back, {user?.organizationName}. Here is the real-time status of your protected assets.</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Device Status</CardTitle>
-            <RadioTower className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Total Departments</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{totalDevices} Total</div>
-            <p className="text-xs text-muted-foreground">
-              <span className="text-green-400">{onlineDevices} Online</span> / <span className="text-gray-400">{offlineDevices} Offline</span>
+            <div className="text-2xl font-bold">{totalDepartments}</div>
+             <p className="text-xs text-muted-foreground">
+              Managed under this organization
             </p>
           </CardContent>
         </Card>
@@ -168,12 +175,12 @@ export default function AdminDashboardPage() {
         </Card>
          <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Subscription</CardTitle>
-            <Star className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Device Licenses</CardTitle>
+            <RadioTower className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{adminUser.plan} Plan</div>
-            <p className="text-xs text-muted-foreground">{totalDevices} device licenses used</p>
+            <div className="text-2xl font-bold">{totalDevices} / {totalDeviceQuota}</div>
+            <p className="text-xs text-muted-foreground">Total devices used across all plans</p>
           </CardContent>
         </Card>
       </div>

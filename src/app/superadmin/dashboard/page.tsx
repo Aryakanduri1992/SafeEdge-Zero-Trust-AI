@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { Button } from '@/components/ui/button';
@@ -105,29 +104,43 @@ export default function SuperAdminDashboardPage() {
   const [createFormInitialValues, setCreateFormInitialValues] = useState<{
     organizationName: string;
     email?: string;
-    password?: string;
+    organizationId?: string;
   }>({ organizationName: '' });
 
 
-  const { totalOrgs, totalDevices, totalAlerts, orgsWithDetails } = useMemo(() => {
-    const orgSet = new Set(admins.map(a => a.organizationName).filter(Boolean));
-    
+  const { totalOrgs, totalDepartments, totalDevices, totalAlerts, orgsWithDetails } = useMemo(() => {
+    const orgMap = new Map<string, { orgName: string; orgEmail: string, departments: AdminUser[] }>();
+
+    admins.forEach(admin => {
+        if (!admin.organizationId) return;
+        if (!orgMap.has(admin.organizationId)) {
+            orgMap.set(admin.organizationId, {
+                orgName: admin.organizationName,
+                orgEmail: admin.email,
+                departments: []
+            });
+        }
+        orgMap.get(admin.organizationId)!.departments.push(admin);
+    });
+
     const devices = allDevices.length;
     const alerts = allDevices.filter(d => d.status === 'alerting').length;
     
-    const orgDetails = Array.from(orgSet).sort().map(orgName => {
-        const adminsInOrg = admins.filter(a => a.organizationName === orgName);
-        const adminIdsInOrg = adminsInOrg.map(a => a.id);
+    const orgDetails = Array.from(orgMap.entries()).map(([orgId, orgData]) => {
+        const adminIdsInOrg = orgData.departments.map(a => a.id);
         const devicesInOrg = allDevices.filter(d => adminIdsInOrg.includes(d.adminId));
         return {
-            name: orgName,
-            admins: adminsInOrg,
+            id: orgId,
+            name: orgData.orgName,
+            email: orgData.orgEmail,
+            admins: orgData.departments,
             devices: devicesInOrg,
         };
-    });
+    }).sort((a,b) => a.name.localeCompare(b.name));
 
     return { 
-      totalOrgs: orgSet.size, 
+      totalOrgs: orgMap.size,
+      totalDepartments: admins.length,
       totalDevices: devices, 
       totalAlerts: alerts,
       orgsWithDetails: orgDetails
@@ -141,7 +154,7 @@ export default function SuperAdminDashboardPage() {
         const matchesStatus = statusFilter === 'all' || admin.status === statusFilter;
         return matchesSearch && matchesStatus;
     });
-}, [admins, searchTerm, statusFilter]);
+  }, [admins, searchTerm, statusFilter]);
 
 
   const planVariant = (plan: AdminUser['plan']) => {
@@ -165,11 +178,11 @@ export default function SuperAdminDashboardPage() {
     setIsCreateDialogOpen(true);
   }
 
-  const handleAddDepartmentClick = (admin: AdminUser) => {
+  const handleAddDepartmentClick = (org: {id: string, name: string, email: string}) => {
     setCreateFormInitialValues({ 
-      organizationName: admin.organizationName,
-      email: admin.email,
-      password: '', // This will require a new password
+      organizationName: org.name,
+      email: org.email,
+      organizationId: org.id
     });
     setIsCreateDialogOpen(true);
   };
@@ -201,8 +214,6 @@ export default function SuperAdminDashboardPage() {
   }
 
   const handleCreateFinished = () => {
-    // Logic to keep the dialog open with pre-filled org name can be placed here if desired
-    // For now, it just closes.
     setIsCreateDialogOpen(false);
   }
 
@@ -254,7 +265,7 @@ export default function SuperAdminDashboardPage() {
                               <TableRow key={admin.id}>
                                 <TableCell>
                                   <div className="font-medium">{admin.departmentName}</div>
-                                  <div className="text-xs text-muted-foreground font-mono">{admin.email}</div>
+                                  <div className="text-xs text-muted-foreground font-mono">{admin.organizationName}</div>
                                 </TableCell>
                                 <TableCell>{admin.location}</TableCell>
                                 <TableCell>{admin.building}</TableCell>
@@ -294,7 +305,7 @@ export default function SuperAdminDashboardPage() {
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{admins.length}</div>
+                <div className="text-2xl font-bold">{totalDepartments}</div>
                 <p className="text-xs text-muted-foreground">
                   Across all organizations
                 </p>
@@ -326,7 +337,7 @@ export default function SuperAdminDashboardPage() {
                                <div className="text-xs text-muted-foreground font-mono">{admin.email}</div>
                             </TableCell>
                              <TableCell>{admin.departmentName}</TableCell>
-                            <TableCell>{admin.building}, Floor {admin.floor}</TableCell>
+                            <TableCell>{admin.building}, Fl {admin.floor}</TableCell>
                             <TableCell className="text-center">
                                {admin.status === 'active' ? (
                                 <Badge variant="outline" className="text-green-400 border-green-400/50"><CheckCircle className="mr-1 h-3 w-3"/>Active</Badge>
@@ -437,11 +448,11 @@ export default function SuperAdminDashboardPage() {
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
-                      <DialogTitle>{createFormInitialValues.organizationName ? `Add Department to ${createFormInitialValues.organizationName}` : 'Create New Organization'}</DialogTitle>
+                      <DialogTitle>{createFormInitialValues.organizationId ? `Add Department to ${createFormInitialValues.organizationName}` : 'Create New Organization'}</DialogTitle>
                       <DialogDescription>
-                         {createFormInitialValues.organizationName 
+                         {createFormInitialValues.organizationId 
                             ? "Enter the details for the new department. It will be created under the existing organization."
-                            : "Enter the details for the new organization. Credentials must be shared securely."
+                            : "Enter the details for the new organization and its first department."
                           }
                       </DialogDescription>
                     </DialogHeader>
@@ -490,8 +501,8 @@ export default function SuperAdminDashboardPage() {
                 <TableHead>Organization Email</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead>Building/Floor</TableHead>
-                <TableHead className="text-center hidden sm:table-cell">Status</TableHead>
-                <TableHead className="text-center">Plan</TableHead>
+                <TableHead className="text-center">Subscription Plan</TableHead>
+                <TableHead className="text-center">Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -507,15 +518,15 @@ export default function SuperAdminDashboardPage() {
                   <TableCell className="text-muted-foreground">
                     {admin.building}, Fl {admin.floor}
                   </TableCell>
-                   <TableCell className="text-center hidden sm:table-cell">
+                   <TableCell className="text-center">
+                    <Badge variant={planVariant(admin.plan)}>{admin.plan}</Badge>
+                  </TableCell>
+                   <TableCell className="text-center">
                     {admin.status === 'active' ? (
                       <Badge variant="outline" className="text-green-400 border-green-400/50"><CheckCircle className="mr-1 h-3 w-3"/>Active</Badge>
                     ) : (
                        <Badge variant="destructive" className="bg-muted-foreground/20 text-muted-foreground border-muted-foreground/30"><XCircle className="mr-1 h-3 w-3"/>Inactive</Badge>
                     )}
-                  </TableCell>
-                  <TableCell className="text-center">
-                    <Badge variant={planVariant(admin.plan)}>{admin.plan}</Badge>
                   </TableCell>
                   <TableCell className="text-right">
                      <DropdownMenu>
@@ -526,7 +537,7 @@ export default function SuperAdminDashboardPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleAddDepartmentClick(admin)}>
+                        <DropdownMenuItem onClick={() => handleAddDepartmentClick({id: admin.organizationId, name: admin.organizationName, email: admin.email })}>
                           <UserPlus className="mr-2 h-4 w-4" />
                           <span>Add Department</span>
                         </DropdownMenuItem>
@@ -559,7 +570,7 @@ export default function SuperAdminDashboardPage() {
                  {filteredAdmins.length === 0 && (
                     <TableRow>
                         <TableCell colSpan={8} className="h-24 text-center">
-                            No organizations found matching your criteria.
+                            No departments found matching your criteria.
                         </TableCell>
                     </TableRow>
                 )}
@@ -571,9 +582,9 @@ export default function SuperAdminDashboardPage() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Edit Organization: {selectedAdmin?.departmentName}</DialogTitle>
+            <DialogTitle>Edit Department: {selectedAdmin?.departmentName}</DialogTitle>
             <DialogDescription>
-              Update the plan and device allocation for this organization.
+              Update the plan and device allocation for this department.
             </DialogDescription>
           </DialogHeader>
           {selectedAdmin && <EditAdminForm admin={selectedAdmin} onFinished={() => setIsEditDialogOpen(false)} />}
@@ -595,3 +606,5 @@ export default function SuperAdminDashboardPage() {
     </div>
   );
 }
+
+    

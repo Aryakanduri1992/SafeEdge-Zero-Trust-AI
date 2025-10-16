@@ -2,14 +2,15 @@
 "use client";
 
 import { useAuth } from "@/hooks/use-auth";
-import { AdminUser, Device } from "@/lib/types";
+import { Organization, Device } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { User, Building, Star, HardDrive, Calendar, CheckCircle, XCircle, Globe, MapPin } from "lucide-react";
+import { User, Building, Star, HardDrive, Calendar, CheckCircle, XCircle, Globe, MapPin, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, where } from "firebase/firestore";
+import { useMemo } from 'react';
 
 const LoadingSkeleton = () => (
   <div className="space-y-8">
@@ -25,78 +26,62 @@ const LoadingSkeleton = () => (
 );
 
 export default function ProfilePage() {
-  const { user, isLoading: isAuthLoading } = useAuth();
-  const adminUser = user as AdminUser;
+  const { user, departments, isLoading: isAuthLoading } = useAuth();
+  const orgUser = user as Organization;
   const firestore = useFirestore();
 
+  const departmentIds = useMemo(() => departments.map(d => d.id), [departments]);
+
   const devicesQuery = useMemoFirebase(() => {
-    if (!firestore || !user?.id) return null;
-    return query(collection(firestore, "devices"), where("adminId", "==", user.id));
-  }, [firestore, user?.id]);
+    if (!firestore || departmentIds.length === 0) return null;
+    return query(collection(firestore, "devices"), where("adminId", "in", departmentIds));
+  }, [firestore, departmentIds]);
 
   const { data: devices, isLoading: areDevicesLoading } = useCollection<Device>(devicesQuery);
-
   const isLoading = isAuthLoading || areDevicesLoading;
 
-  if (isLoading || !adminUser) {
+  if (isLoading || !orgUser) {
     return <LoadingSkeleton />;
   }
 
   const devicesUsed = devices?.length ?? 0;
-
-  const planVariant = (plan: AdminUser['plan']) => {
-    switch (plan) {
-      case 'Pro':
-        return 'default';
-      case 'Enterprise':
-        return 'destructive';
-      default:
-        return 'secondary';
-    }
-  };
+  const totalDeviceQuota = departments.reduce((acc, dept) => acc + dept.devices, 0);
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Profile & Settings</h1>
         <p className="text-muted-foreground">
-          View your account details and subscription status.
+          View your organization's details and aggregate subscription status.
         </p>
       </div>
 
       <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
         <Card className="lg:col-span-1">
           <CardHeader>
-            <CardTitle>Account Information</CardTitle>
-            <CardDescription>Your personal and location details.</CardDescription>
+            <CardTitle>Organization Information</CardTitle>
+            <CardDescription>Details for {orgUser.organizationName}.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
              <div className="flex items-center gap-4">
               <Globe className="h-5 w-5 text-muted-foreground" />
               <div>
                 <p className="text-sm font-medium">Organization</p>
-                <p className="text-sm text-foreground">{adminUser.organizationName}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
-              <User className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-medium">Department Name</p>
-                <p className="text-sm text-foreground">{adminUser.departmentName}</p>
+                <p className="text-sm text-foreground">{orgUser.organizationName}</p>
               </div>
             </div>
              <div className="flex items-center gap-4">
-              <MapPin className="h-5 w-5 text-muted-foreground" />
+              <User className="h-5 w-5 text-muted-foreground" />
               <div>
-                <p className="text-sm font-medium">Location</p>
-                <p className="text-sm text-foreground">{adminUser.location}</p>
+                <p className="text-sm font-medium">Contact Email</p>
+                <p className="text-sm text-foreground">{orgUser.email}</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
-              <Building className="h-5 w-5 text-muted-foreground" />
+              <Users className="h-5 w-5 text-muted-foreground" />
               <div>
-                <p className="text-sm font-medium">Building / Floor</p>
-                <p className="text-sm text-foreground">{adminUser.building}, Floor {adminUser.floor}</p>
+                <p className="text-sm font-medium">Total Departments</p>
+                <p className="text-sm text-foreground">{departments.length}</p>
               </div>
             </div>
              <div className="flex items-center gap-4">
@@ -104,7 +89,7 @@ export default function ProfilePage() {
               <div>
                 <p className="text-sm font-medium">Account Created</p>
                 <p className="text-sm text-foreground">
-                  {format(new Date(adminUser.createdAt), "MMMM d, yyyy")}
+                  {format(new Date(orgUser.createdAt), "MMMM d, yyyy")}
                 </p>
               </div>
             </div>
@@ -113,33 +98,26 @@ export default function ProfilePage() {
 
         <Card className="lg:col-span-1">
           <CardHeader>
-            <CardTitle>Subscription & Quotas</CardTitle>
-            <CardDescription>Your current plan and usage limits.</CardDescription>
+            <CardTitle>Aggregate Quotas</CardTitle>
+            <CardDescription>Total usage across all departments.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-4">
-              <Star className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <p className="text-sm font-medium">Subscription Plan</p>
-                <Badge variant={planVariant(adminUser.plan)}>{adminUser.plan}</Badge>
-              </div>
-            </div>
-            <div className="flex items-center gap-4">
               <HardDrive className="h-5 w-5 text-muted-foreground" />
               <div>
-                <p className="text-sm font-medium">Device Quota</p>
-                <p className="text-sm text-foreground">{devicesUsed} / {adminUser.devices} Devices</p>
+                <p className="text-sm font-medium">Total Device Quota</p>
+                <p className="text-sm text-foreground">{devicesUsed} / {totalDeviceQuota} Devices</p>
               </div>
             </div>
             <div className="flex items-center gap-4">
-              {adminUser.status === 'active' ? (
-                <CheckCircle className="h-5 w-5 text-green-400" />
-              ) : (
-                <XCircle className="h-5 w-5 text-red-500" />
-              )}
+              <Star className="h-5 w-5 text-muted-foreground" />
               <div>
-                <p className="text-sm font-medium">Account Status</p>
-                <p className="text-sm text-foreground capitalize">{adminUser.status}</p>
+                <p className="text-sm font-medium">Plans in Use</p>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {Array.from(new Set(departments.map(d => d.plan))).map(plan => (
+                     <Badge key={plan} variant={plan === 'Pro' ? 'default' : plan === 'Enterprise' ? 'destructive' : 'secondary'}>{plan}</Badge>
+                  ))}
+                </div>
               </div>
             </div>
           </CardContent>
@@ -148,3 +126,5 @@ export default function ProfilePage() {
     </div>
   );
 }
+
+    

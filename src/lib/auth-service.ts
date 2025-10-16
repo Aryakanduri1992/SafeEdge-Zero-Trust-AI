@@ -10,15 +10,15 @@ import {
   signOut,
   type User as FirebaseUser
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateAdminData } from './types';
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, addDoc } from 'firebase/firestore';
+import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateAdminData, Organization } from './types';
 import { initializeFirebase } from '@/firebase';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
 
 const { auth, firestore } = initializeFirebase();
 
-export const fetchUserProfile = async (uid: string): Promise<SuperAdminUser | AdminUser | null> => {
+export const fetchUserProfile = async (uid: string): Promise<SuperAdminUser | Organization | null> => {
     const superAdminRef = doc(firestore, "roles_super_admin", uid);
     
     try {
@@ -38,14 +38,14 @@ export const fetchUserProfile = async (uid: string): Promise<SuperAdminUser | Ad
         throw permissionError;
     }
 
-    const adminRef = doc(firestore, "admins", uid);
+    const orgRef = doc(firestore, "organizations", uid);
     try {
-        const adminSnap = await getDoc(adminRef);
-        if (adminSnap.exists()) {
-            return { ...adminSnap.data(), id: uid } as AdminUser;
+        const orgSnap = await getDoc(orgRef);
+        if (orgSnap.exists()) {
+            return { ...orgSnap.data(), id: uid, role: 'admin' } as Organization;
         }
     } catch (serverError: any) {
-         const permissionError = new FirestorePermissionError({ path: adminRef.path, operation: 'get' });
+         const permissionError = new FirestorePermissionError({ path: orgRef.path, operation: 'get' });
         errorEmitter.emit('permission-error', permissionError);
         throw permissionError;
     }
@@ -59,9 +59,7 @@ export const login = async (credentials: LoginCredentials, role: 'admin' | 'supe
   if (!password) {
       throw new Error("Password is required for login.");
   }
-  // We await here to catch immediate errors like wrong password
   await signInWithEmailAndPassword(auth, email, password);
-  // Successful login will trigger onAuthStateChanged in AuthProvider
 };
 
 
@@ -70,63 +68,105 @@ export const logout = async (): Promise<void> => {
 };
 
 export const createAdmin = async (adminData: NewAdminData, superAdminId: string): Promise<void> => {
-    // Create a temporary, secondary Firebase app instance.
-    // This allows us to create a new user without affecting the currently signed-in super admin's auth state.
+    const isAddingDepartment = !!adminData.organizationId;
     const tempAppName = `temp-admin-creation-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
 
     try {
-        // Check if an admin with this email already exists in Firestore before creating the auth user
-        const adminsRef = collection(firestore, 'admins');
-        const q = query(adminsRef, where("email", "==", adminData.email));
-        const querySnapshot = await getDocs(q);
-        if (!querySnapshot.empty) {
-            throw new Error(`An account with the email ${adminData.email} already exists.`);
-        }
-        
-        // 1. Create the new user in the temporary auth instance.
-        const userCredential = await createUserWithEmailAndPassword(tempAuth, adminData.email, adminData.password);
-        const newAdminUID = userCredential.user.uid;
-
-        // 2. Create the Firestore document for the new admin.
-        const newAdminProfile: Omit<AdminUser, 'id'> = {
-            departmentName: adminData.departmentName,
-            organizationName: adminData.organizationName,
-            email: adminData.email,
-            building: adminData.building,
-            floor: adminData.floor,
-            location: adminData.location,
-            role: 'admin',
-            createdAt: new Date().toISOString(),
-            devices: 1,
-            plan: 'Free',
-            superAdminId: superAdminId,
-            status: 'active',
-        };
-
-        const adminDocRef = doc(firestore, "admins", newAdminUID);
-        
-        await setDoc(adminDocRef, newAdminProfile).catch(serverError => {
-            const permissionError = new FirestorePermissionError({
-                path: adminDocRef.path,
-                operation: 'create',
-                requestResourceData: newAdminProfile,
+        if (isAddingDepartment) {
+            // Logic for adding a department to an existing organization
+            const departmentCollectionRef = collection(firestore, 'admins');
+            const newDepartmentProfile: Omit<AdminUser, 'id'> = {
+                departmentName: adminData.departmentName,
+                organizationName: adminData.organizationName,
+                email: adminData.email,
+                building: adminData.building,
+                floor: adminData.floor,
+                location: adminData.location,
+                role: 'admin',
+                createdAt: new Date().toISOString(),
+                devices: 1, // Default for new department
+                plan: 'Free', // Default for new department
+                superAdminId: superAdminId,
+                status: 'active',
+                organizationId: adminData.organizationId!,
+            };
+            await addDoc(departmentCollectionRef, newDepartmentProfile).catch(serverError => {
+                 const permissionError = new FirestorePermissionError({
+                    path: departmentCollectionRef.path,
+                    operation: 'create',
+                    requestResourceData: newDepartmentProfile,
+                });
+                errorEmitter.emit('permission-error', permissionError);
+                throw permissionError;
             });
-            errorEmitter.emit('permission-error', permissionError);
-            // Attempt to delete the orphaned auth user
-            userCredential.user.delete().catch(delError => console.error("Failed to delete orphaned auth user", delError));
-            throw permissionError;
-        });
 
-    } catch (error: any) {
-        console.error("Error creating admin user:", error);
-        if (error.code === 'auth/email-already-in-use' || (error.message && error.message.includes('already exists'))) {
-             throw new Error(`The email address ${adminData.email} is already in use by another account.`);
+        } else {
+            // Logic for creating a new organization
+            const orgsRef = collection(firestore, 'organizations');
+            const q = query(orgsRef, where("email", "==", adminData.email));
+            const querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+                throw new Error(`An organization with the email ${adminData.email} already exists.`);
+            }
+
+            const userCredential = await createUserWithEmailAndPassword(tempAuth, adminData.email, adminData.password);
+            const newOrgUID = userCredential.user.uid;
+
+            const newOrgProfile: Omit<Organization, 'id' | 'role'> = {
+                organizationName: adminData.organizationName,
+                email: adminData.email,
+                createdAt: new Date().toISOString(),
+                superAdminId: superAdminId,
+            };
+            const orgDocRef = doc(firestore, "organizations", newOrgUID);
+            await setDoc(orgDocRef, newOrgProfile).catch(async (serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: orgDocRef.path,
+                    operation: 'create',
+                    requestResourceData: newOrgProfile,
+                });
+                errorEmitter.emit('permission-error', permissionError);
+                await userCredential.user.delete().catch(delError => console.error("Failed to delete orphaned auth user", delError));
+                throw permissionError;
+            });
+            
+            // Now create the first department for this new organization
+            const departmentCollectionRef = collection(firestore, 'admins');
+            const newDepartmentProfile: Omit<AdminUser, 'id'> = {
+                departmentName: adminData.departmentName,
+                organizationName: adminData.organizationName,
+                email: adminData.email,
+                building: adminData.building,
+                floor: adminData.floor,
+                location: adminData.location,
+                role: 'admin',
+                createdAt: new Date().toISOString(),
+                devices: 1,
+                plan: 'Free',
+                superAdminId: superAdminId,
+                status: 'active',
+                organizationId: newOrgUID,
+            };
+            await addDoc(departmentCollectionRef, newDepartmentProfile).catch(async (serverError) => {
+                 const permissionError = new FirestorePermissionError({
+                    path: departmentCollectionRef.path,
+                    operation: 'create',
+                    requestResourceData: newDepartmentProfile,
+                });
+                errorEmitter.emit('permission-error', permissionError);
+                 await userCredential.user.delete().catch(delError => console.error("Failed to delete orphaned auth user", delError));
+                throw permissionError;
+            });
         }
-        throw error; // Re-throw other errors to be caught by the form
+    } catch (error: any) {
+        console.error("Error creating admin/org:", error);
+        if (error.code === 'auth/email-already-in-use' || (error.message && error.message.includes('already exists'))) {
+             throw new Error(`An account with the email ${adminData.email} is already in use.`);
+        }
+        throw error;
     } finally {
-        // Sign out from the temp auth instance and delete the app
         const tempUser = tempAuth.currentUser;
         if (tempUser) {
             await signOut(tempAuth);
@@ -219,3 +259,5 @@ const seedSuperAdmin = async () => {
 if (typeof window !== 'undefined') {
     seedSuperAdmin();
 }
+
+    

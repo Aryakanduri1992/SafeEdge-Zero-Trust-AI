@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
   Table,
   TableBody,
@@ -35,7 +35,7 @@ import {
   SignalHigh,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Device, DeviceStatus, AdminUser } from "@/lib/types";
+import { Device, DeviceStatus, Organization } from "@/lib/types";
 import { useToast } from "@/hooks/use-toast";
 import { DeviceForm } from "./device-form";
 import { DeleteDeviceDialog } from "./delete-device-dialog";
@@ -83,25 +83,27 @@ export function DeviceList() {
   const [isMutationLoading, setIsMutationLoading] = useState(false);
   const { toast } = useToast();
   const { user, departments } = useAuth();
-  const adminUser = user as AdminUser;
+  const orgUser = user as Organization;
   const firestore = useFirestore();
 
+  const departmentIds = useMemo(() => departments.map(d => d.id), [departments]);
+
   const devicesQuery = useMemoFirebase(() => {
-    if (!firestore || !user?.id) return null;
-    return query(collection(firestore, "devices"), where("adminId", "==", user.id));
-  }, [firestore, user?.id]);
+    if (!firestore || departmentIds.length === 0) return null;
+    return query(collection(firestore, "devices"), where("adminId", "in", departmentIds));
+  }, [firestore, departmentIds]);
 
   const { data: devices, isLoading: areDevicesLoading } = useCollection<Device>(devicesQuery);
   
   const devicesUsed = devices?.length ?? 0;
-  const maxDevices = adminUser?.devices ?? 10;
+  const maxDevices = useMemo(() => departments.reduce((acc, dept) => acc + dept.devices, 0), [departments]);
 
   const handleAddClick = () => {
     if (devicesUsed >= maxDevices) {
       toast({
         variant: "destructive",
         title: "Quota Exceeded",
-        description: `You have reached your device limit of ${maxDevices}. Please upgrade your plan.`,
+        description: `You have reached your device limit of ${maxDevices}. Please ask your Super Admin to upgrade your plan.`,
       });
       return;
     }
@@ -260,15 +262,16 @@ export function DeviceList() {
                 <TableRow>
                   <TableHead className="w-[100px]">Status</TableHead>
                   <TableHead>Device</TableHead>
+                  <TableHead className="hidden sm:table-cell">Department</TableHead>
                   <TableHead className="hidden md:table-cell">Type</TableHead>
                   <TableHead className="hidden lg:table-cell">Location</TableHead>
-                  <TableHead className="hidden xl:table-cell">Last Seen</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {devices.map((device) => {
                   const statusInfo = getStatusInfo(device.status);
+                  const department = departments.find(d => d.id === device.adminId);
                   return (
                     <TableRow key={device.id}>
                       <TableCell>
@@ -286,11 +289,9 @@ export function DeviceList() {
                           {device.id}
                         </div>
                       </TableCell>
+                      <TableCell className="text-muted-foreground hidden sm:table-cell">{department?.departmentName || 'N/A'}</TableCell>
                       <TableCell className="text-muted-foreground hidden md:table-cell">{device.type}</TableCell>
                       <TableCell className="text-muted-foreground hidden lg:table-cell">{device.location}</TableCell>
-                      <TableCell className="text-muted-foreground hidden xl:table-cell">
-                        {new Date(device.lastSeen).toLocaleString()}
-                      </TableCell>
                       <TableCell className="text-right">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
@@ -345,7 +346,7 @@ export function DeviceList() {
             onSubmit={handleFormSubmit}
             isLoading={isMutationLoading}
             departments={departments}
-            currentUserId={user!.id}
+            currentUserId={departments[0]?.id} // Pass a default department
           />
         </DialogContent>
       </Dialog>
@@ -359,3 +360,5 @@ export function DeviceList() {
     </>
   );
 }
+
+    

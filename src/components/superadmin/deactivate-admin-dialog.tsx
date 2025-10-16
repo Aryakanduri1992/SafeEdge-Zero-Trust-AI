@@ -33,10 +33,10 @@ export function DeactivateAdminDialog({
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Deactivate Organization Account?</AlertDialogTitle>
+          <AlertDialogTitle>Deactivate Department?</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to deactivate the account for "{admin.departmentName}"?
-            They will immediately lose access to their dashboard. This can be undone later if needed.
+            Are you sure you want to deactivate the department "{admin.departmentName}"?
+            This will prevent access for this department but will not affect the rest of the organization. This can be undone later.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -52,3 +52,5 @@ export function DeactivateAdminDialog({
     </AlertDialog>
   );
 }
+
+    

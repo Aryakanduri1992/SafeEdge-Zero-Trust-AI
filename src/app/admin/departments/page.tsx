@@ -2,12 +2,15 @@
 "use client";
 
 import { useAuth } from "@/hooks/use-auth";
-import { AdminUser } from "@/lib/types";
+import { AdminUser, Organization, Device } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, XCircle } from "lucide-react";
+import { CheckCircle, XCircle, HardDrive } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, query, where } from "firebase/firestore";
+import { useMemo } from "react";
 
 const LoadingSkeleton = () => (
   <div className="space-y-4">
@@ -27,9 +30,27 @@ const LoadingSkeleton = () => (
 
 export default function DepartmentsPage() {
   const { user, departments, isLoading } = useAuth();
-  const adminUser = user as AdminUser;
+  const orgUser = user as Organization;
+  const firestore = useFirestore();
 
-  if (isLoading || !adminUser) {
+  const departmentIds = useMemo(() => departments.map(d => d.id), [departments]);
+
+  const devicesQuery = useMemoFirebase(() => {
+    if (!firestore || departmentIds.length === 0) return null;
+    return query(collection(firestore, "devices"), where("adminId", "in", departmentIds));
+  }, [firestore, departmentIds]);
+
+  const { data: allDevices, isLoading: areDevicesLoading } = useCollection<Device>(devicesQuery);
+
+  const devicesByDepartment = useMemo(() => {
+    if (!allDevices) return {};
+    return allDevices.reduce((acc, device) => {
+      acc[device.adminId] = (acc[device.adminId] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+  }, [allDevices]);
+
+  if (isLoading || areDevicesLoading || !orgUser) {
     return <LoadingSkeleton />;
   }
   
@@ -38,14 +59,14 @@ export default function DepartmentsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Departments</h1>
         <p className="text-muted-foreground">
-          Viewing all departments for {adminUser.organizationName}.
+          Viewing all departments for {orgUser.organizationName}.
         </p>
       </div>
       <Card>
         <CardHeader>
           <CardTitle>Department List</CardTitle>
           <CardDescription>
-            A list of all registered departments within your organization.
+            A list of all registered departments within your organization. Click a department to see its devices.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -57,19 +78,26 @@ export default function DepartmentsPage() {
                   <TableHead>Location</TableHead>
                   <TableHead>Building</TableHead>
                   <TableHead>Floor</TableHead>
+                  <TableHead className="text-center">Devices</TableHead>
                   <TableHead className="text-center">Status</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {departments.map((dept) => (
-                  <TableRow key={dept.id}>
+                  <TableRow key={dept.id} className="cursor-pointer hover:bg-muted/20">
                     <TableCell>
                       <div className="font-medium">{dept.departmentName}</div>
-                      <div className="text-xs text-muted-foreground font-mono">{dept.email}</div>
+                      <div className="text-xs text-muted-foreground font-mono">{dept.organizationName}</div>
                     </TableCell>
                     <TableCell>{dept.location}</TableCell>
                     <TableCell>{dept.building}</TableCell>
                     <TableCell>{dept.floor}</TableCell>
+                    <TableCell className="text-center">
+                        <div className="flex items-center justify-center gap-2">
+                           <HardDrive className="h-4 w-4 text-muted-foreground"/> 
+                           <span>{devicesByDepartment[dept.id] || 0} / {dept.devices}</span>
+                        </div>
+                    </TableCell>
                     <TableCell className="text-center">
                       {dept.status === 'active' ? (
                         <Badge variant="outline" className="text-green-400 border-green-400/50"><CheckCircle className="mr-1 h-3 w-3" />Active</Badge>
@@ -83,9 +111,9 @@ export default function DepartmentsPage() {
             </Table>
           ) : (
              <div className="text-center py-16">
-                <h3 className="mt-2 text-lg font-semibold">No Other Departments</h3>
+                <h3 className="mt-2 text-lg font-semibold">No Departments Found</h3>
                 <p className="mt-1 text-sm text-muted-foreground">
-                    This is the only department in this organization.
+                    This organization does not have any departments configured yet.
                 </p>
             </div>
           )}

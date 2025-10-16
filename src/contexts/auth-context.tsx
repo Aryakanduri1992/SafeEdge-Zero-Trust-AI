@@ -4,14 +4,14 @@
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import * as authService from '@/lib/auth-service';
-import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateAdminData, Device } from '@/lib/types';
+import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateAdminData, Device, Organization } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { useUser, useFirestore, FirestorePermissionError, errorEmitter } from '@/firebase';
 import { collection, onSnapshot, Unsubscribe, query, where } from 'firebase/firestore';
 
 type AuthContextType = {
-  user: SuperAdminUser | AdminUser | null;
+  user: SuperAdminUser | Organization | null;
   admins: AdminUser[];
   departments: AdminUser[]; // For admin role to see their org's departments
   allDevices: Device[]; // Added to hold all devices for superadmin
@@ -29,7 +29,7 @@ type AuthContextType = {
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [appUser, setAppUser] = useState<SuperAdminUser | AdminUser | null>(null);
+  const [appUser, setAppUser] = useState<SuperAdminUser | Organization | null>(null);
   const [admins, setAdmins] = useState<AdminUser[]>([]);
   const [departments, setDepartments] = useState<AdminUser[]>([]);
   const [allDevices, setAllDevices] = useState<Device[]>([]);
@@ -43,7 +43,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const handleAuthChange = async () => {
-      // Only proceed when the initial auth state from Firebase has been determined.
       if (isFirebaseUserLoading) {
         setIsAuthLoading(true);
         return;
@@ -51,7 +50,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       
       setIsAuthLoading(true);
 
-      // If Firebase user exists, fetch their profile.
       if (firebaseUser) {
         try {
           const userProfile = await authService.fetchUserProfile(firebaseUser.uid);
@@ -64,7 +62,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 title: 'Profile Not Found',
                 description: 'Your user profile could not be found. Please log in again.',
              });
-             // Redirect only if not already on a public login page
              if (!pathname.includes('login')) {
                 router.replace('/admin-login');
              }
@@ -72,19 +69,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
              return;
           }
 
-          if (userProfile.role === 'admin' && userProfile.status === 'inactive') {
-            await authService.logout();
-            setAppUser(null);
-            toast({
-              variant: 'destructive',
-              title: 'Account Deactivated',
-              description: 'Your account is inactive. Please contact your super admin.',
-            });
-            router.replace('/admin-login');
-            setIsAuthLoading(false);
-            return;
-          }
-          
           setAppUser(userProfile);
           
           const onAdminLoginPage = pathname.includes('admin-login');
@@ -111,7 +95,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } finally {
             setIsAuthLoading(false);
         }
-      } else { // No Firebase user
+      } else {
         setAppUser(null);
         setIsAuthLoading(false);
         const isAuthProtectedRoute = pathname.startsWith('/admin') || pathname.startsWith('/superadmin');
@@ -128,63 +112,63 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [firebaseUser, isFirebaseUserLoading, router, pathname, toast]);
 
   const refreshAdmins = useCallback(async () => {
-    if (appUser?.role === 'superadmin' && firestore) {
-      // This is handled by the real-time listener below
-    }
-  }, [appUser, firestore]);
+    // This is handled by the real-time listener
+  }, []);
 
   useEffect(() => {
     let adminsUnsubscribe: Unsubscribe | undefined;
     let devicesUnsubscribe: Unsubscribe | undefined;
     let departmentsUnsubscribe: Unsubscribe | undefined;
 
-    if (appUser?.role === 'superadmin' && firestore) {
-      const adminsQuery = query(collection(firestore, 'admins'));
-      adminsUnsubscribe = onSnapshot(adminsQuery, (snapshot) => {
-        const adminList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as AdminUser));
-        setAdmins(adminList);
-      }, (serverError) => {
-        const permissionError = new FirestorePermissionError({
-            path: 'admins',
-            operation: 'list',
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        setAdmins([]);
-      });
-
-      const devicesQuery = query(collection(firestore, 'devices'));
-      devicesUnsubscribe = onSnapshot(devicesQuery, (snapshot) => {
-        const deviceList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Device));
-        setAllDevices(deviceList);
-      }, (serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: 'devices',
-          operation: 'list',
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        setAllDevices([]);
-      });
-
-    } else if (appUser?.role === 'admin' && firestore) {
-        const adminUser = appUser as AdminUser;
-        const departmentsQuery = query(collection(firestore, 'admins'), where("organizationName", "==", adminUser.organizationName));
-        departmentsUnsubscribe = onSnapshot(departmentsQuery, (snapshot) => {
-            const deptList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as AdminUser));
-            setDepartments(deptList);
+    if (firestore) {
+      if (appUser?.role === 'superadmin') {
+        const adminsQuery = query(collection(firestore, 'admins'));
+        adminsUnsubscribe = onSnapshot(adminsQuery, (snapshot) => {
+          const adminList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as AdminUser));
+          setAdmins(adminList);
         }, (serverError) => {
-            const permissionError = new FirestorePermissionError({
-                path: `admins`,
-                operation: 'list',
-            });
-            errorEmitter.emit('permission-error', permissionError);
-            setDepartments([]);
+          const permissionError = new FirestorePermissionError({
+              path: 'admins',
+              operation: 'list',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+          setAdmins([]);
         });
+
+        const devicesQuery = query(collection(firestore, 'devices'));
+        devicesUnsubscribe = onSnapshot(devicesQuery, (snapshot) => {
+          const deviceList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Device));
+          setAllDevices(deviceList);
+        }, (serverError) => {
+          const permissionError = new FirestorePermissionError({
+            path: 'devices',
+            operation: 'list',
+          });
+          errorEmitter.emit('permission-error', permissionError);
+          setAllDevices([]);
+        });
+
+      } else if (appUser?.role === 'admin') {
+          const departmentsQuery = query(collection(firestore, 'admins'), where("organizationId", "==", appUser.id));
+          departmentsUnsubscribe = onSnapshot(departmentsQuery, (snapshot) => {
+              const deptList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as AdminUser));
+              setDepartments(deptList);
+          }, (serverError) => {
+              const permissionError = new FirestorePermissionError({
+                  path: `admins`,
+                  operation: 'list',
+              });
+              errorEmitter.emit('permission-error', permissionError);
+              setDepartments([]);
+          });
+      }
+      else {
+          setAdmins([]);
+          setAllDevices([]);
+          setDepartments([]);
+      }
     }
-    else {
-        setAdmins([]);
-        setAllDevices([]);
-        setDepartments([]);
-    }
+    
     return () => {
         if (adminsUnsubscribe) adminsUnsubscribe();
         if (devicesUnsubscribe) devicesUnsubscribe();
@@ -204,15 +188,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
         setIsAuthLoading(false);
     }
-    // The onAuthStateChanged listener will handle profile fetching and redirection.
   };
 
   const logout = async (): Promise<void> => {
     const previousRole = appUser?.role;
     await authService.logout();
     setAppUser(null);
-    setAdmins([]); // Clear admin list on logout
-    setAllDevices([]); // Clear device list on logout
+    setAdmins([]);
+    setAllDevices([]);
     if (previousRole === 'superadmin') {
       router.push('/superadmin-login');
     } else {
@@ -240,8 +223,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     await authService.deactivateAdmin(adminId);
     toast({
-      title: "Organization Deactivated",
-      description: "The organization account has been successfully deactivated.",
+      title: "Department Deactivated",
+      description: "The department has been successfully deactivated.",
     });
   };
 
@@ -251,12 +234,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     await authService.activateAdmin(adminId);
     toast({
-      title: "Organization Activated",
-      description: "The organization account has been successfully activated.",
+      title: "Department Activated",
+      description: "The department has been successfully activated.",
     });
   };
 
-  // Combines Firebase loading state with our application's auth processing state.
   const isLoading = isFirebaseUserLoading || isAuthLoading;
   
   const contextValue = { 

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -41,7 +42,7 @@ export function EditAdminForm({ admin, onFinished }: EditAdminFormProps) {
     try {
       await updateAdmin(admin.id, values);
       toast({
-        title: 'Organization Update Initiated',
+        title: 'Department Update Initiated',
         description: `${admin.departmentName}'s profile is being updated.`,
       });
       onFinished();
@@ -108,3 +109,5 @@ export function EditAdminForm({ admin, onFinished }: EditAdminFormProps) {
     </Form>
   );
 }
+
+    

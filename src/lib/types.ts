@@ -9,25 +9,36 @@ export type AdminStatus = 'active' | 'inactive';
 
 export interface BaseUser {
   id: string; // Firebase Auth UID
-  departmentName: string;
   email: string;
   role: UserRole;
 }
 
-export interface AdminUser extends BaseUser {
-  role: 'admin';
+export interface Organization extends BaseUser {
+    role: 'admin';
+    organizationName: string;
+    createdAt: string; // ISO String
+    superAdminId: string;
+}
+
+export interface AdminUser {
+  id: string; // Firestore Document ID
+  departmentName: string;
   organizationName: string;
+  email: string; // This will be the organization's email
   building: string;
   floor: string;
   location: string;
+  role: 'admin';
   createdAt: string; // ISO String
-  devices: number;
+  devices: number; // quota for this department
   plan: Plan;
-  superAdminId: string; // UID of the superadmin who created this admin
+  superAdminId: string;
   status: AdminStatus;
+  organizationId: string; // Firebase Auth UID of the organization
 }
 
 export interface SuperAdminUser extends BaseUser {
+  departmentName: string;
   role: 'superadmin';
 }
 
@@ -37,7 +48,7 @@ export interface Device {
     location: string;
     status: DeviceStatus;
     lastSeen: string; // ISO String
-    adminId: string;
+    adminId: string; // This is the ID of the AdminUser (department) document
     type: DeviceType;
     description?: string;
 }
@@ -50,7 +61,7 @@ export interface Alert {
   type: string;
   severity: AlertSeverity;
   status: AlertStatus;
-  createdAt: string; // ISO String
+  createdAt: string; // ISO String;
   details?: string;
 }
 
@@ -60,15 +71,20 @@ export interface LoginCredentials {
   password?: string;
 }
 
-export type NewAdminData = Required<Pick<LoginCredentials, 'email' | 'password'>> & { 
+export type NewAdminData = { 
   departmentName: string, 
   organizationName: string,
+  email: string,
+  password?: string, // Optional for adding departments to existing orgs
   building: string, 
   floor: string,
-  location: string
+  location: string,
+  organizationId?: string, // UID of parent organization, if adding a department
 };
 
 export type UpdateAdminData = {
   plan: Plan;
   devices: number;
 };
+
+    
