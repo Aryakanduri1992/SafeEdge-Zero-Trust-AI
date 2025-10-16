@@ -27,7 +27,6 @@ type CreateAdminFormProps = {
   initialValues: {
     organizationName: string;
     email?: string;
-    password?: string;
   };
 };
 
@@ -44,7 +43,7 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
       departmentName: '',
       organizationName: initialValues.organizationName || '',
       email: initialValues.email || '',
-      password: initialValues.password || '',
+      password: '',
       building: '',
       floor: '',
       location: '',
@@ -56,7 +55,7 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
       departmentName: '',
       organizationName: initialValues.organizationName || '',
       email: initialValues.email || '',
-      password: initialValues.password || '',
+      password: '', // Always clear password for security
       building: '',
       floor: '',
       location: '',
@@ -70,9 +69,10 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
     if (isAddingDepartment && initialValues.email) {
       const baseEmail = initialValues.email;
       const atIndex = baseEmail.indexOf('@');
+      const emailUser = atIndex !== -1 ? baseEmail.substring(0, atIndex) : baseEmail;
       const emailDomain = atIndex !== -1 ? baseEmail.substring(atIndex) : '';
       const sanitizedDeptName = values.departmentName.toLowerCase().replace(/[^a-z0-9]/g, '');
-      finalEmail = `${sanitizedDeptName}${emailDomain}`;
+      finalEmail = `${emailUser.split('+')[0]}+${sanitizedDeptName}${emailDomain}`;
     }
 
     const finalValues = {
@@ -83,20 +83,16 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
     try {
       await createAdmin(finalValues);
       toast({
-        title: isAddingDepartment ? 'Department Created' : 'Admin Creation Initiated',
-        description: `Account for ${values.departmentName} is being created.`,
+        title: isAddingDepartment ? 'Department Created' : 'Organization Created',
+        description: `Account for ${values.departmentName} has been created.`,
       });
       form.reset({
         ...form.getValues(),
         departmentName: '',
-        // Keep org name for next entry if adding departments
-        organizationName: values.organizationName, 
         building: '',
         floor: '',
         location: '',
-        // Don't reset email/password if they are part of the initial values
-        email: initialValues.email || '',
-        password: initialValues.password || '',
+        password: '', // Clear password after submission
       });
       onFinished();
     } catch (error: any) {
@@ -120,7 +116,7 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
             <FormItem>
               <FormLabel>Organization Name</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., AuthStation Inc." {...field} disabled={isAddingDepartment}/>
+                <Input placeholder="e.g., AuthStation Inc." {...field} disabled={!!initialValues.organizationName}/>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -139,36 +135,32 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
             </FormItem>
           )}
         />
-        {!isAddingDepartment && (
-            <>
-                <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Organization Email</FormLabel>
-                    <FormControl>
-                        <Input placeholder="admin@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
-                <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Password</FormLabel>
-                    <FormControl>
-                        <Input type="password" placeholder="Generate or enter a strong password" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
-            </>
-        )}
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Organization Email</FormLabel>
+              <FormControl>
+                <Input placeholder="admin@example.com" {...field} disabled={isAddingDepartment} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="password"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Password</FormLabel>
+              <FormControl>
+                  <Input type="password" placeholder="Generate or enter a strong password" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
          <FormField
           control={form.control}
           name="location"
@@ -222,9 +214,3 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
     </Form>
   );
 }
-
-    
-
-    
-
-    

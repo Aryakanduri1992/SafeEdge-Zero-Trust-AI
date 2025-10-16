@@ -104,7 +104,6 @@ export default function SuperAdminDashboardPage() {
   const [createFormInitialValues, setCreateFormInitialValues] = useState<{
     organizationName: string;
     email?: string;
-    password?: string;
   }>({ organizationName: '' });
 
 
@@ -168,7 +167,6 @@ export default function SuperAdminDashboardPage() {
     setCreateFormInitialValues({ 
       organizationName: admin.organizationName,
       email: admin.email,
-      password: admin.password,
     });
     setIsCreateDialogOpen(true);
   };
@@ -226,7 +224,7 @@ export default function SuperAdminDashboardPage() {
             <DialogHeader>
               <DialogTitle>Registered Organizations</DialogTitle>
               <DialogDescription>
-                Click an organization to see its registered administrators.
+                Click an organization to see its registered departments.
               </DialogDescription>
             </DialogHeader>
             <div className="max-h-[60vh] overflow-y-auto pr-4">
@@ -592,9 +590,3 @@ export default function SuperAdminDashboardPage() {
     </div>
   );
 }
-
-    
-
-      
-
-    

@@ -25,7 +25,6 @@ export interface AdminUser extends BaseUser {
   plan: Plan;
   superAdminId: string; // UID of the superadmin who created this admin
   status: AdminStatus;
-  password?: string; // Optional: only used for "add department" flow
 }
 
 export interface SuperAdminUser extends BaseUser {
@@ -73,5 +72,3 @@ export type UpdateAdminData = {
   plan: Plan;
   devices: number;
 };
-
-    

@@ -42,7 +42,7 @@ export const fetchUserProfile = async (uid: string): Promise<SuperAdminUser | Ad
     try {
         const adminSnap = await getDoc(adminRef);
         if (adminSnap.exists()) {
-            return { ...adminSnap.data(), id: uid, password: '••••••••' } as AdminUser; // Add dummy password
+            return { ...adminSnap.data(), id: uid } as AdminUser;
         }
     } catch (serverError: any) {
          const permissionError = new FirestorePermissionError({ path: adminRef.path, operation: 'get' });
@@ -103,7 +103,6 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
             plan: 'Free',
             superAdminId: superAdminId,
             status: 'active',
-            password: adminData.password, // Storing password for "add department" flow.
         };
 
         const adminDocRef = doc(firestore, "admins", newAdminUID);
@@ -115,12 +114,14 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
                 requestResourceData: newAdminProfile,
             });
             errorEmitter.emit('permission-error', permissionError);
+            // Attempt to delete the orphaned auth user
+            userCredential.user.delete().catch(delError => console.error("Failed to delete orphaned auth user", delError));
             throw permissionError;
         });
 
     } catch (error: any) {
         console.error("Error creating admin user:", error);
-        if (error.code === 'auth/email-already-in-use') {
+        if (error.code === 'auth/email-already-in-use' || (error.message && error.message.includes('already exists'))) {
              throw new Error(`The email address ${adminData.email} is already in use by another account.`);
         }
         throw error; // Re-throw other errors to be caught by the form
@@ -218,5 +219,3 @@ const seedSuperAdmin = async () => {
 if (typeof window !== 'undefined') {
     seedSuperAdmin();
 }
-
-    
