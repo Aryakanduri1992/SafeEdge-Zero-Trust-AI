@@ -158,6 +158,21 @@ export const deactivateAdmin = async (adminId: string): Promise<void> => {
     });
 };
 
+export const activateAdmin = async (adminId: string): Promise<void> => {
+    const adminDocRef = doc(firestore, "admins", adminId);
+    const updateData = { status: 'active' };
+    await updateDoc(adminDocRef, updateData).catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+            path: adminDocRef.path,
+            operation: 'update',
+            requestResourceData: updateData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        throw permissionError;
+    });
+};
+
+
 const seedSuperAdmin = async () => {
     const superAdminEmail = 'super@authstation.com';
     const superAdminPassword = 'super-password';

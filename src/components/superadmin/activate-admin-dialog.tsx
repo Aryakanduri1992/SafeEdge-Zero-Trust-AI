@@ -1,0 +1,54 @@
+
+"use client";
+
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { buttonVariants } from "@/components/ui/button";
+import { AdminUser } from "@/lib/types";
+
+type ActivateAdminDialogProps = {
+  isOpen: boolean;
+  onOpenChange: (open: boolean) => void;
+  admin: AdminUser | null;
+  onConfirm: () => void;
+};
+
+export function ActivateAdminDialog({
+  isOpen,
+  onOpenChange,
+  admin,
+  onConfirm,
+}: ActivateAdminDialogProps) {
+  if (!admin) return null;
+
+  return (
+    <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Activate Admin Account?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Are you sure you want to reactivate the account for "{admin.name}"?
+            They will immediately regain access to their dashboard.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={onConfirm}
+            className={buttonVariants({ variant: "default" })}
+          >
+            Activate
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}

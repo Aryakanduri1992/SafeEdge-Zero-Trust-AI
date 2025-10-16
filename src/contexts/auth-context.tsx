@@ -21,6 +21,7 @@ type AuthContextType = {
   createAdmin: (adminData: NewAdminData) => Promise<void>;
   updateAdmin: (adminId: string, adminData: UpdateAdminData) => Promise<void>;
   deactivateAdmin: (adminId: string) => Promise<void>;
+  activateAdmin: (adminId: string) => Promise<void>;
   refreshAdmins: () => Promise<void>;
 };
 
@@ -224,6 +225,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
+  const activateAdmin = async (adminId: string) => {
+    if (!appUser || appUser.role !== 'superadmin') {
+      throw new Error("Unauthorized");
+    }
+    await authService.activateAdmin(adminId);
+    toast({
+      title: "Admin Activated",
+      description: "The admin account has been successfully activated.",
+    });
+  };
+
   // Combines Firebase loading state with our application's auth processing state.
   const isLoading = isFirebaseUserLoading || isAuthLoading;
   
@@ -238,6 +250,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     createAdmin, 
     updateAdmin, 
     deactivateAdmin,
+    activateAdmin,
     refreshAdmins 
   };
 
