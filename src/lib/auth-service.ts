@@ -81,10 +81,9 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
     let newOrgUID = '';
 
     try {
-        // Check if the email is already in use in Firebase Auth
-        const signInMethods = await fetchSignInMethodsForEmail(tempAuth, adminData.email);
+        const signInMethods = await fetchSignInMethodsForEmail(auth, adminData.email);
         if (signInMethods.length > 0) {
-            throw new Error(`An account with the email ${adminData.email} already exists. Please use a different email.`);
+            throw new Error(`An account with the email ${adminData.email} already exists.`);
         }
 
         const userCredential = await createUserWithEmailAndPassword(tempAuth, adminData.email, adminData.password);
@@ -124,11 +123,7 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
         await batch.commit();
 
     } catch (error: any) {
-        if (newOrgUID) {
-            console.error(`Cleanup needed: Auth user ${newOrgUID} was created but Firestore writes failed.`);
-        }
-
-        if (error.code === 'auth/email-already-in-use') {
+        if (error.code === 'auth/email-already-in-use' || error.message.includes('already exists')) {
              throw new Error(`An account with the email ${adminData.email} is already in use.`);
         }
         
@@ -136,10 +131,14 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
         const permissionError = new FirestorePermissionError({
             path: 'organizations', // A representative path for the batch
             operation: 'create',
-            requestResourceData: adminData,
+            requestResourceData: { 
+              organizationName: adminData.organizationName,
+              email: adminData.email,
+              departments: adminData.departments
+            }, // Pass only the relevant data
         });
         errorEmitter.emit('permission-error', permissionError);
-        throw error; // Rethrow original or permission error
+        throw permissionError; // Rethrow permission error
 
     } finally {
         await signOut(tempAuth).catch(() => {});
