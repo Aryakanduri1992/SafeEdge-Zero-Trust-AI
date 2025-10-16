@@ -13,15 +13,17 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, UserPlus } from 'lucide-react';
 import { AdminUser } from '@/lib/types';
 
-const formSchema = z.object({
+// Base schema for all fields
+const baseSchema = z.object({
   departmentName: z.string().min(2, { message: 'Department Name must be at least 2 characters.' }),
   organizationName: z.string().min(2, { message: 'Organization Name must be at least 2 characters.' }),
   email: z.string().email({ message: 'Please enter a valid email.' }),
-  password: z.string().min(8, { message: 'Password must be at least 8 characters.' }),
+  password: z.string().optional(), // Optional for the base, will be enforced dynamically
   building: z.string().min(1, { message: 'Building is required.' }),
   floor: z.string().min(1, { message: 'Floor is required.' }),
   location: z.string().min(2, { message: 'Location is required.' }),
 });
+
 
 type CreateAdminFormProps = {
   onFinished: () => void;
@@ -39,13 +41,14 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
 
   const isAddingDepartment = !!initialValues.organizationId;
   
-  // Dynamically adjust validation schema based on whether we're adding a department or creating a new org
-  const currentSchema = isAddingDepartment
-    ? formSchema.omit({ password: true, email: true, organizationName: true })
-    : formSchema;
+  // Dynamically create the schema based on the context
+  const formSchema = baseSchema.refine(data => isAddingDepartment || (data.password && data.password.length >= 8), {
+    message: 'Password must be at least 8 characters for new organizations.',
+    path: ['password'],
+  });
 
   const form = useForm<z.infer<typeof formSchema>>({
-    resolver: zodResolver(currentSchema),
+    resolver: zodResolver(formSchema),
     defaultValues: {
       departmentName: '',
       organizationName: initialValues.organizationName || '',
@@ -57,13 +60,13 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
     },
   });
 
-  // Reset form when initial values change
+  // Reset form when initial values change, preserving org details if they exist
   useEffect(() => {
     form.reset({
       departmentName: '',
       organizationName: initialValues.organizationName || '',
       email: initialValues.email || '',
-      password: '', // Always clear password for security
+      password: '', // Always clear password
       building: '',
       floor: '',
       location: '',
@@ -72,12 +75,12 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
-
+    
+    // Ensure all required values are passed correctly, including the orgId
     const finalValues = {
       ...values,
-      password: values.password || '', // ensure password is not undefined
       organizationId: initialValues.organizationId,
-      email: initialValues.email || values.email, // Use initial email if available
+      email: initialValues.email || values.email, 
       organizationName: initialValues.organizationName || values.organizationName,
     };
     
@@ -85,16 +88,7 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
       await createAdmin(finalValues);
       toast({
         title: isAddingDepartment ? 'Department Created' : 'Organization Created',
-        description: `Department ${values.departmentName} has been created.`,
-      });
-      // Reset only department-specific fields after successful submission
-      form.reset({
-        ...form.getValues(),
-        departmentName: '',
-        building: '',
-        floor: '',
-        location: '',
-        password: '',
+        description: `Department "${values.departmentName}" has been successfully created.`,
       });
       onFinished();
     } catch (error: any) {
@@ -144,9 +138,9 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
                 name="email"
                 render={({ field }) => (
                     <FormItem>
-                    <FormLabel>Organization Email</FormLabel>
+                    <FormLabel>Organization Login Email</FormLabel>
                     <FormControl>
-                        <Input placeholder="admin@example.com" {...field} />
+                        <Input placeholder="contact@organization.com" {...field} />
                     </FormControl>
                     <FormMessage />
                     </FormItem>
@@ -159,7 +153,7 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
                     <FormItem>
                     <FormLabel>Password</FormLabel>
                     <FormControl>
-                        <Input type="password" placeholder="Generate or enter a strong password" {...field} />
+                        <Input type="password" placeholder="Enter a strong password" {...field} />
                     </FormControl>
                     <FormMessage />
                     </FormItem>
@@ -220,5 +214,3 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
     </Form>
   );
 }
-
-    
