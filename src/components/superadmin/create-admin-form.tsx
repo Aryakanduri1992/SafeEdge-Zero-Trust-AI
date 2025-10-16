@@ -36,7 +36,8 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
   const { createAdmin } = useAuth();
   const { toast } = useToast();
   
-  const [isAddingDepartment, setIsAddingDepartment] = useState(!!initialValues.organizationId);
+  // Directly determine the mode from props. This is more reliable than useEffect.
+  const isAddingDepartment = !!initialValues.organizationId;
 
   const formSchema = baseSchema.refine(data => isAddingDepartment || (data.password && data.password.length >= 8), {
     message: 'Password must be at least 8 characters for new organizations.',
@@ -45,6 +46,7 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
+    // Reset default values based on the mode
     defaultValues: {
       departmentName: '',
       organizationName: initialValues.organizationName || '',
@@ -55,10 +57,10 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
       location: '',
     },
   });
-
+  
+  // This useEffect ensures the form resets if the initialValues prop changes
+  // while the component is still mounted (e.g., re-opening the dialog).
   useEffect(() => {
-    const isAdding = !!initialValues.organizationId;
-    setIsAddingDepartment(isAdding);
     form.reset({
       departmentName: '',
       organizationName: initialValues.organizationName || '',
@@ -70,6 +72,7 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
     });
   }, [initialValues, form]);
 
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     
@@ -78,6 +81,7 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
       organizationId: initialValues.organizationId,
       email: initialValues.email || values.email, 
       organizationName: initialValues.organizationName || values.organizationName,
+      // CRITICAL: Ensure password is not sent when adding a department
       password: isAddingDepartment ? undefined : values.password
     };
     
