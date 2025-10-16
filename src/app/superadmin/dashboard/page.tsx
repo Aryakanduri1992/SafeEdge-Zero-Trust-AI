@@ -407,7 +407,7 @@ export default function SuperAdminDashboardPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name, email, building, or floor..."
+                placeholder="Search by department, email, building, or floor..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -436,10 +436,10 @@ export default function SuperAdminDashboardPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Name</TableHead>
+                <TableHead>Admin</TableHead>
                 <TableHead className="hidden md:table-cell">Location</TableHead>
                 <TableHead className="text-center hidden sm:table-cell">Status</TableHead>
-                <TableHead className="text-center">Plan</TableHead>
+                <TableHead className="text-center hidden lg:table-cell">Plan</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -448,10 +448,12 @@ export default function SuperAdminDashboardPage() {
                 <TableRow key={admin.id}>
                   <TableCell className="font-medium">
                     <div>{admin.departmentName}</div>
-                    <div className="text-muted-foreground md:hidden text-xs">{admin.building}, Floor {admin.floor}</div>
                     <div className="text-muted-foreground text-xs font-mono">{admin.email}</div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground hidden md:table-cell">{admin.building}, Floor {admin.floor}</TableCell>
+                  <TableCell className="text-muted-foreground hidden md:table-cell">
+                    <div>{admin.building}</div>
+                    <div className="text-xs">Floor {admin.floor}</div>
+                  </TableCell>
                    <TableCell className="text-center hidden sm:table-cell">
                     {admin.status === 'active' ? (
                       <Badge variant="outline" className="text-green-400 border-green-400/50"><CheckCircle className="mr-1 h-3 w-3"/>Active</Badge>
@@ -459,7 +461,7 @@ export default function SuperAdminDashboardPage() {
                        <Badge variant="destructive" className="bg-muted-foreground/20 text-muted-foreground border-muted-foreground/30"><XCircle className="mr-1 h-3 w-3"/>Inactive</Badge>
                     )}
                   </TableCell>
-                  <TableCell className="text-center">
+                  <TableCell className="text-center hidden lg:table-cell">
                     <Badge variant={planVariant(admin.plan)}>{admin.plan}</Badge>
                   </TableCell>
                   <TableCell className="text-right">
