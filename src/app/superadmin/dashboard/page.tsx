@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { Button } from '@/components/ui/button';
@@ -183,18 +184,60 @@ export default function SuperAdminDashboardPage() {
           </DialogContent>
         </Dialog>
           
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Admins</CardTitle>
-              <Users className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{admins.length}</div>
-              <p className="text-xs text-muted-foreground">
-                Across all organizations
-              </p>
-            </CardContent>
-          </Card>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Card className="cursor-pointer hover:border-primary/50 transition-colors">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Admins</CardTitle>
+                <Users className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{admins.length}</div>
+                <p className="text-xs text-muted-foreground">
+                  Across all organizations
+                </p>
+              </CardContent>
+            </Card>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-2xl">
+             <DialogHeader>
+              <DialogTitle>All Administrators</DialogTitle>
+              <DialogDescription>
+                A complete list of all admin accounts across all organizations.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[400px] overflow-y-auto pr-4">
+               <Table>
+                <TableHeader>
+                    <TableRow>
+                        <TableHead>Admin</TableHead>
+                        <TableHead>Organization</TableHead>
+                        <TableHead className="text-center">Status</TableHead>
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {admins.map((admin) => (
+                        <TableRow key={admin.id}>
+                            <TableCell>
+                                <div className="font-medium">{admin.name}</div>
+                                <div className="text-xs text-muted-foreground font-mono">{admin.email}</div>
+                            </TableCell>
+                            <TableCell>{admin.organization}</TableCell>
+                            <TableCell className="text-center">
+                               {admin.status === 'active' ? (
+                                <Badge variant="outline" className="text-green-400 border-green-400/50"><CheckCircle className="mr-1 h-3 w-3"/>Active</Badge>
+                                ) : (
+                                <Badge variant="destructive" className="bg-muted-foreground/20 text-muted-foreground border-muted-foreground/30"><XCircle className="mr-1 h-3 w-3"/>Inactive</Badge>
+                                )}
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+               </Table>
+            </div>
+          </DialogContent>
+        </Dialog>
+
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Devices</CardTitle>
