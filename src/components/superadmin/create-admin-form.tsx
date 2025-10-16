@@ -66,10 +66,14 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
 
-    const baseEmail = initialValues.email || values.email;
-    const emailDomain = baseEmail.substring(baseEmail.indexOf('@'));
-    const sanitizedDeptName = values.departmentName.toLowerCase().replace(/[^a-z0-9]/g, '');
-    const finalEmail = isAddingDepartment ? `${sanitizedDeptName}${emailDomain}` : values.email;
+    let finalEmail = values.email;
+    if (isAddingDepartment && initialValues.email) {
+      const baseEmail = initialValues.email;
+      const atIndex = baseEmail.indexOf('@');
+      const emailDomain = atIndex !== -1 ? baseEmail.substring(atIndex) : '';
+      const sanitizedDeptName = values.departmentName.toLowerCase().replace(/[^a-z0-9]/g, '');
+      finalEmail = `${sanitizedDeptName}${emailDomain}`;
+    }
 
     const finalValues = {
         ...values,
@@ -218,6 +222,8 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
     </Form>
   );
 }
+
+    
 
     
 
