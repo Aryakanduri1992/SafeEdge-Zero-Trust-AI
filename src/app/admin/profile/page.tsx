@@ -74,8 +74,8 @@ export default function ProfilePage() {
             <div className="flex items-center gap-4">
               <User className="h-5 w-5 text-muted-foreground" />
               <div>
-                <p className="text-sm font-medium">Name</p>
-                <p className="text-sm text-foreground">{adminUser.name}</p>
+                <p className="text-sm font-medium">Department Name</p>
+                <p className="text-sm text-foreground">{adminUser.departmentName}</p>
               </div>
             </div>
             <div className="flex items-center gap-4">

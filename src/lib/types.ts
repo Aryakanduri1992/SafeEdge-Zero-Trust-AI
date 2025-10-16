@@ -8,7 +8,7 @@ export type AdminStatus = 'active' | 'inactive';
 
 export interface BaseUser {
   id: string; // Firebase Auth UID
-  name: string;
+  departmentName: string;
   email: string;
   role: UserRole;
 }
@@ -57,7 +57,7 @@ export interface LoginCredentials {
   password?: string;
 }
 
-export type NewAdminData = Required<Pick<LoginCredentials, 'email' | 'password'>> & { name: string, building: string, floor: string };
+export type NewAdminData = Required<Pick<LoginCredentials, 'email' | 'password'>> & { departmentName: string, building: string, floor: string };
 
 export type UpdateAdminData = {
   plan: Plan;

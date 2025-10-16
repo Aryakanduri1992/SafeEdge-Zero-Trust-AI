@@ -127,7 +127,7 @@ export default function AdminDashboardPage() {
     <div className="flex flex-col gap-8">
       <div>
         <h1 className="font-headline text-3xl font-bold tracking-tight">Admin Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back, {user?.name}. Here is the real-time status of your protected assets.</p>
+        <p className="text-muted-foreground">Welcome back, {user?.departmentName}. Here is the real-time status of your protected assets.</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

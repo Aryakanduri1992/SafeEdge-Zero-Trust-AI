@@ -37,15 +37,15 @@ export function Header() {
       </div>
        <div className='flex items-center gap-4'>
          <div className="flex flex-col items-end">
-            <span className="text-sm font-semibold">{user?.name}</span>
+            <span className="text-sm font-semibold">{user?.departmentName}</span>
             <span className="text-xs text-muted-foreground">Super Admin</span>
          </div>
          <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                     <Avatar className="h-10 w-10">
-                        {/* <AvatarImage src="/avatars/01.png" alt={user?.name || ''} /> */}
-                        <AvatarFallback>{user?.name ? getInitials(user.name) : 'SA'}</AvatarFallback>
+                        {/* <AvatarImage src="/avatars/01.png" alt={user?.departmentName || ''} /> */}
+                        <AvatarFallback>{user?.departmentName ? getInitials(user.departmentName) : 'SA'}</AvatarFallback>
                     </Avatar>
                 </Button>
             </DropdownMenuTrigger>

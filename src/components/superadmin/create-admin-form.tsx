@@ -12,7 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2, UserPlus } from 'lucide-react';
 
 const formSchema = z.object({
-  name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
+  departmentName: z.string().min(2, { message: 'Department Name must be at least 2 characters.' }),
   email: z.string().email({ message: 'Please enter a valid email.' }),
   password: z.string().min(8, { message: 'Password must be at least 8 characters.' }),
   building: z.string().min(2, { message: 'Building name is required.' }),
@@ -31,7 +31,7 @@ export function CreateAdminForm({ onFinished }: CreateAdminFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: '',
+      departmentName: '',
       email: '',
       password: '',
       building: '',
@@ -45,7 +45,7 @@ export function CreateAdminForm({ onFinished }: CreateAdminFormProps) {
       await createAdmin(values);
       toast({
         title: 'Admin Creation Initiated',
-        description: `Account for ${values.name} is being created.`,
+        description: `Account for ${values.departmentName} is being created.`,
       });
       form.reset();
       onFinished();
@@ -65,12 +65,12 @@ export function CreateAdminForm({ onFinished }: CreateAdminFormProps) {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
         <FormField
           control={form.control}
-          name="name"
+          name="departmentName"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Full Name</FormLabel>
+              <FormLabel>Department Name</FormLabel>
               <FormControl>
-                <Input placeholder="John Doe" {...field} />
+                <Input placeholder="e.g., Human Resources" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

@@ -15,15 +15,15 @@
           "description": "Email address of the super administrator.",
           "format": "email"
         },
-        "name": {
+        "departmentName": {
           "type": "string",
-          "description": "Full name of the super administrator."
+          "description": "The name of the super administrator's department."
         }
       },
       "required": [
         "id",
         "email",
-        "name"
+        "departmentName"
       ]
     },
     "Admin": {
@@ -41,9 +41,9 @@
           "description": "Email address of the administrator.",
           "format": "email"
         },
-        "name": {
+        "departmentName": {
           "type": "string",
-          "description": "Full name of the administrator."
+          "description": "The name of the administrator's department."
         },
         "floor": {
           "type": "string",
@@ -61,7 +61,7 @@
       "required": [
         "id",
         "email",
-        "name",
+        "departmentName",
         "floor",
         "building",
         "superAdminId"

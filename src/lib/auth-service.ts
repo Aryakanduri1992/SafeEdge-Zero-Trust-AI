@@ -27,7 +27,7 @@ export const fetchUserProfile = async (uid: string): Promise<SuperAdminUser | Ad
             const superAdminData = superAdminSnap.data();
             return {
                 id: uid,
-                name: superAdminData.name,
+                departmentName: superAdminData.departmentName,
                 email: superAdminData.email,
                 role: 'superadmin'
             };
@@ -91,7 +91,7 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
 
         // 2. Create the Firestore document for the new admin.
         const newAdminProfile: Omit<AdminUser, 'id'> = {
-            name: adminData.name,
+            departmentName: adminData.departmentName,
             email: adminData.email,
             building: adminData.building,
             floor: adminData.floor,
@@ -193,7 +193,7 @@ const seedSuperAdmin = async () => {
                     const superAdminProfile = {
                         id: user.uid,
                         email: user.email,
-                        name: "Super Admin",
+                        departmentName: "Super Admin",
                     };
                     const superAdminRoleRef = doc(firestore, 'roles_super_admin', user.uid);
                     await setDoc(superAdminRoleRef, superAdminProfile);

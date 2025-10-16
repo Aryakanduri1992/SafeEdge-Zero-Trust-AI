@@ -62,7 +62,7 @@ export function Header() {
             <span className="sr-only">Notifications</span>
         </Button>
         <span className="text-sm text-muted-foreground hidden sm:inline">
-            Welcome, {user?.name}
+            Welcome, {user?.departmentName}
         </span>
         <Button variant="ghost" size="sm" onClick={logout}>
           <LogOut className="mr-2 h-4 w-4" />

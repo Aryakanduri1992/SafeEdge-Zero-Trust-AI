@@ -129,7 +129,7 @@ export default function SuperAdminDashboardPage() {
 
   const filteredAdmins = useMemo(() => {
     return admins.filter(admin => {
-        const searchCorpus = `${admin.name} ${admin.email} ${admin.building} ${admin.floor}`.toLowerCase();
+        const searchCorpus = `${admin.departmentName} ${admin.email} ${admin.building} ${admin.floor}`.toLowerCase();
         const matchesSearch = searchCorpus.includes(searchTerm.toLowerCase());
         const matchesStatus = statusFilter === 'all' || admin.status === statusFilter;
         return matchesSearch && matchesStatus;
@@ -222,7 +222,7 @@ export default function SuperAdminDashboardPage() {
                                     <div className="flex items-center gap-2 mt-1">
                                         <User className="h-3 w-3 text-muted-foreground" />
                                         <p className="text-xs text-muted-foreground">
-                                             {admins.find(a => a.id === device.adminId)?.name || 'N/A'}
+                                             {admins.find(a => a.id === device.adminId)?.departmentName || 'N/A'}
                                         </p>
                                     </div>
                                 </div>
@@ -280,7 +280,7 @@ export default function SuperAdminDashboardPage() {
                     {admins.map((admin) => (
                         <TableRow key={admin.id}>
                             <TableCell>
-                                <div className="font-medium">{admin.name}</div>
+                                <div className="font-medium">{admin.departmentName}</div>
                                 <div className="text-xs text-muted-foreground font-mono">{admin.email}</div>
                             </TableCell>
                             <TableCell>{admin.building}, Floor {admin.floor}</TableCell>
@@ -342,7 +342,7 @@ export default function SuperAdminDashboardPage() {
                                 <div className="text-xs text-muted-foreground font-mono">{device.id}</div>
                             </TableCell>
                             <TableCell>{admin ? `${admin.building}, Floor ${admin.floor}` : 'N/A'}</TableCell>
-                            <TableCell>{admin?.name || 'N/A'}</TableCell>
+                            <TableCell>{admin?.departmentName || 'N/A'}</TableCell>
                             <TableCell className="text-center">
                                 <Badge
                                   variant={statusInfo.variant as any}
@@ -447,7 +447,7 @@ export default function SuperAdminDashboardPage() {
               {filteredAdmins.map((admin) => (
                 <TableRow key={admin.id}>
                   <TableCell className="font-medium">
-                    <div>{admin.name}</div>
+                    <div>{admin.departmentName}</div>
                     <div className="text-muted-foreground md:hidden text-xs">{admin.building}, Floor {admin.floor}</div>
                     <div className="text-muted-foreground text-xs font-mono">{admin.email}</div>
                   </TableCell>
@@ -512,7 +512,7 @@ export default function SuperAdminDashboardPage() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Edit Admin: {selectedAdmin?.name}</DialogTitle>
+            <DialogTitle>Edit Admin: {selectedAdmin?.departmentName}</DialogTitle>
             <DialogDescription>
               Update the plan and device allocation for this administrator.
             </DialogDescription>

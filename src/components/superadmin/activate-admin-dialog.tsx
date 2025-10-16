@@ -35,7 +35,7 @@ export function ActivateAdminDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Activate Admin Account?</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to reactivate the account for "{admin.name}"?
+            Are you sure you want to reactivate the account for "{admin.departmentName}"?
             They will immediately regain access to their dashboard.
           </AlertDialogDescription>
         </AlertDialogHeader>
