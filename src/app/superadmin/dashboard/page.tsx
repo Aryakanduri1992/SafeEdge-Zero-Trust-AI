@@ -42,12 +42,17 @@ export default function SuperAdminDashboardPage() {
   const [selectedAdmin, setSelectedAdmin] = useState<AdminUser | null>(null);
   const { user, admins, deactivateAdmin } = useAuth();
 
-  const { totalOrgs, totalDevices, totalAlerts } = useMemo(() => {
+  const { totalOrgs, totalDevices, totalAlerts, organizationNames } = useMemo(() => {
     const orgs = new Set(admins.map(a => a.organization));
     const devices = admins.reduce((sum, admin) => sum + (admin.devices || 0), 0);
     // This is a placeholder until global alerts are fetched.
     const alerts = 0; 
-    return { totalOrgs: orgs.size, totalDevices: devices, totalAlerts: alerts };
+    return { 
+      totalOrgs: orgs.size, 
+      totalDevices: devices, 
+      totalAlerts: alerts,
+      organizationNames: Array.from(orgs).sort()
+    };
   }, [admins]);
 
 
@@ -84,18 +89,40 @@ export default function SuperAdminDashboardPage() {
     <div className="space-y-8">
       {/* Key Metrics Overview */}
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Organizations</CardTitle>
-              <Building className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalOrgs}</div>
-              <p className="text-xs text-muted-foreground">
-                Registered startup organizations
-              </p>
-            </CardContent>
-          </Card>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Card className="cursor-pointer hover:border-primary/50 transition-colors">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Organizations</CardTitle>
+                <Building className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{totalOrgs}</div>
+                <p className="text-xs text-muted-foreground">
+                  Registered startup organizations
+                </p>
+              </CardContent>
+            </Card>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Registered Organizations</DialogTitle>
+              <DialogDescription>
+                A complete list of all organizations on the platform.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="max-h-[300px] overflow-y-auto pr-4">
+              <ul className="space-y-2">
+                {organizationNames.map(org => (
+                  <li key={org} className="rounded-md border p-3 text-sm font-medium">
+                    {org}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </DialogContent>
+        </Dialog>
+          
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Admins</CardTitle>
