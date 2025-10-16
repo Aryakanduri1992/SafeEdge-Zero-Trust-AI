@@ -32,9 +32,10 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuCheckboxItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { ActivateAdminDialog } from '@/components/superadmin/activate-admin-dialog';
@@ -98,10 +99,8 @@ export default function SuperAdminDashboardPage() {
   const { user, admins, allDevices, deactivateAdmin, activateAdmin } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState<{ active: boolean; inactive: boolean }>({
-    active: true,
-    inactive: true,
-  });
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+
 
   const { totalOrgs, totalDevices, totalAlerts, orgsWithDetails } = useMemo(() => {
     const validOrgs = admins
@@ -111,7 +110,7 @@ export default function SuperAdminDashboardPage() {
     
     const devices = allDevices.length;
     // This is a placeholder until global alerts are fetched.
-    const alerts = 0; 
+    const alerts = allDevices.filter(d => d.status === 'alerting').length;
     
     const orgDetails = Array.from(orgSet).sort().map(orgName => {
         const adminsInOrg = admins.filter(a => a.organization === orgName);
@@ -135,13 +134,7 @@ export default function SuperAdminDashboardPage() {
   const filteredAdmins = useMemo(() => {
     return admins.filter(admin => {
         const matchesSearch = admin.organization?.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesStatus = (statusFilter.active && admin.status === 'active') || (statusFilter.inactive && admin.status === 'inactive');
-        
-        // If all filters are off, show nothing
-        if (!statusFilter.active && !statusFilter.inactive) {
-            return false;
-        }
-
+        const matchesStatus = statusFilter === 'all' || admin.status === statusFilter;
         return matchesSearch && matchesStatus;
     });
 }, [admins, searchTerm, statusFilter]);
@@ -433,18 +426,11 @@ export default function SuperAdminDashboardPage() {
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuCheckboxItem
-                  checked={statusFilter.active}
-                  onCheckedChange={(checked) => setStatusFilter(prev => ({ ...prev, active: checked }))}
-                >
-                  Active
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem
-                  checked={statusFilter.inactive}
-                  onCheckedChange={(checked) => setStatusFilter(prev => ({ ...prev, inactive: checked }))}
-                >
-                  Inactive
-                </DropdownMenuCheckboxItem>
+                <DropdownMenuRadioGroup value={statusFilter} onValueChange={(value) => setStatusFilter(value as any)}>
+                    <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="active">Active</DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem value="inactive">Inactive</DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

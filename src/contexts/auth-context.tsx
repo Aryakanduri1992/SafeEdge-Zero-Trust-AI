@@ -8,7 +8,7 @@ import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateA
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { useUser, useFirestore, FirestorePermissionError, errorEmitter } from '@/firebase';
-import { collection, onSnapshot, Unsubscribe } from 'firebase/firestore';
+import { collection, onSnapshot, Unsubscribe, query, where } from 'firebase/firestore';
 
 type AuthContextType = {
   user: SuperAdminUser | AdminUser | null;
@@ -136,8 +136,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let devicesUnsubscribe: Unsubscribe | undefined;
 
     if (appUser?.role === 'superadmin' && firestore) {
-      const adminsCollection = collection(firestore, 'admins');
-      adminsUnsubscribe = onSnapshot(adminsCollection, (snapshot) => {
+      const adminsQuery = query(collection(firestore, 'admins'));
+      adminsUnsubscribe = onSnapshot(adminsQuery, (snapshot) => {
         const adminList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as AdminUser));
         setAdmins(adminList);
       }, (serverError) => {
@@ -149,8 +149,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setAdmins([]);
       });
 
-      const devicesCollection = collection(firestore, 'devices');
-      devicesUnsubscribe = onSnapshot(devicesCollection, (snapshot) => {
+      const devicesQuery = query(collection(firestore, 'devices'));
+      devicesUnsubscribe = onSnapshot(devicesQuery, (snapshot) => {
         const deviceList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Device));
         setAllDevices(deviceList);
       }, (serverError) => {
