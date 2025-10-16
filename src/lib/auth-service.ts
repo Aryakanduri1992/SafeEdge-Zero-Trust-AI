@@ -10,7 +10,7 @@ import {
   signOut,
   type User as FirebaseUser
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, addDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, addDoc, deleteDoc } from 'firebase/firestore';
 import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateAdminData, Organization } from './types';
 import { initializeFirebase } from '@/firebase';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -73,6 +73,8 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
     if (isAddingDepartment) {
         // Logic for adding a department to an existing organization
         // NO AUTH CREATION
+        if (!adminData.email) throw new Error("Organization email is missing when adding a department.");
+
         const departmentCollectionRef = collection(firestore, 'admins');
         const newDepartmentProfile: Omit<AdminUser, 'id'> = {
             departmentName: adminData.departmentName,
@@ -104,6 +106,9 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
         // This is the only path that creates an Auth user.
         if (!adminData.password) {
             throw new Error("A password is required to create a new organization.");
+        }
+        if (!adminData.email) {
+            throw new Error("An email is required to create a new organization.");
         }
         
         // Use a temporary, secondary Firebase app for creating users

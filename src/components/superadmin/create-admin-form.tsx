@@ -15,7 +15,7 @@ import { Loader2, UserPlus } from 'lucide-react';
 const baseSchema = z.object({
   departmentName: z.string().min(2, { message: 'Department Name must be at least 2 characters.' }),
   organizationName: z.string().min(2, { message: 'Organization Name must be at least 2 characters.' }),
-  email: z.string().email({ message: 'Please enter a valid email.' }),
+  email: z.string().email({ message: 'Please enter a valid email.' }).optional(),
   password: z.string().optional(),
   building: z.string().min(1, { message: 'Building is required.' }),
   floor: z.string().min(1, { message: 'Floor is required.' }),
@@ -76,6 +76,8 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
       organizationId: initialValues.organizationId,
       email: initialValues.email || values.email, 
       organizationName: initialValues.organizationName || values.organizationName,
+      // Password is intentionally omitted if just adding a department
+      password: isAddingDepartment ? undefined : values.password
     };
     
     try {
