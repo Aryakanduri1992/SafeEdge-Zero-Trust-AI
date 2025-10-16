@@ -15,8 +15,10 @@ export interface BaseUser {
 
 export interface AdminUser extends BaseUser {
   role: 'admin';
+  organizationName: string;
   building: string;
   floor: string;
+  location: string;
   createdAt: string; // ISO String
   devices: number;
   plan: Plan;
@@ -57,7 +59,13 @@ export interface LoginCredentials {
   password?: string;
 }
 
-export type NewAdminData = Required<Pick<LoginCredentials, 'email' | 'password'>> & { departmentName: string, building: string, floor: string };
+export type NewAdminData = Required<Pick<LoginCredentials, 'email' | 'password'>> & { 
+  departmentName: string, 
+  organizationName: string,
+  building: string, 
+  floor: string,
+  location: string
+};
 
 export type UpdateAdminData = {
   plan: Plan;

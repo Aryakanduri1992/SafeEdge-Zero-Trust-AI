@@ -92,9 +92,11 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
         // 2. Create the Firestore document for the new admin.
         const newAdminProfile: Omit<AdminUser, 'id'> = {
             departmentName: adminData.departmentName,
+            organizationName: adminData.organizationName,
             email: adminData.email,
             building: adminData.building,
             floor: adminData.floor,
+            location: adminData.location,
             role: 'admin',
             createdAt: new Date().toISOString(),
             devices: 1,

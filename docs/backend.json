@@ -45,6 +45,10 @@
           "type": "string",
           "description": "The name of the administrator's department."
         },
+         "organizationName": {
+          "type": "string",
+          "description": "The name of the administrator's organization."
+        },
         "floor": {
           "type": "string",
           "description": "The floor the admin belongs to."
@@ -52,6 +56,10 @@
         "building": {
           "type": "string",
           "description": "The building the admin belongs to."
+        },
+        "location": {
+            "type": "string",
+            "description": "The general location of the admin."
         },
         "superAdminId": {
           "type": "string",
@@ -62,8 +70,10 @@
         "id",
         "email",
         "departmentName",
+        "organizationName",
         "floor",
         "building",
+        "location",
         "superAdminId"
       ]
     },

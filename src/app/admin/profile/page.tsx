@@ -5,7 +5,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { AdminUser, Device } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { User, Building, Star, HardDrive, Calendar, CheckCircle, XCircle } from "lucide-react";
+import { User, Building, Star, HardDrive, Calendar, CheckCircle, XCircle, Globe, MapPin } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
@@ -71,6 +71,13 @@ export default function ProfilePage() {
             <CardDescription>Your personal and location details.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+             <div className="flex items-center gap-4">
+              <Globe className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">Organization</p>
+                <p className="text-sm text-foreground">{adminUser.organizationName}</p>
+              </div>
+            </div>
             <div className="flex items-center gap-4">
               <User className="h-5 w-5 text-muted-foreground" />
               <div>
@@ -78,10 +85,17 @@ export default function ProfilePage() {
                 <p className="text-sm text-foreground">{adminUser.departmentName}</p>
               </div>
             </div>
+             <div className="flex items-center gap-4">
+              <MapPin className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">Location</p>
+                <p className="text-sm text-foreground">{adminUser.location}</p>
+              </div>
+            </div>
             <div className="flex items-center gap-4">
               <Building className="h-5 w-5 text-muted-foreground" />
               <div>
-                <p className="text-sm font-medium">Location</p>
+                <p className="text-sm font-medium">Building / Floor</p>
                 <p className="text-sm text-foreground">{adminUser.building}, Floor {adminUser.floor}</p>
               </div>
             </div>

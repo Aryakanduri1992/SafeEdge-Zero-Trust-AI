@@ -13,10 +13,12 @@ import { Loader2, UserPlus } from 'lucide-react';
 
 const formSchema = z.object({
   departmentName: z.string().min(2, { message: 'Department Name must be at least 2 characters.' }),
+  organizationName: z.string().min(2, { message: 'Organization Name must be at least 2 characters.' }),
   email: z.string().email({ message: 'Please enter a valid email.' }),
   password: z.string().min(8, { message: 'Password must be at least 8 characters.' }),
-  building: z.string().min(2, { message: 'Building name is required.' }),
+  building: z.string().min(1, { message: 'Building is required.' }),
   floor: z.string().min(1, { message: 'Floor is required.' }),
+  location: z.string().min(2, { message: 'Location is required.' }),
 });
 
 type CreateAdminFormProps = {
@@ -32,10 +34,12 @@ export function CreateAdminForm({ onFinished }: CreateAdminFormProps) {
     resolver: zodResolver(formSchema),
     defaultValues: {
       departmentName: '',
+      organizationName: '',
       email: '',
       password: '',
       building: '',
       floor: '',
+      location: '',
     },
   });
 
@@ -65,12 +69,25 @@ export function CreateAdminForm({ onFinished }: CreateAdminFormProps) {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
         <FormField
           control={form.control}
+          name="organizationName"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Organization Name</FormLabel>
+              <FormControl>
+                <Input placeholder="e.g., AuthStation Inc." {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+         <FormField
+          control={form.control}
           name="departmentName"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Department Name</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Human Resources" {...field} />
+                <Input placeholder="e.g., Security Operations" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -104,12 +121,25 @@ export function CreateAdminForm({ onFinished }: CreateAdminFormProps) {
         />
          <FormField
           control={form.control}
+          name="location"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Location</FormLabel>
+              <FormControl>
+                <Input placeholder="e.g., New York Office" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+         <FormField
+          control={form.control}
           name="building"
           render={({ field }) => (
             <FormItem>
               <FormLabel>Building</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Main Campus" {...field} />
+                <Input placeholder="e.g., Tower A" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -122,7 +152,7 @@ export function CreateAdminForm({ onFinished }: CreateAdminFormProps) {
             <FormItem>
               <FormLabel>Floor</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., 4th" {...field} />
+                <Input placeholder="e.g., 42nd" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
