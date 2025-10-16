@@ -126,7 +126,15 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
         }
 
         // 4. Commit the batch
-        await batch.commit();
+        await batch.commit().catch(serverError => {
+            const permissionError = new FirestorePermissionError({
+                path: `organizations/${newOrgUID}`, // Path of one of the documents in the batch
+                operation: 'create',
+                requestResourceData: newOrgProfile,
+            });
+            errorEmitter.emit('permission-error', permissionError);
+            throw permissionError;
+        });
 
     } catch (error: any) {
         console.error("Error creating organization and departments:", error);
@@ -134,7 +142,9 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
              throw new Error(`An account with the email ${adminData.email} is already in use.`);
         }
         // Additional error handling to clean up if something goes wrong mid-process
-        throw error;
+        if (!(error instanceof FirestorePermissionError)) {
+          throw error;
+        }
     } finally {
         await signOut(tempAuth).catch(() => {});
         await deleteApp(tempApp);
@@ -233,5 +243,3 @@ const seedSuperAdmin = async () => {
 if (typeof window !== 'undefined') {
     seedSuperAdmin();
 }
-
-    
