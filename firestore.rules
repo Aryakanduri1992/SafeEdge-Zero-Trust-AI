@@ -3,116 +3,74 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the user is signed in.
-     * @return {boolean} True if the user is signed in, false otherwise.
+     * @description Enforces Super Admin role via document existence in /roles_super_admin/{superAdminId}.
+     * @path /roles_super_admin/{superAdminId}
      */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the authenticated user's ID matches the provided userId.
-     * @param {string} userId - The user ID to compare against the authenticated user's ID.
-     * @return {boolean} True if the user is the owner, false otherwise.
-     */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
-        /**
-     * @description Checks if the authenticated user's ID matches the provided userId and the resource exists.
-     * @param {string} userId - The user ID to compare against the authenticated user's ID.
-     * @return {boolean} True if the user is the owner and resource exists, false otherwise.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && getSelf() != null;
-    }
-
-    function getSelf() {
-        return get(request.path);
-    }
-
-    /**
-     * @description Checks if the user has the Super Admin role by verifying the existence of their document in the roles_super_admin collection.
-     * @return {boolean} True if the user is a Super Admin, false otherwise.
-     */
-    function isSuperAdmin() {
-      return exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
-    }
-
     match /roles_super_admin/{superAdminId} {
-      /**
-       * @description Manages Super Admin role assignments. Existence of a document here grants Super Admin privileges.
-       * @path /roles_super_admin/{superAdminId}
-       * @allow (create) - A Super Admin can create their own role document if their auth UID matches the document ID. (e.g., creating /roles_super_admin/user_abc with auth.uid == 'user_abc').
-       * @deny (create) - A non-Super Admin attempts to create a Super Admin role document.
-       * @allow (get) - Anyone can check if a user is a Super Admin by reading the document.
-       * @deny (list) - Listing Super Admin roles is not allowed.
-       * @principle DBAC Role assignment via document existence.
-       */
-      allow get: if true;
-      allow list: if false;
-      allow create: if isOwner(superAdminId);
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && request.auth.uid == superAdminId;
+      allow update, delete: if false;
     }
 
+    /**
+     * @description Manages Admin profiles, linking them to a Super Admin.
+     * @path /admins/{adminId}
+     */
     match /admins/{adminId} {
-      /**
-       * @description Manages Admin profiles. Super Admins can create, update, and delete Admin profiles.
-       * @path /admins/{adminId}
-       * @allow (create) - A Super Admin creates a new admin profile, with `superAdminId` matching the Super Admin's UID.
-       * @deny (create) - A regular user (non-Super Admin) attempts to create an admin profile.
-       * @allow (update) - A Super Admin updates an existing admin profile.
-       * @deny (update) - A non-Super Admin attempts to update an admin profile.
-       * @allow (delete) - A Super Admin deletes an admin profile.
-       * @deny (delete) - A regular user attempts to delete an admin profile.
-       * @principle Role-based access control, Authorization Independence, Super Admins manage Admins.
-       */
-      allow get: if true;
-      allow list: if true;
-      allow create: if isSuperAdmin() && request.resource.data.superAdminId == request.auth.uid;
-      allow update: if isSuperAdmin();
-      allow delete: if isSuperAdmin();
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && isSuperAdmin();
+      allow create: if isSignedIn() && isSuperAdmin() && request.resource.data.superAdminId == request.auth.uid;
+      allow update: if isSignedIn() && isSuperAdmin() && get(/databases/$(database)/documents/admins/$(adminId)).data.superAdminId == request.auth.uid;
+      allow delete: if isSignedIn() && isSuperAdmin() && get(/databases/$(database)/documents/admins/$(adminId)).data.superAdminId == request.auth.uid;
     }
 
-   match /devices/{deviceId} {
-      /**
-       * @description Manages IoT device data. Admins can create, update, and delete devices associated with their adminId.
-       * @path /devices/{deviceId}
-       * @allow (create) - An Admin creates a new device, with `adminId` matching the Admin's UID.
-       * @deny (create) - A regular user (non-Admin) attempts to create a device.
-       * @allow (update) - An Admin updates an existing device, and their adminId matches the `adminId` on the resource.
-       * @deny (update) - A non-Admin attempts to update a device, or an Admin attempts to update a device that they don't own.
-       * @allow (delete) - An Admin deletes a device, and their adminId matches the `adminId` on the resource.
-       * @deny (delete) - A non-Admin attempts to delete a device, or an Admin attempts to delete a device that they don't own.
-       *
-       * @principle Ownership-based access control, Admins manage their own devices.
-       */
-      allow get: if true;
-      allow list: if true;
+    /**
+     * @description Manages IoT device data, ensuring data isolation between admins.
+     * @path /devices/{deviceId}
+     */
+    match /devices/{deviceId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && get(/databases/$(database)/documents/devices/$(deviceId)).data.adminId == request.auth.uid;
       allow create: if isSignedIn() && request.resource.data.adminId == request.auth.uid;
-      allow update: if isSignedIn() && request.resource.data.adminId == resource.data.adminId;
-      allow delete: if isSignedIn() && resource.data.adminId == request.auth.uid;
+      allow update: if isSignedIn() && get(/databases/$(database)/documents/devices/$(deviceId)).data.adminId == request.auth.uid;
+      allow delete: if isSignedIn() && get(/databases/$(database)/documents/devices/$(deviceId)).data.adminId == request.auth.uid;
     }
 
+    /**
+     * @description Manages system alerts, ensuring data isolation between admins.
+     * @path /alerts/{alertId}
+     */
     match /alerts/{alertId} {
-      /**
-       * @description Manages system alerts. Admins can create, update, and delete alerts associated with their adminId.
-       * @path /alerts/{alertId}
-       * @allow (create) - An Admin creates a new alert, with `adminId` matching the Admin's UID.
-       * @deny (create) - A regular user (non-Admin) attempts to create an alert.
-       * @allow (update) - An Admin updates an existing alert, and their adminId matches the `adminId` on the resource.
-       * @deny (update) - A non-Admin attempts to update an alert, or an Admin attempts to update a device that they don't own.
-       * @allow (delete) - An Admin deletes an alert, and their adminId matches the `adminId` on the resource.
-       * @deny (delete) - A non-Admin attempts to delete an alert, or an Admin attempts to delete a device that they don't own.
-       * @principle Ownership-based access control, Admins manage their own alerts.
-       */
-      allow get: if true;
-      allow list: if true;
+      allow get: if isSignedIn();
+      allow list: if isSignedIn() && get(/databases/$(database)/documents/alerts/$(alertId)).data.adminId == request.auth.uid;
       allow create: if isSignedIn() && request.resource.data.adminId == request.auth.uid;
-      allow update: if isSignedIn() && request.resource.data.adminId == resource.data.adminId;
-      allow delete: if isSignedIn() && resource.data.adminId == request.auth.uid;
+      allow update: if isSignedIn() && get(/databases/$(database)/documents/alerts/$(alertId)).data.adminId == request.auth.uid;
+      allow delete: if isSignedIn() && get(/databases/$(database)/documents/alerts/$(alertId)).data.adminId == request.auth.uid;
     }
+
+    /**
+     * @description Manages organizations profiles, linking them to a Super Admin.
+     * @path /organizations/{organizationId}
+     */
+    match /organizations/{organizationId} {
+        allow get: if isSignedIn();
+        allow list: if isSignedIn() && isSuperAdmin();
+        allow create: if isSignedIn() && isSuperAdmin();
+        allow update: if isSignedIn() && isSuperAdmin();
+        allow delete: if isSignedIn() && isSuperAdmin();
+    }
+  }
+
+  // Helper functions
+  function isSignedIn() {
+    return request.auth != null;
+  }
+
+  function isOwner(userId) {
+    return request.auth.uid == userId;
+  }
+
+  function isSuperAdmin() {
+    return exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
   }
 }
