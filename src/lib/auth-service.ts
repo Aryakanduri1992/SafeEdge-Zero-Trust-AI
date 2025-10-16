@@ -68,29 +68,32 @@ export const logout = async (): Promise<void> => {
 };
 
 export const createAdmin = async (adminData: NewAdminData, superAdminId: string): Promise<void> => {
-    const isAddingDepartment = !!adminData.organizationId;
-    
-    if (isAddingDepartment) {
-        // Logic for adding a department to an existing organization
-        // NO AUTH CREATION
-        if (!adminData.email) throw new Error("Organization email is missing when adding a department.");
+    // THIS IS THE CRITICAL FIX: Explicitly check if we are adding a department.
+    if (adminData.organizationId) {
+        // --- SCENARIO 1: ADDING A DEPARTMENT TO AN EXISTING ORGANIZATION ---
+        // In this block, we ONLY interact with Firestore. NO AUTHENTICATION.
+        
+        if (!adminData.email) {
+             throw new Error("Organization email is missing when adding a department.");
+        }
 
         const departmentCollectionRef = collection(firestore, 'admins');
         const newDepartmentProfile: Omit<AdminUser, 'id'> = {
             departmentName: adminData.departmentName,
             organizationName: adminData.organizationName,
-            email: adminData.email, // The org's email
+            email: adminData.email, // The parent org's email
             building: adminData.building,
             floor: adminData.floor,
             location: adminData.location,
             role: 'admin',
             createdAt: new Date().toISOString(),
-            devices: 1, // Default quota for new department
-            plan: 'Free', // Default plan for new department
+            devices: 1, // Default quota
+            plan: 'Free', // Default plan
             superAdminId: superAdminId,
             status: 'active',
-            organizationId: adminData.organizationId!,
+            organizationId: adminData.organizationId,
         };
+        
         await addDoc(departmentCollectionRef, newDepartmentProfile).catch(serverError => {
              const permissionError = new FirestorePermissionError({
                 path: departmentCollectionRef.path,
@@ -102,17 +105,13 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
         });
 
     } else {
-        // Logic for creating a new organization AND its first department
-        // This is the only path that creates an Auth user.
-        if (!adminData.password) {
-            throw new Error("A password is required to create a new organization.");
-        }
-        if (!adminData.email) {
-            throw new Error("An email is required to create a new organization.");
-        }
+        // --- SCENARIO 2: CREATING A NEW ORGANIZATION (and its first department) ---
+        // This is the only path that creates a new Auth user.
         
-        // Use a temporary, secondary Firebase app for creating users
-        // to avoid logging in the current superadmin as the new user.
+        if (!adminData.password) throw new Error("A password is required to create a new organization.");
+        if (!adminData.email) throw new Error("An email is required to create a new organization.");
+        
+        // Use a temporary Firebase app to avoid logging out the Super Admin.
         const tempAppName = `temp-admin-creation-${Date.now()}`;
         const tempApp = initializeApp(firebaseConfig, tempAppName);
         const tempAuth = getAuth(tempApp);
@@ -128,7 +127,7 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
             const userCredential = await createUserWithEmailAndPassword(tempAuth, adminData.email, adminData.password);
             const newOrgUID = userCredential.user.uid;
 
-            // Create the main organization profile
+            // Create the Organization document
             const newOrgProfile: Omit<Organization, 'id' | 'role'> = {
                 organizationName: adminData.organizationName,
                 email: adminData.email,
@@ -147,7 +146,7 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
                 throw permissionError;
             });
             
-            // Now create the first department for this new organization
+            // Create the first Department document for this new organization
             const departmentCollectionRef = collection(firestore, 'admins');
             const newDepartmentProfile: Omit<AdminUser, 'id'> = {
                 departmentName: adminData.departmentName,
@@ -183,7 +182,6 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
             }
             throw error;
         } finally {
-            // Clean up the temporary app instance
             await signOut(tempAuth).catch(() => {});
             await deleteApp(tempApp);
         }
@@ -281,3 +279,5 @@ const seedSuperAdmin = async () => {
 if (typeof window !== 'undefined') {
     seedSuperAdmin();
 }
+
+    
