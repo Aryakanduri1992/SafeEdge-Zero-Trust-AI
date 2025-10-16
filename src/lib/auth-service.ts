@@ -74,27 +74,23 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
         throw new Error("At least one department must be specified.");
     }
     
-    // Use a temporary Firebase app to avoid logging out the Super Admin.
     const tempAppName = `temp-admin-creation-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
+    let newOrgUID = '';
 
     try {
-        // Check if an organization with this email already has an auth account
         const orgsQuery = query(collection(firestore, 'organizations'), where("email", "==", adminData.email));
         const orgsSnapshot = await getDocs(orgsQuery);
         if (!orgsSnapshot.empty) {
             throw new Error(`An organization with the email ${adminData.email} already exists.`);
         }
 
-        // 1. Create Auth User
         const userCredential = await createUserWithEmailAndPassword(tempAuth, adminData.email, adminData.password);
-        const newOrgUID = userCredential.user.uid;
+        newOrgUID = userCredential.user.uid;
 
-        // Use a Firestore batch to ensure all writes succeed or fail together
         const batch = writeBatch(firestore);
 
-        // 2. Create the Organization document
         const newOrgProfile: Omit<Organization, 'id' | 'role'> = {
             organizationName: adminData.organizationName,
             email: adminData.email,
@@ -104,47 +100,49 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
         const orgDocRef = doc(firestore, "organizations", newOrgUID);
         batch.set(orgDocRef, newOrgProfile);
         
-        // 3. Create all Department documents for this new organization
         for (const dept of adminData.departments) {
             const newDepartmentProfile: Omit<AdminUser, 'id'> = {
                 departmentName: dept.departmentName,
                 organizationName: adminData.organizationName,
-                email: adminData.email, // Organization's primary email
+                email: adminData.email,
                 building: dept.building,
                 floor: dept.floor,
                 location: dept.location,
                 role: 'admin',
                 createdAt: new Date().toISOString(),
-                devices: 10, // Default quota
-                plan: 'Pro', // Default plan
+                devices: 10,
+                plan: 'Pro',
                 superAdminId: superAdminId,
                 status: 'active',
                 organizationId: newOrgUID,
             };
-            const deptDocRef = doc(collection(firestore, 'admins')); // Auto-generate ID
+            const deptDocRef = doc(collection(firestore, 'admins'));
             batch.set(deptDocRef, newDepartmentProfile);
         }
 
-        // 4. Commit the batch
-        await batch.commit().catch(serverError => {
-            const permissionError = new FirestorePermissionError({
-                path: `organizations/${newOrgUID}`, // Path of one of the documents in the batch
-                operation: 'create',
-                requestResourceData: newOrgProfile,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-            throw permissionError;
-        });
+        await batch.commit();
 
     } catch (error: any) {
-        console.error("Error creating organization and departments:", error);
+        if (newOrgUID) {
+            // If user was created in auth but Firestore failed, we should try to clean up
+            // This requires admin privileges, which the temp auth client doesn't have.
+            // This part of the logic needs to be handled carefully, maybe with a cleanup function.
+            console.error(`Cleanup needed: Auth user ${newOrgUID} was created but Firestore writes failed.`);
+        }
+
         if (error.code === 'auth/email-already-in-use') {
              throw new Error(`An account with the email ${adminData.email} is already in use.`);
         }
-        // Additional error handling to clean up if something goes wrong mid-process
-        if (!(error instanceof FirestorePermissionError)) {
-          throw error;
-        }
+        
+        // This will now catch the batch commit failure and create a contextual error
+        const permissionError = new FirestorePermissionError({
+            path: 'organizations', // A representative path for the batch
+            operation: 'create',
+            requestResourceData: adminData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        throw permissionError; // Rethrow so the UI can catch it.
+
     } finally {
         await signOut(tempAuth).catch(() => {});
         await deleteApp(tempApp);
