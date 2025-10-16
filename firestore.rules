@@ -1,173 +1,157 @@
 /**
  * @file Firestore Security Rules for AuthStation
- * @version Prototyping
+ * @version Prototyping Mode - Data shape is not strictly enforced. Authorization is strictly enforced.
  *
- * @description This ruleset enforces a hierarchical access control model for the AuthStation application.
- *  It focuses on securing data related to Super Admins, Organizations, Admins (departments), Devices, and Alerts.
+ * @description This ruleset enforces a hierarchical, role-based access control model for the AuthStation application.
  *
  * Data Structure:
- * - /roles_super_admin/{superAdminId}: Stores Super Admin profiles, with document ID matching the Firebase Auth UID.
- * - /organizations/{organizationId}: Stores Organization profiles, with document ID matching the Firebase Auth UID.
- * - /admins/{adminId}: Stores Admin (department) profiles, linked to an organization via the 'organizationId' field.
- * - /devices/{deviceId}: Stores Device data, linked to a department (Admin) via the 'adminId' field.
- * - /alerts/{alertId}: Stores Alert data, linked to a department (Admin) via the 'adminId' field.
+ * - /roles_super_admin/{superAdminId}: Documents indicating super admin status.
+ * - /organizations/{organizationId}: Documents for organizations, using the Firebase Auth UID as the document ID.
+ * - /admins/{adminId}: Documents representing departments, linked to an organization via the 'organizationId' field.
+ * - /devices/{deviceId}: Documents for IoT devices, linked to a department (Admin) via the 'adminId' field.
+ * - /alerts/{alertId}: Documents for system alerts, linked to a department (Admin) via the 'adminId' field.
  *
  * Key Security Decisions:
- * - Super Admin Role: Super admins are granted elevated privileges based on their presence in the /roles_super_admin collection.
- * - Organization Ownership: Each organization's data is secured using its Firebase Auth UID as the document ID.
- * - Departmental Access: Admins (departments) are linked to organizations via the 'organizationId' field, enabling secure access to devices and alerts within their department.
- * - Denormalization: The `adminId` field is denormalized onto Device and Alert documents to simplify authorization checks.
- * - List Operations: Listing of Super Admins is disallowed. Listing of other collections is allowed for authorized users.
+ * - Super Admins: Super admin status is determined by presence in the /roles_super_admin collection.
+ * - Organization Ownership: Organizations are granted ownership over their respective data trees.
+ * - Department-Level Access: Departments (Admins) inherit access rights from their parent organization.
+ * - Data Consistency: The rules enforce relational integrity by validating foreign key relationships (e.g., 'organizationId', 'adminId').
+ *
+ * Denormalization for Authorization:
+ * - The 'organizationId' field is present on the Admin documents, to avoid having to query all the organizations to find the parent for a given Admin.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Grants Super Admins full access to their profile.
+     * @description Grants Super Admins full access to their roles document.
      * @path /roles_super_admin/{superAdminId}
      * @allow (get, list) if isSignedIn()
-     * @allow (create) if isSuperAdmin(superAdminId)
-     * @allow (update, delete) if isExistingSuperAdmin(superAdminId)
-     * @deny (create) if !isSuperAdmin(superAdminId)
-     * @deny (update, delete) if !isExistingSuperAdmin(superAdminId)
-     * @principle Enforces Super Admin ownership for writes.
+     * @allow (create, update, delete) if isSignedIn() && isOwner(superAdminId)
+     * @deny (create) if !isSignedIn() || request.auth.uid != superAdminId
+     * @deny (update, delete) if !isSignedIn() || request.auth.uid != superAdminId || resource == null
+     * @principle Enforces document ownership for writes and requires authentication.
      */
     match /roles_super_admin/{superAdminId} {
       allow get: if isSignedIn();
-      allow list: if false; // Super Admins should not be listable.
-      allow create: if isSignedIn() && request.auth.uid == superAdminId;
-      allow update: if isSignedIn() && isSuperAdmin(superAdminId) && request.auth.uid == superAdminId;
-      allow delete: if isSignedIn() && isSuperAdmin(superAdminId) && request.auth.uid == superAdminId;
+      allow list: if isSignedIn();
+      allow create: if isSignedIn() && isOwner(superAdminId);
+      allow update: if isSignedIn() && isExistingOwner(superAdminId);
+      allow delete: if isSignedIn() && isExistingOwner(superAdminId);
     }
 
     /**
-     * @description Grants Organizations full access to their profile.
+     * @description Grants Organizations full access to their profiles.
      * @path /organizations/{organizationId}
      * @allow (get, list) if isSignedIn()
-     * @allow (create) if isSignedIn() && request.auth.uid == organizationId
-     * @allow (update, delete) if isExistingOwner(organizationId)
+     * @allow (create, update, delete) if isSignedIn() && isOwner(organizationId)
      * @deny (create) if !isSignedIn() || request.auth.uid != organizationId
-     * @deny (update, delete) if !isExistingOwner(organizationId)
-     * @principle Enforces Organization ownership for writes.
+     * @deny (update, delete) if !isSignedIn() || request.auth.uid != organizationId || resource == null
+     * @principle Enforces document ownership for writes and requires authentication.
      */
     match /organizations/{organizationId} {
       allow get: if isSignedIn();
       allow list: if isSignedIn();
-      allow create: if isSignedIn() && request.auth.uid == organizationId;
-      allow update: if isSignedIn() && isOwner(organizationId) && request.auth.uid == organizationId;
-      allow delete: if isSignedIn() && isOwner(organizationId) && request.auth.uid == organizationId;
+      allow create: if isSignedIn() && isOwner(organizationId);
+      allow update: if isSignedIn() && isExistingOwner(organizationId);
+      allow delete: if isSignedIn() && isExistingOwner(organizationId);
     }
 
     /**
-     * @description Grants Organizations full access to their Admin (department) profiles.
+     * @description Grants Organizations access to manage their Departments (Admins).
      * @path /admins/{adminId}
      * @allow (get, list) if isSignedIn()
-     * @allow (create) if isOrganizationAdmin(request.resource.data.organizationId)
-     * @allow (update, delete) if isExistingOrganizationAdmin(resource.data.organizationId)
-     * @deny (create) if !isOrganizationAdmin(request.resource.data.organizationId)
-     * @deny (update, delete) if !isExistingOrganizationAdmin(resource.data.organizationId)
-     * @principle Enforces Organization ownership for Admin writes.
+     * @allow (create) if isSignedIn() && request.resource.data.organizationId == request.auth.uid
+     * @allow (update) if isSignedIn() && resource != null && resource.data.organizationId == request.auth.uid && resource.data.organizationId == request.resource.data.organizationId
+     * @allow (delete) if isSignedIn() && resource != null && resource.data.organizationId == request.auth.uid
+     * @deny (create) if !isSignedIn() || request.resource.data.organizationId != request.auth.uid
+     * @deny (update) if !isSignedIn() || resource == null || resource.data.organizationId != request.auth.uid || resource.data.organizationId != request.resource.data.organizationId
+     * @deny (delete) if !isSignedIn() || resource == null || resource.data.organizationId != request.auth.uid
+     * @principle Enforces that only the owning Organization can manage its Departments.
      */
     match /admins/{adminId} {
       allow get: if isSignedIn();
       allow list: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.organizationId != null && isOrganizationAdmin(request.resource.data.organizationId);
-      allow update: if isSignedIn() && get(/databases/$(database)/documents/admins/$(adminId)).data.organizationId != null && isOrganizationAdmin(get(/databases/$(database)/documents/admins/$(adminId)).data.organizationId) && get(/databases/$(database)/documents/admins/$(adminId)).data.organizationId == request.resource.data.organizationId; //Enforce Organization ownership and organizationId immutability on update
-      allow delete: if isSignedIn() && get(/databases/$(database)/documents/admins/$(adminId)).data.organizationId != null && isOrganizationAdmin(get(/databases/$(database)/documents/admins/$(adminId)).data.organizationId);
-    }
-
-     /**
-      * @description Grants access to devices based on department (Admin) ownership.
-      * @path /devices/{deviceId}
-      * @allow (get, list) if isSignedIn()
-      * @allow (create) if isAdminOfDevice(request.resource.data.adminId)
-      * @allow (update, delete) if isExistingAdminOfDevice(resource.data.adminId)
-      * @deny (create) if !isAdminOfDevice(request.resource.data.adminId)
-      * @deny (update, delete) if !isExistingAdminOfDevice(resource.data.adminId)
-      * @principle Enforces Admin ownership for Device writes.
-      */
-    match /devices/{deviceId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.adminId != null && isAdminOfDevice(request.resource.data.adminId);
-      allow update: if isSignedIn() && get(/databases/$(database)/documents/devices/$(deviceId)).data.adminId != null && isAdminOfDevice(get(/databases/$(database)/documents/devices/$(deviceId)).data.adminId) && get(/databases/$(database)/documents/devices/$(deviceId)).data.adminId == request.resource.data.adminId;
-      allow delete: if isSignedIn() && get(/databases/$(database)/documents/devices/$(deviceId)).data.adminId != null && isAdminOfDevice(get(/databases/$(database)/documents/devices/$(deviceId)).data.adminId);
+      allow create: if isSignedIn() && request.resource.data.organizationId == request.auth.uid;
+      allow update: if isSignedIn() && resource != null && resource.data.organizationId == request.auth.uid && resource.data.organizationId == request.resource.data.organizationId;
+      allow delete: if isSignedIn() && resource != null && resource.data.organizationId == request.auth.uid;
     }
 
     /**
-     * @description Grants access to alerts based on department (Admin) ownership.
+     * @description Grants access to manage Devices to the department (Admin) they belong to.
+     * @path /devices/{deviceId}
+     * @allow (get, list) if isSignedIn()
+     * @allow (create) if isSignedIn()
+                  && request.resource.data.adminId != null
+                  && get(/databases/$(database)/documents/admins/$(request.resource.data.adminId)).data.organizationId == request.auth.uid;
+     * @allow (update) if isSignedIn()
+                  && resource != null
+                  && get(/databases/$(database)/documents/admins/$(resource.data.adminId)).data.organizationId == request.auth.uid;
+     * @allow (delete) if isSignedIn()
+                  && resource != null
+                  && get(/databases/$(database)/documents/admins/$(resource.data.adminId)).data.organizationId == request.auth.uid;
+     * @deny (create) if !isSignedIn()
+     * @deny (update) if !isSignedIn() || resource == null
+     * @deny (delete) if !isSignedIn() || resource == null
+     * @principle Enforces that only the owning Department can manage its Devices.
+     */
+    match /devices/{deviceId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isSignedIn()
+                  && request.resource.data.adminId != null
+                  && get(/databases/$(database)/documents/admins/$(request.resource.data.adminId)).data.organizationId == request.auth.uid;
+      allow update: if isSignedIn()
+                  && resource != null
+                  && get(/databases/$(database)/documents/admins/$(resource.data.adminId)).data.organizationId == request.auth.uid;
+      allow delete: if isSignedIn()
+                  && resource != null
+                  && get(/databases/$(database)/documents/admins/$(resource.data.adminId)).data.organizationId == request.auth.uid;
+    }
+
+    /**
+     * @description Grants access to manage Alerts to the department (Admin) they belong to.
      * @path /alerts/{alertId}
      * @allow (get, list) if isSignedIn()
-     * @allow (create) if isAdminOfAlert(request.resource.data.adminId)
-     * @allow (update, delete) if isExistingAdminOfAlert(resource.data.adminId)
-     * @deny (create) if !isAdminOfAlert(request.resource.data.adminId)
-     * @deny (update, delete) if !isExistingAdminOfAlert(resource.data.adminId)
-     * @principle Enforces Admin ownership for Alert writes.
+     * @allow (create) if isSignedIn()
+                  && request.resource.data.adminId != null
+                  && get(/databases/$(database)/documents/admins/$(request.resource.data.adminId)).data.organizationId == request.auth.uid;
+     * @allow (update) if isSignedIn()
+                  && resource != null
+                  && get(/databases/$(database)/documents/admins/$(resource.data.adminId)).data.organizationId == request.auth.uid;
+     * @allow (delete) if isSignedIn()
+                  && resource != null
+                  && get(/databases/$(database)/documents/admins/$(resource.data.adminId)).data.organizationId == request.auth.uid;
+     * @deny (create) if !isSignedIn()
+     * @deny (update) if !isSignedIn() || resource == null
+     * @deny (delete) if !isSignedIn() || resource == null
+     * @principle Enforces that only the owning Department can manage its Alerts.
      */
     match /alerts/{alertId} {
       allow get: if isSignedIn();
       allow list: if isSignedIn();
-      allow create: if isSignedIn() && request.resource.data.adminId != null && isAdminOfAlert(request.resource.data.adminId);
-      allow update: if isSignedIn() && get(/databases/$(database)/documents/alerts/$(alertId)).data.adminId != null && isAdminOfAlert(get(/databases/$(database)/documents/alerts/$(alertId)).data.adminId) && get(/databases/$(database)/documents/alerts/$(alertId)).data.adminId == request.resource.data.adminId;
-      allow delete: if isSignedIn() && get(/databases/$(database)/documents/alerts/$(alertId)).data.adminId != null && isAdminOfAlert(get(/databases/$(database)/documents/alerts/$(alertId)).data.adminId);
+      allow create: if isSignedIn()
+                  && request.resource.data.adminId != null
+                  && get(/databases/$(database)/documents/admins/$(request.resource.data.adminId)).data.organizationId == request.auth.uid;
+      allow update: if isSignedIn()
+                  && resource != null
+                  && get(/databases/$(database)/documents/admins/$(resource.data.adminId)).data.organizationId == request.auth.uid;
+      allow delete: if isSignedIn()
+                  && resource != null
+                  && get(/databases/$(database)/documents/admins/$(resource.data.adminId)).data.organizationId == request.auth.uid;
     }
 
-    // Helper functions
-
-    // Check if user is signed in
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Check if the user is a super admin.
-    function isSuperAdmin(superAdminId) {
-        return exists(/databases/$(database)/documents/roles_super_admin/$(superAdminId));
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
 
-    // Check if a super admin exists.
-    function isExistingSuperAdmin(superAdminId) {
-      return isSuperAdmin(superAdminId) && get(/databases/$(database)/documents/roles_super_admin/$(superAdminId)).data != null;
-    }
-
-    // Check if the user is the owner of the document (Organization).
-    function isOwner(organizationId) {
-      return isSignedIn() && request.auth.uid == organizationId;
-    }
-
-     // Check if the user is the existing owner of the document (Organization).
-    function isExistingOwner(organizationId) {
-      return isOwner(organizationId) && exists(/databases/$(database)/documents/organizations/$(organizationId));
-    }
-
-    // Check if the organization ID matches the user's auth UID.
-    function isOrganizationAdmin(organizationId) {
-      return isSignedIn() && request.auth.uid == organizationId;
-    }
-
-     // Check if the organization ID matches the user's auth UID.
-    function isExistingOrganizationAdmin(organizationId) {
-      return isOrganizationAdmin(organizationId) && exists(/databases/$(database)/documents/organizations/$(organizationId));
-    }
-
-    // Check if the admin ID matches the device's adminId.
-    function isAdminOfDevice(adminId) {
-      return exists(/databases/$(database)/documents/admins/$(adminId));
-    }
-
-    // Check if the admin ID matches the device's adminId and the device exists.
-     function isExistingAdminOfDevice(adminId) {
-      return isAdminOfDevice(adminId);
-    }
-
-    // Check if the admin ID matches the alert's adminId.
-    function isAdminOfAlert(adminId) {
-      return exists(/databases/$(database)/documents/admins/$(adminId));
-    }
-
-    // Check if the admin ID matches the alert's adminId and the alert exists.
-    function isExistingAdminOfAlert(adminId) {
-      return isAdminOfAlert(adminId);
+    function isExistingOwner(userId) {
+        return isSignedIn() && isOwner(userId) && resource != null;
     }
   }
 }
