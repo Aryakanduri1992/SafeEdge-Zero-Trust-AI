@@ -41,7 +41,7 @@ export function EditAdminForm({ admin, onFinished }: EditAdminFormProps) {
     try {
       await updateAdmin(admin.id, values);
       toast({
-        title: 'Admin Update Initiated',
+        title: 'Organization Update Initiated',
         description: `${admin.departmentName}'s profile is being updated.`,
       });
       onFinished();

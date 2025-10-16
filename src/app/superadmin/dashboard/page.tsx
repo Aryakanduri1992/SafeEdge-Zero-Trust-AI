@@ -206,7 +206,7 @@ export default function SuperAdminDashboardPage() {
           </DialogTrigger>
           <DialogContent className="sm:max-w-4xl">
             <DialogHeader>
-              <DialogTitle>Registered Organizations & Admins</DialogTitle>
+              <DialogTitle>Registered Organizations</DialogTitle>
               <DialogDescription>
                 Click an organization to see its registered administrators.
               </DialogDescription>
@@ -267,9 +267,9 @@ export default function SuperAdminDashboardPage() {
           
         <Dialog>
           <DialogTrigger asChild>
-            <Card className="cursor-pointer hover:border-primary/50 transition-colors">
+            <Card className="cursor-pointer hover*border-primary/50 transition-colors">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Admins</CardTitle>
+                <CardTitle className="text-sm font-medium">Total Organizations</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -282,16 +282,16 @@ export default function SuperAdminDashboardPage() {
           </DialogTrigger>
           <DialogContent className="sm:max-w-2xl">
              <DialogHeader>
-              <DialogTitle>All Administrators</DialogTitle>
+              <DialogTitle>All Organizations</DialogTitle>
               <DialogDescription>
-                A complete list of all admin accounts across all organizations.
+                A complete list of all organization accounts across all organizations.
               </DialogDescription>
             </DialogHeader>
             <div className="max-h-[400px] overflow-y-auto pr-4">
                <Table>
                 <TableHeader>
                     <TableRow>
-                        <TableHead>Admin</TableHead>
+                        <TableHead>Organization</TableHead>
                         <TableHead>Location</TableHead>
                         <TableHead className="text-center">Status</TableHead>
                     </TableRow>
@@ -321,7 +321,7 @@ export default function SuperAdminDashboardPage() {
 
         <Dialog>
           <DialogTrigger asChild>
-            <Card className="cursor-pointer hover:border-primary/50 transition-colors">
+            <Card className="cursor-pointer hover*border-primary/50 transition-colors">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Devices</CardTitle>
                 <RadioTower className="h-4 w-4 text-muted-foreground" />
@@ -347,7 +347,7 @@ export default function SuperAdminDashboardPage() {
                     <TableRow>
                         <TableHead>Device</TableHead>
                         <TableHead>Location</TableHead>
-                        <TableHead>Admin</TableHead>
+                        <TableHead>Organization</TableHead>
                         <TableHead className="text-center">Status</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -400,23 +400,23 @@ export default function SuperAdminDashboardPage() {
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <CardTitle>Admin Management</CardTitle>
+                <CardTitle>Organization Management</CardTitle>
                 <CardDescription>
-                  Create and manage administrator accounts for all organizations.
+                  Create and manage organization accounts for all organizations.
                 </CardDescription>
               </div>
                <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
                   <DialogTrigger asChild>
                     <Button>
                       <PlusCircle className="mr-2 h-4 w-4" />
-                      Add Admin
+                      Add Organization
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
-                      <DialogTitle>Create New Admin</DialogTitle>
+                      <DialogTitle>Create New Organization</DialogTitle>
                       <DialogDescription>
-                        Enter the details for the new admin account. Credentials must be shared securely.
+                        Enter the details for the new organization account. Credentials must be shared securely.
                       </DialogDescription>
                     </DialogHeader>
                     <CreateAdminForm 
@@ -461,7 +461,7 @@ export default function SuperAdminDashboardPage() {
               <TableRow>
                 <TableHead>Organization</TableHead>
                 <TableHead>Department</TableHead>
-                <TableHead>Admin (Email)</TableHead>
+                <TableHead>Organization Email</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead>Building/Floor</TableHead>
                 <TableHead className="text-center hidden sm:table-cell">Status</TableHead>
@@ -529,7 +529,7 @@ export default function SuperAdminDashboardPage() {
                  {filteredAdmins.length === 0 && (
                     <TableRow>
                         <TableCell colSpan={8} className="h-24 text-center">
-                            No administrators found matching your criteria.
+                            No organizations found matching your criteria.
                         </TableCell>
                     </TableRow>
                 )}
@@ -541,9 +541,9 @@ export default function SuperAdminDashboardPage() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Edit Admin: {selectedAdmin?.departmentName}</DialogTitle>
+            <DialogTitle>Edit Organization: {selectedAdmin?.departmentName}</DialogTitle>
             <DialogDescription>
-              Update the plan and device allocation for this administrator.
+              Update the plan and device allocation for this organization.
             </DialogDescription>
           </DialogHeader>
           {selectedAdmin && <EditAdminForm admin={selectedAdmin} onFinished={() => setIsEditDialogOpen(false)} />}

@@ -33,7 +33,7 @@ export function ActivateAdminDialog({
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Activate Admin Account?</AlertDialogTitle>
+          <AlertDialogTitle>Activate Organization Account?</AlertDialogTitle>
           <AlertDialogDescription>
             Are you sure you want to reactivate the account for "{admin.departmentName}"?
             They will immediately regain access to their dashboard.

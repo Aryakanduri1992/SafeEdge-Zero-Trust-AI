@@ -220,8 +220,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     await authService.deactivateAdmin(adminId);
     toast({
-      title: "Admin Deactivated",
-      description: "The admin account has been successfully deactivated.",
+      title: "Organization Deactivated",
+      description: "The organization account has been successfully deactivated.",
     });
   };
 
@@ -231,8 +231,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
     await authService.activateAdmin(adminId);
     toast({
-      title: "Admin Activated",
-      description: "The admin account has been successfully activated.",
+      title: "Organization Activated",
+      description: "The organization account has been successfully activated.",
     });
   };
 

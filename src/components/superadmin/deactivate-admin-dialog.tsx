@@ -33,7 +33,7 @@ export function DeactivateAdminDialog({
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Deactivate Admin Account?</AlertDialogTitle>
+          <AlertDialogTitle>Deactivate Organization Account?</AlertDialogTitle>
           <AlertDialogDescription>
             Are you sure you want to deactivate the account for "{admin.departmentName}"?
             They will immediately lose access to their dashboard. This can be undone later if needed.
