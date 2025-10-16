@@ -35,8 +35,8 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
   const [isLoading, setIsLoading] = useState(false);
   const { createAdmin } = useAuth();
   const { toast } = useToast();
-
-  const isAddingDepartment = !!initialValues.organizationId;
+  
+  const [isAddingDepartment, setIsAddingDepartment] = useState(!!initialValues.organizationId);
 
   const formSchema = baseSchema.refine(data => isAddingDepartment || (data.password && data.password.length >= 8), {
     message: 'Password must be at least 8 characters for new organizations.',
@@ -57,6 +57,8 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
   });
 
   useEffect(() => {
+    const isAdding = !!initialValues.organizationId;
+    setIsAddingDepartment(isAdding);
     form.reset({
       departmentName: '',
       organizationName: initialValues.organizationName || '',
@@ -76,7 +78,6 @@ export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormPr
       organizationId: initialValues.organizationId,
       email: initialValues.email || values.email, 
       organizationName: initialValues.organizationName || values.organizationName,
-      // Password is intentionally omitted if just adding a department
       password: isAddingDepartment ? undefined : values.password
     };
     
