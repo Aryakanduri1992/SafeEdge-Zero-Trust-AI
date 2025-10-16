@@ -12,12 +12,12 @@ export default function AdminLoginPage() {
            <h1 className="font-headline text-3xl font-bold tracking-tight text-primary">
             SafeEdge Cyber System
           </h1>
-          <p className="text-muted-foreground">Admin Portal</p>
+          <p className="text-muted-foreground">Organization Portal</p>
         </div>
       </div>
       <Card className="w-full max-w-sm border-primary/20 bg-card/60 shadow-xl backdrop-blur-sm">
         <CardHeader>
-          <CardTitle className="text-2xl">Admin Login</CardTitle>
+          <CardTitle className="text-2xl">Organization Login</CardTitle>
           <CardDescription>
             Enter your credentials to access the dashboard.
           </CardDescription>
@@ -27,7 +27,7 @@ export default function AdminLoginPage() {
         </CardContent>
       </Card>
       <Link href="/superadmin-login" className="text-sm text-primary transition-colors hover:text-primary/80">
-        Are you a Super Admin?
+        Login as Super Admin?
       </Link>
     </div>
   );
