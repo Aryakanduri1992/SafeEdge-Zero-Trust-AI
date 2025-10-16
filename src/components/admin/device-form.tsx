@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useForm } from "react-hook-form";
@@ -22,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
-import { Device } from "@/lib/types";
+import { Device, DeviceType, AdminUser } from "@/lib/types";
 
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters."),
@@ -30,15 +31,18 @@ const formSchema = z.object({
   location: z.string().min(2, "Location is required."),
   type: z.enum(["Sensor", "Gateway", "Actuator", "Camera"]),
   description: z.string().optional(),
+  adminId: z.string().min(1, "Department is required."),
 });
 
 type DeviceFormProps = {
   device?: Device | null;
   onSubmit: (values: z.infer<typeof formSchema>) => void;
   isLoading: boolean;
+  departments: AdminUser[];
+  currentUserId: string;
 };
 
-export function DeviceForm({ device, onSubmit, isLoading }: DeviceFormProps) {
+export function DeviceForm({ device, onSubmit, isLoading, departments, currentUserId }: DeviceFormProps) {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -47,12 +51,41 @@ export function DeviceForm({ device, onSubmit, isLoading }: DeviceFormProps) {
       location: device?.location || "",
       type: device?.type || "Sensor",
       description: device?.description || "",
+      adminId: device?.adminId || currentUserId,
     },
   });
+
+  const isSuperAdmin = departments.length > 1;
 
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        {isSuperAdmin && (
+           <FormField
+            control={form.control}
+            name="adminId"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Department</FormLabel>
+                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Assign to a department" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {departments.map((dept) => (
+                        <SelectItem key={dept.id} value={dept.id}>
+                            {dept.departmentName}
+                        </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        )}
         <FormField
           control={form.control}
           name="name"

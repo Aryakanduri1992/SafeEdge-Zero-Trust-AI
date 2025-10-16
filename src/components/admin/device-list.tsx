@@ -82,7 +82,7 @@ export function DeviceList() {
   const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
   const [isMutationLoading, setIsMutationLoading] = useState(false);
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, departments } = useAuth();
   const adminUser = user as AdminUser;
   const firestore = useFirestore();
 
@@ -94,7 +94,7 @@ export function DeviceList() {
   const { data: devices, isLoading: areDevicesLoading } = useCollection<Device>(devicesQuery);
   
   const devicesUsed = devices?.length ?? 0;
-  const maxDevices = adminUser?.plan === 'Pro' ? 25 : adminUser?.plan === 'Enterprise' ? 100 : 10;
+  const maxDevices = adminUser?.devices ?? 10;
 
   const handleAddClick = () => {
     if (devicesUsed >= maxDevices) {
@@ -122,11 +122,19 @@ export function DeviceList() {
   const handleFormSubmit = async (values: any) => {
     if (!user || !firestore) return;
     setIsMutationLoading(true);
+
+    const deviceData = {
+        name: values.name,
+        location: values.location,
+        type: values.type,
+        description: values.description,
+        adminId: values.adminId
+    }
     
     if (selectedDevice) {
       // Edit mode
       const deviceRef = doc(firestore, "devices", selectedDevice.id);
-      updateDoc(deviceRef, values)
+      updateDoc(deviceRef, deviceData)
         .then(() => {
             toast({
               title: "Device Updated",
@@ -139,7 +147,7 @@ export function DeviceList() {
             const permissionError = new FirestorePermissionError({
                 path: deviceRef.path,
                 operation: 'update',
-                requestResourceData: values,
+                requestResourceData: deviceData,
             });
             errorEmitter.emit('permission-error', permissionError);
         })
@@ -151,11 +159,9 @@ export function DeviceList() {
       const deviceId = values.id;
       const deviceRef = doc(firestore, "devices", deviceId);
       const newDevice: Omit<Device, 'id'> = {
-        ...values,
-        adminId: user.id,
+        ...deviceData,
         status: "offline",
         lastSeen: new Date().toISOString(),
-        sensorData: { temperature: 0, humidity: 0, motion: false, gas: 0 },
       };
       setDoc(deviceRef, newDevice)
         .then(() => {
@@ -338,6 +344,8 @@ export function DeviceList() {
             device={selectedDevice}
             onSubmit={handleFormSubmit}
             isLoading={isMutationLoading}
+            departments={departments}
+            currentUserId={user!.id}
           />
         </DialogContent>
       </Dialog>

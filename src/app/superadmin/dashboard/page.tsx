@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { Button } from '@/components/ui/button';
@@ -168,6 +169,7 @@ export default function SuperAdminDashboardPage() {
     setCreateFormInitialValues({ 
       organizationName: admin.organizationName,
       email: admin.email,
+      password: '', // This will require a new password
     });
     setIsCreateDialogOpen(true);
   };
@@ -199,6 +201,8 @@ export default function SuperAdminDashboardPage() {
   }
 
   const handleCreateFinished = () => {
+    // Logic to keep the dialog open with pre-filled org name can be placed here if desired
+    // For now, it just closes.
     setIsCreateDialogOpen(false);
   }
 
@@ -365,7 +369,7 @@ export default function SuperAdminDashboardPage() {
                 <TableHeader>
                     <TableRow>
                         <TableHead>Device</TableHead>
-                        <TableHead>Location</TableHead>
+                        <TableHead>Department</TableHead>
                         <TableHead>Organization</TableHead>
                         <TableHead className="text-center">Status</TableHead>
                     </TableRow>
@@ -380,8 +384,8 @@ export default function SuperAdminDashboardPage() {
                                 <div className="font-medium">{device.name}</div>
                                 <div className="text-xs text-muted-foreground font-mono">{device.id}</div>
                             </TableCell>
-                            <TableCell>{admin ? `${admin.building}, Floor ${admin.floor}` : 'N/A'}</TableCell>
                             <TableCell>{admin?.departmentName || 'N/A'}</TableCell>
+                            <TableCell>{admin?.organizationName || 'N/A'}</TableCell>
                             <TableCell className="text-center">
                                 <Badge
                                   variant={statusInfo.variant as any}
