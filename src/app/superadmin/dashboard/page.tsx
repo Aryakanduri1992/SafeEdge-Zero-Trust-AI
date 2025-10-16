@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { Button } from '@/components/ui/button';
@@ -440,6 +441,7 @@ export default function SuperAdminDashboardPage() {
                 <TableHead>Department</TableHead>
                 <TableHead>Admin (Email)</TableHead>
                 <TableHead className="hidden md:table-cell">Location</TableHead>
+                <TableHead className="hidden md:table-cell">Building/Floor</TableHead>
                 <TableHead className="text-center hidden sm:table-cell">Status</TableHead>
                 <TableHead className="text-center hidden lg:table-cell">Plan</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -452,8 +454,10 @@ export default function SuperAdminDashboardPage() {
                   <TableCell>{admin.departmentName}</TableCell>
                   <TableCell className="text-muted-foreground text-xs font-mono">{admin.email}</TableCell>
                   <TableCell className="text-muted-foreground hidden md:table-cell">
-                    <div>{admin.location}</div>
-                    <div className="text-xs">{admin.building}, Fl {admin.floor}</div>
+                    {admin.location}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground hidden md:table-cell">
+                    {admin.building}, Fl {admin.floor}
                   </TableCell>
                    <TableCell className="text-center hidden sm:table-cell">
                     {admin.status === 'active' ? (
@@ -502,7 +506,7 @@ export default function SuperAdminDashboardPage() {
               ))}
                  {filteredAdmins.length === 0 && (
                     <TableRow>
-                        <TableCell colSpan={7} className="h-24 text-center">
+                        <TableCell colSpan={8} className="h-24 text-center">
                             No administrators found matching your criteria.
                         </TableCell>
                     </TableRow>
