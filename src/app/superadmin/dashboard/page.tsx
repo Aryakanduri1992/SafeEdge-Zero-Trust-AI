@@ -133,7 +133,7 @@ export default function SuperAdminDashboardPage() {
 
   const filteredAdmins = useMemo(() => {
     return admins.filter(admin => {
-        const matchesSearch = admin.organization?.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesSearch = admin.name.toLowerCase().includes(searchTerm.toLowerCase()) || admin.email.toLowerCase().includes(searchTerm.toLowerCase()) || admin.organization?.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesStatus = statusFilter === 'all' || admin.status === statusFilter;
         return matchesSearch && matchesStatus;
     });
@@ -410,7 +410,7 @@ export default function SuperAdminDashboardPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by organization..."
+                placeholder="Search by name, email, or organization..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -539,9 +539,3 @@ export default function SuperAdminDashboardPage() {
     </div>
   );
 }
-
-    
-
-    
-
-    
