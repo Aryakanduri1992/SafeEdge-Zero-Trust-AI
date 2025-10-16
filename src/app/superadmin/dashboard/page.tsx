@@ -104,6 +104,7 @@ export default function SuperAdminDashboardPage() {
   const [createFormInitialValues, setCreateFormInitialValues] = useState<{
     organizationName: string;
     email?: string;
+    password?: string;
   }>({ organizationName: '' });
 
 
@@ -486,7 +487,7 @@ export default function SuperAdminDashboardPage() {
                 <TableHead>Location</TableHead>
                 <TableHead>Building/Floor</TableHead>
                 <TableHead className="text-center hidden sm:table-cell">Status</TableHead>
-                <TableHead className="text-center hidden lg:table-cell">Plan</TableHead>
+                <TableHead className="text-center">Plan</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -509,7 +510,7 @@ export default function SuperAdminDashboardPage() {
                        <Badge variant="destructive" className="bg-muted-foreground/20 text-muted-foreground border-muted-foreground/30"><XCircle className="mr-1 h-3 w-3"/>Inactive</Badge>
                     )}
                   </TableCell>
-                  <TableCell className="text-center hidden lg:table-cell">
+                  <TableCell className="text-center">
                     <Badge variant={planVariant(admin.plan)}>{admin.plan}</Badge>
                   </TableCell>
                   <TableCell className="text-right">
