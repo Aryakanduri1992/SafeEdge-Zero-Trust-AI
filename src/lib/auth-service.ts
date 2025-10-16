@@ -11,7 +11,7 @@ import {
   fetchSignInMethodsForEmail,
   type User as FirebaseUser
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, addDoc, deleteDoc, writeBatch } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, writeBatch } from 'firebase/firestore';
 import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateAdminData, Organization } from './types';
 import { initializeFirebase } from '@/firebase';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -101,6 +101,7 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
         batch.set(orgDocRef, newOrgProfile);
         
         for (const dept of adminData.departments) {
+            const deptDocRef = doc(collection(firestore, 'admins'));
             const newDepartmentProfile: Omit<AdminUser, 'id'> = {
                 departmentName: dept.departmentName,
                 organizationName: adminData.organizationName,
@@ -116,7 +117,6 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
                 status: 'active',
                 organizationId: newOrgUID,
             };
-            const deptDocRef = doc(collection(firestore, 'admins'));
             batch.set(deptDocRef, newDepartmentProfile);
         }
 
@@ -124,19 +124,12 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
 
     } catch (error: any) {
         if (newOrgUID) {
+             // This indicates the auth user was created but the Firestore write failed.
              throw new Error(`Creation Failed: An authentication account for ${adminData.email} was created, but saving the organization data failed. This is likely due to a security rule violation. Please go to the Firebase Console, delete the user from the 'Authentication' tab, and try again after the rules are fixed. Error: ${error.message}`);
+        } else {
+            // This error happened during auth creation or pre-checks.
+             throw error;
         }
-        
-        const permissionError = new FirestorePermissionError({
-            path: 'organizations',
-            operation: 'create',
-            requestResourceData: { 
-                organizationName: adminData.organizationName, 
-                email: adminData.email 
-            },
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        throw permissionError;
 
     } finally {
         if (tempAuth.currentUser) {
