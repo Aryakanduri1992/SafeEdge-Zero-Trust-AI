@@ -13,6 +13,7 @@ import { collection, onSnapshot, Unsubscribe, query, where } from 'firebase/fire
 type AuthContextType = {
   user: SuperAdminUser | AdminUser | null;
   admins: AdminUser[];
+  departments: AdminUser[]; // For admin role to see their org's departments
   allDevices: Device[]; // Added to hold all devices for superadmin
   isAuthenticated: boolean;
   isLoading: boolean;
@@ -30,6 +31,7 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [appUser, setAppUser] = useState<SuperAdminUser | AdminUser | null>(null);
   const [admins, setAdmins] = useState<AdminUser[]>([]);
+  const [departments, setDepartments] = useState<AdminUser[]>([]);
   const [allDevices, setAllDevices] = useState<Device[]>([]);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const router = useRouter();
@@ -134,6 +136,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let adminsUnsubscribe: Unsubscribe | undefined;
     let devicesUnsubscribe: Unsubscribe | undefined;
+    let departmentsUnsubscribe: Unsubscribe | undefined;
 
     if (appUser?.role === 'superadmin' && firestore) {
       const adminsQuery = query(collection(firestore, 'admins'));
@@ -162,13 +165,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setAllDevices([]);
       });
 
-    } else {
+    } else if (appUser?.role === 'admin' && firestore) {
+        const adminUser = appUser as AdminUser;
+        const departmentsQuery = query(collection(firestore, 'admins'), where("organizationName", "==", adminUser.organizationName));
+        departmentsUnsubscribe = onSnapshot(departmentsQuery, (snapshot) => {
+            const deptList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as AdminUser));
+            setDepartments(deptList);
+        }, (serverError) => {
+            const permissionError = new FirestorePermissionError({
+                path: `admins`,
+                operation: 'list',
+            });
+            errorEmitter.emit('permission-error', permissionError);
+            setDepartments([]);
+        });
+    }
+    else {
         setAdmins([]);
         setAllDevices([]);
+        setDepartments([]);
     }
     return () => {
         if (adminsUnsubscribe) adminsUnsubscribe();
         if (devicesUnsubscribe) devicesUnsubscribe();
+        if (departmentsUnsubscribe) departmentsUnsubscribe();
     }
   }, [appUser, firestore]);
 
@@ -242,6 +262,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const contextValue = { 
     user: appUser, 
     admins,
+    departments,
     allDevices,
     isAuthenticated: !!appUser, 
     isLoading, 
@@ -264,3 +285,5 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     </AuthContext.Provider>
   );
 };
+
+    

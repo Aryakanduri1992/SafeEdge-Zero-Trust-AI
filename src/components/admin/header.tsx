@@ -34,7 +34,7 @@ export function Header() {
                 className="flex items-center gap-2 text-lg font-semibold mb-4"
                 >
                 <Logo className="h-8 w-8" />
-                <span className="sr-only">{adminUser?.building}</span>
+                <span className="sr-only">{adminUser?.organizationName}</span>
                 </Link>
                 {navItems.map((item) => (
                     <Link
@@ -53,7 +53,7 @@ export function Header() {
           </SheetContent>
         </Sheet>
         <span className="font-headline text-2xl font-bold text-primary">
-          {adminUser?.building || ''}
+          {adminUser?.organizationName || ''}
         </span>
       </div>
       <div className='flex items-center gap-4'>
@@ -72,3 +72,5 @@ export function Header() {
     </header>
   );
 }
+
+    

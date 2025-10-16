@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useMemo } from "react";
@@ -126,7 +127,7 @@ export default function AdminDashboardPage() {
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="font-headline text-3xl font-bold tracking-tight">Admin Dashboard</h1>
+        <h1 className="font-headline text-3xl font-bold tracking-tight">Organization Dashboard</h1>
         <p className="text-muted-foreground">Welcome back, {user?.departmentName}. Here is the real-time status of your protected assets.</p>
       </div>
 
@@ -245,3 +246,5 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
+    

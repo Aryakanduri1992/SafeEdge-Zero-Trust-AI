@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, RadioTower, Bell, User } from "lucide-react";
+import { LayoutDashboard, RadioTower, Bell, User, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
 import { useAuth } from "@/hooks/use-auth";
@@ -11,7 +11,8 @@ import type { AdminUser } from "@/lib/types";
 
 
 export const navItems = [
-  { href: "/admin/dashboard", icon: LayoutDashboard, label: "Dashboard" },
+  { href: "/admin/dashboard", icon: LayoutDashboard, label: "Organization" },
+  { href: "/admin/departments", icon: Users, label: "Departments" },
   { href: "/admin/devices", icon: RadioTower, label: "Devices" },
   { href: "/admin/alerts", icon: Bell, label: "Alerts" },
   { href: "/admin/profile", icon: User, label: "Profile" },
@@ -28,7 +29,7 @@ export function Sidebar() {
         <div className="flex h-16 items-center border-b px-6">
           <Link href="/admin/dashboard" className="flex items-center gap-2 font-semibold">
             <Logo className="h-8 w-8" />
-            <span className="font-headline text-xl text-primary">{adminUser?.building || "SafeEdge"}</span>
+            <span className="font-headline text-xl text-primary">{adminUser?.organizationName || "SafeEdge"}</span>
           </Link>
         </div>
         <div className="flex-1 overflow-auto py-2">
@@ -52,3 +53,5 @@ export function Sidebar() {
     </div>
   );
 }
+
+    
