@@ -22,19 +22,34 @@ import { Badge } from "@/components/ui/badge";
 import { CreateAdminForm } from '@/components/superadmin/create-admin-form';
 import { EditAdminForm } from '@/components/superadmin/edit-admin-form';
 import { DeactivateAdminDialog } from '@/components/superadmin/deactivate-admin-dialog';
-import { PlusCircle, Users, Edit, Building, RadioTower, ShieldAlert, Power, CheckCircle, XCircle } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { PlusCircle, Users, Edit, Building, RadioTower, ShieldAlert, Power, CheckCircle, XCircle, MoreHorizontal, User, Server, Camera, HardDrive, Cpu, Radio } from 'lucide-react';
+import { useState, useMemo, ReactNode } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { AdminUser, Device } from '@/lib/types';
+import { AdminUser, Device, DeviceType } from '@/lib/types';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal } from "lucide-react";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+
+const getDeviceTypeIcon = (type: DeviceType): ReactNode => {
+    switch (type) {
+        case 'Sensor':
+            return <Cpu className="h-4 w-4 text-muted-foreground" />;
+        case 'Gateway':
+            return <Server className="h-4 w-4 text-muted-foreground" />;
+        case 'Actuator':
+            return <Radio className="h-4 w-4 text-muted-foreground" />;
+        case 'Camera':
+            return <Camera className="h-4 w-4 text-muted-foreground" />;
+        default:
+            return <HardDrive className="h-4 w-4 text-muted-foreground" />;
+    }
+}
+
 
 export default function SuperAdminDashboardPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -135,21 +150,30 @@ export default function SuperAdminDashboardPage() {
                     <AccordionTrigger>{org.name} ({org.devices.length} devices)</AccordionTrigger>
                     <AccordionContent>
                       {org.devices.length > 0 ? (
-                        <div className="space-y-2 pl-4">
+                        <div className="space-y-3 pl-2">
                           {org.devices.map(device => (
-                            <div key={device.id} className="text-sm p-2 rounded-md border border-border/50">
-                              <p className="font-medium">{device.name}</p>
-                              <p className="text-xs text-muted-foreground font-mono">{device.id} - {device.type}</p>
-                              <p className="text-xs text-muted-foreground">
-                                Admin: {admins.find(a => a.id === device.adminId)?.name || 'N/A'}
-                              </p>
+                            <div key={device.id} className="flex items-start gap-4 p-2 rounded-md border border-border/50">
+                                {getDeviceTypeIcon(device.type)}
+                                <div className='flex-1'>
+                                    <p className="font-semibold text-sm">{device.name}</p>
+                                    <p className="text-xs text-muted-foreground font-mono">{device.id}</p>
+                                    <div className="flex items-center gap-2 mt-1">
+                                        <User className="h-3 w-3 text-muted-foreground" />
+                                        <p className="text-xs text-muted-foreground">
+                                             {admins.find(a => a.id === device.adminId)?.name || 'N/A'}
+                                        </p>
+                                    </div>
+                                </div>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <p className="text-sm text-muted-foreground text-center py-4">
-                          No devices registered for this organization.
-                        </p>
+                        <div className="flex flex-col items-center justify-center text-center p-8">
+                            <Server className="h-10 w-10 text-muted-foreground mb-3" />
+                            <p className="text-sm text-muted-foreground">
+                                No devices registered for this organization.
+                            </p>
+                        </div>
                       )}
                     </AccordionContent>
                   </AccordionItem>
@@ -306,3 +330,5 @@ export default function SuperAdminDashboardPage() {
     </div>
   );
 }
+
+    
