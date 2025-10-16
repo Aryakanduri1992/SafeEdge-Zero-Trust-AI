@@ -22,19 +22,23 @@ import { Badge } from "@/components/ui/badge";
 import { CreateAdminForm } from '@/components/superadmin/create-admin-form';
 import { EditAdminForm } from '@/components/superadmin/edit-admin-form';
 import { DeactivateAdminDialog } from '@/components/superadmin/deactivate-admin-dialog';
-import { PlusCircle, Users, Edit, Building, RadioTower, ShieldAlert, Power, CheckCircle, XCircle, MoreHorizontal, User, Server, Camera, HardDrive, Cpu, Radio, ShieldCheck, SignalHigh, Signal, SignalLow } from 'lucide-react';
+import { PlusCircle, Users, Edit, Building, RadioTower, ShieldAlert, Power, CheckCircle, XCircle, MoreHorizontal, User, Server, Camera, HardDrive, Cpu, Radio, ShieldCheck, SignalHigh, Signal, SignalLow, Search, Filter } from 'lucide-react';
 import { useState, useMemo, ReactNode } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { AdminUser, Device, DeviceType, DeviceStatus } from '@/lib/types';
+import { AdminUser, Device, DeviceType, DeviceStatus, AdminStatus } from '@/lib/types';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuCheckboxItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { ActivateAdminDialog } from '@/components/superadmin/activate-admin-dialog';
+import { Input } from '@/components/ui/input';
 
 
 const getDeviceTypeIcon = (type: DeviceType): ReactNode => {
@@ -93,6 +97,12 @@ export default function SuperAdminDashboardPage() {
   const [selectedAdmin, setSelectedAdmin] = useState<AdminUser | null>(null);
   const { user, admins, allDevices, deactivateAdmin, activateAdmin } = useAuth();
 
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<{ active: boolean; inactive: boolean }>({
+    active: true,
+    inactive: true,
+  });
+
   const { totalOrgs, totalDevices, totalAlerts, orgsWithDetails } = useMemo(() => {
     const validOrgs = admins
       .map(a => a.organization)
@@ -121,6 +131,20 @@ export default function SuperAdminDashboardPage() {
       orgsWithDetails: orgDetails
     };
   }, [admins, allDevices]);
+
+  const filteredAdmins = useMemo(() => {
+    return admins.filter(admin => {
+        const matchesSearch = admin.organization?.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesStatus = (statusFilter.active && admin.status === 'active') || (statusFilter.inactive && admin.status === 'inactive');
+        
+        // If all filters are off, show nothing
+        if (!statusFilter.active && !statusFilter.inactive) {
+            return false;
+        }
+
+        return matchesSearch && matchesStatus;
+    });
+}, [admins, searchTerm, statusFilter]);
 
 
   const planVariant = (plan: AdminUser['plan']) => {
@@ -363,30 +387,67 @@ export default function SuperAdminDashboardPage() {
 
       {/* Admin Management Section */}
       <Card className="shadow-sm">
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <CardTitle>Admin Management</CardTitle>
-              <CardDescription>
-                Create and manage administrator accounts for all organizations.
-              </CardDescription>
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <CardTitle>Admin Management</CardTitle>
+                <CardDescription>
+                  Create and manage administrator accounts for all organizations.
+                </CardDescription>
+              </div>
+               <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button>
+                      <PlusCircle className="mr-2 h-4 w-4" />
+                      Add Admin
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px]">
+                    <DialogHeader>
+                      <DialogTitle>Create New Admin</DialogTitle>
+                      <DialogDescription>
+                        Enter the details for the new admin account. Credentials must be shared securely.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <CreateAdminForm onFinished={() => setIsCreateDialogOpen(false)} />
+                  </DialogContent>
+                </Dialog>
+          </div>
+           <div className="mt-4 flex items-center gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search by organization..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
             </div>
-             <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <PlusCircle className="mr-2 h-4 w-4" />
-                    Add Admin
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px]">
-                  <DialogHeader>
-                    <DialogTitle>Create New Admin</DialogTitle>
-                    <DialogDescription>
-                      Enter the details for the new admin account. Credentials must be shared securely.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <CreateAdminForm onFinished={() => setIsCreateDialogOpen(false)} />
-                </DialogContent>
-              </Dialog>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline">
+                  <Filter className="mr-2 h-4 w-4" />
+                  Filter
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>Filter by Status</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuCheckboxItem
+                  checked={statusFilter.active}
+                  onCheckedChange={(checked) => setStatusFilter(prev => ({ ...prev, active: checked }))}
+                >
+                  Active
+                </DropdownMenuCheckboxItem>
+                <DropdownMenuCheckboxItem
+                  checked={statusFilter.inactive}
+                  onCheckedChange={(checked) => setStatusFilter(prev => ({ ...prev, inactive: checked }))}
+                >
+                  Inactive
+                </DropdownMenuCheckboxItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
@@ -400,7 +461,7 @@ export default function SuperAdminDashboardPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {admins.map((admin) => (
+              {filteredAdmins.map((admin) => (
                 <TableRow key={admin.id}>
                   <TableCell className="font-medium">
                     <div>{admin.name}</div>
@@ -453,6 +514,13 @@ export default function SuperAdminDashboardPage() {
                   </TableCell>
                 </TableRow>
               ))}
+                 {filteredAdmins.length === 0 && (
+                    <TableRow>
+                        <TableCell colSpan={5} className="h-24 text-center">
+                            No administrators found matching your criteria.
+                        </TableCell>
+                    </TableRow>
+                )}
             </TableBody>
           </Table>
         </CardContent>
@@ -485,6 +553,8 @@ export default function SuperAdminDashboardPage() {
     </div>
   );
 }
+
+    
 
     
 
