@@ -75,20 +75,24 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
         throw new Error("At least one department must be specified.");
     }
     
-    const signInMethods = await fetchSignInMethodsForEmail(auth, adminData.email);
-    if (signInMethods.length > 0) {
-        throw new Error(`An account with the email ${adminData.email} already exists. Please use a different email.`);
-    }
-
+    // Use a temporary, isolated Firebase app instance for the entire operation.
     const tempAppName = `temp-admin-creation-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
     let newOrgUID = '';
 
     try {
+        // Step 1: Check if email exists using the primary auth instance.
+        const signInMethods = await fetchSignInMethodsForEmail(auth, adminData.email);
+        if (signInMethods.length > 0) {
+            throw new Error(`An account with the email ${adminData.email} already exists. Please use a different email.`);
+        }
+
+        // Step 2: Create the user in the temporary auth instance.
         const userCredential = await createUserWithEmailAndPassword(tempAuth, adminData.email, adminData.password);
         newOrgUID = userCredential.user.uid;
 
+        // Step 3: Perform all Firestore writes in a single batch.
         const batch = writeBatch(firestore);
 
         const newOrgProfile: Omit<Organization, 'id' | 'role'> = {
@@ -120,6 +124,7 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
             batch.set(deptDocRef, newDepartmentProfile);
         }
 
+        // Step 4: Commit the batch.
         await batch.commit();
 
     } catch (error: any) {
@@ -127,11 +132,12 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
              // This indicates the auth user was created but the Firestore write failed.
              throw new Error(`Creation Failed: An authentication account for ${adminData.email} was created, but saving the organization data failed. This is likely due to a security rule violation. Please go to the Firebase Console, delete the user from the 'Authentication' tab, and try again after the rules are fixed. Error: ${error.message}`);
         } else {
-            // This error happened during auth creation or pre-checks.
+            // This error happened during pre-checks or auth creation.
              throw error;
         }
 
     } finally {
+        // Step 5: Always clean up the temporary app.
         if (tempAuth.currentUser) {
             await signOut(tempAuth);
         }
@@ -211,8 +217,7 @@ const seedSuperAdmin = async () => {
                     };
                     const superAdminRoleRef = doc(firestore, 'roles_super_admin', user.uid);
                     await setDoc(superAdminRoleRef, superAdminProfile);
-                    console.log("Super Admin seeded successfully.");
-                }
+                 }
              } catch (seedError: any) {
                 // If the user already exists (e.g., race condition), we can ignore the error.
                 if (seedError.code !== 'auth/email-already-in-use') {
@@ -229,5 +234,9 @@ const seedSuperAdmin = async () => {
 
 // Run this only once on client-side initialization
 if (typeof window !== 'undefined') {
-    seedSuperAdmin();
+    // A check to prevent this from running multiple times in development HMR
+    if (!(window as any).__superAdminSeeded) {
+        seedSuperAdmin();
+        (window as any).__superAdminSeeded = true;
+    }
 }
