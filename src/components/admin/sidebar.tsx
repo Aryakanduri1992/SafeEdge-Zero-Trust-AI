@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -5,6 +6,9 @@ import { usePathname } from "next/navigation";
 import { LayoutDashboard, RadioTower, Bell, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
+import { useAuth } from "@/hooks/use-auth";
+import type { AdminUser } from "@/lib/types";
+
 
 export const navItems = [
   { href: "/admin/dashboard", icon: LayoutDashboard, label: "Dashboard" },
@@ -15,6 +19,8 @@ export const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const { user } = useAuth();
+  const adminUser = user as AdminUser;
 
   return (
     <div className="hidden border-r bg-background md:block">
@@ -22,7 +28,7 @@ export function Sidebar() {
         <div className="flex h-16 items-center border-b px-6">
           <Link href="/admin/dashboard" className="flex items-center gap-2 font-semibold">
             <Logo className="h-8 w-8" />
-            <span className="font-headline text-xl text-primary">SafeEdge</span>
+            <span className="font-headline text-xl text-primary">{adminUser?.organization || "SafeEdge"}</span>
           </Link>
         </div>
         <div className="flex-1 overflow-auto py-2">

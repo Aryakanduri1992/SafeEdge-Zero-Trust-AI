@@ -1,3 +1,4 @@
+
 "use client";
 
 import { Button } from '@/components/ui/button';
@@ -29,11 +30,11 @@ export function Header() {
           <SheetContent side="left" className="flex flex-col">
              <nav className="grid gap-4 text-lg font-medium">
                 <Link
-                href="#"
+                href="/admin/dashboard"
                 className="flex items-center gap-2 text-lg font-semibold mb-4"
                 >
                 <Logo className="h-8 w-8" />
-                <span className="sr-only">SafeEdge</span>
+                <span className="sr-only">{adminUser?.organization}</span>
                 </Link>
                 {navItems.map((item) => (
                     <Link
@@ -52,7 +53,7 @@ export function Header() {
           </SheetContent>
         </Sheet>
         <span className="font-headline text-2xl font-bold text-primary">
-          {adminUser?.organization || 'SafeEdge'}
+          {adminUser?.organization || ''}
         </span>
       </div>
       <div className='flex items-center gap-4'>
