@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { Button } from '@/components/ui/button';
@@ -23,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { CreateAdminForm } from '@/components/superadmin/create-admin-form';
 import { EditAdminForm } from '@/components/superadmin/edit-admin-form';
 import { DeactivateAdminDialog } from '@/components/superadmin/deactivate-admin-dialog';
-import { PlusCircle, Users, Edit, Building, RadioTower, ShieldAlert, Power, CheckCircle, XCircle, MoreHorizontal, User, Server, Camera, HardDrive, Cpu, Radio, ShieldCheck, SignalHigh, Signal, SignalLow, Search, Filter } from 'lucide-react';
+import { PlusCircle, Users, Edit, Building, RadioTower, ShieldAlert, Power, CheckCircle, XCircle, MoreHorizontal, User, Server, Camera, HardDrive, Cpu, Radio, ShieldCheck, SignalHigh, Signal, SignalLow, Search, Filter, MapPin } from 'lucide-react';
 import { useState, useMemo, ReactNode } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -199,42 +198,56 @@ export default function SuperAdminDashboardPage() {
               </CardContent>
             </Card>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-lg">
+          <DialogContent className="sm:max-w-4xl">
             <DialogHeader>
-              <DialogTitle>Registered Organizations & Devices</DialogTitle>
+              <DialogTitle>Registered Organizations & Admins</DialogTitle>
               <DialogDescription>
-                Click an organization to see its registered devices.
+                Click an organization to see its registered administrators.
               </DialogDescription>
             </DialogHeader>
-            <div className="max-h-[400px] overflow-y-auto pr-4">
+            <div className="max-h-[60vh] overflow-y-auto pr-4">
               <Accordion type="single" collapsible>
                 {orgsWithDetails.map((org) => (
                   <AccordionItem value={org.name} key={org.name}>
-                    <AccordionTrigger>{org.name} ({org.devices.length} devices)</AccordionTrigger>
+                    <AccordionTrigger className="text-lg font-semibold">{org.name} ({org.admins.length} admins)</AccordionTrigger>
                     <AccordionContent>
-                      {org.devices.length > 0 ? (
-                        <div className="space-y-3 pl-2">
-                          {org.devices.map(device => (
-                            <div key={device.id} className="flex items-start gap-4 p-2 rounded-md border border-border/50">
-                                {getDeviceTypeIcon(device.type)}
-                                <div className='flex-1'>
-                                    <p className="font-semibold text-sm">{device.name}</p>
-                                    <p className="text-xs text-muted-foreground font-mono">{device.id}</p>
-                                    <div className="flex items-center gap-2 mt-1">
-                                        <User className="h-3 w-3 text-muted-foreground" />
-                                        <p className="text-xs text-muted-foreground">
-                                             {admins.find(a => a.id === device.adminId)?.departmentName || 'N/A'}
-                                        </p>
-                                    </div>
-                                </div>
-                            </div>
-                          ))}
-                        </div>
+                      {org.admins.length > 0 ? (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Department</TableHead>
+                              <TableHead>Location</TableHead>
+                              <TableHead>Building</TableHead>
+                              <TableHead>Floor</TableHead>
+                              <TableHead className="text-center">Status</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {org.admins.map(admin => (
+                              <TableRow key={admin.id}>
+                                <TableCell>
+                                  <div className="font-medium">{admin.departmentName}</div>
+                                  <div className="text-xs text-muted-foreground font-mono">{admin.email}</div>
+                                </TableCell>
+                                <TableCell>{admin.location}</TableCell>
+                                <TableCell>{admin.building}</TableCell>
+                                <TableCell>{admin.floor}</TableCell>
+                                <TableCell className="text-center">
+                                  {admin.status === 'active' ? (
+                                    <Badge variant="outline" className="text-green-400 border-green-400/50"><CheckCircle className="mr-1 h-3 w-3"/>Active</Badge>
+                                  ) : (
+                                    <Badge variant="destructive" className="bg-muted-foreground/20 text-muted-foreground border-muted-foreground/30"><XCircle className="mr-1 h-3 w-3"/>Inactive</Badge>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
                       ) : (
                         <div className="flex flex-col items-center justify-center text-center p-8">
-                            <Server className="h-10 w-10 text-muted-foreground mb-3" />
+                            <Users className="h-10 w-10 text-muted-foreground mb-3" />
                             <p className="text-sm text-muted-foreground">
-                                No devices registered for this organization.
+                                No administrators registered for this organization.
                             </p>
                         </div>
                       )}
