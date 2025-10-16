@@ -75,22 +75,26 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
         throw new Error("At least one department must be specified.");
     }
     
+    // Step 1: Check if email is already in use in Firebase Auth
+    const signInMethods = await fetchSignInMethodsForEmail(auth, adminData.email);
+    if (signInMethods.length > 0) {
+        throw new Error(`An account with the email ${adminData.email} already exists. Please use a different email.`);
+    }
+
+    // Step 2: Use a temporary auth instance to create the user
     const tempAppName = `temp-admin-creation-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
     let newOrgUID = '';
 
     try {
-        const signInMethods = await fetchSignInMethodsForEmail(auth, adminData.email);
-        if (signInMethods.length > 0) {
-            throw new Error(`An account with the email ${adminData.email} already exists.`);
-        }
-
         const userCredential = await createUserWithEmailAndPassword(tempAuth, adminData.email, adminData.password);
         newOrgUID = userCredential.user.uid;
 
+        // Step 3: Perform Firestore writes in a batch
         const batch = writeBatch(firestore);
 
+        // Don't save password or other top-level fields to the organization document
         const newOrgProfile: Omit<Organization, 'id' | 'role'> = {
             organizationName: adminData.organizationName,
             email: adminData.email,
@@ -123,8 +127,8 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
         await batch.commit();
 
     } catch (error: any) {
-        if (error.code === 'auth/email-already-in-use' || error.message.includes('already exists')) {
-             throw new Error(`An account with the email ${adminData.email} is already in use.`);
+        if (newOrgUID) {
+             throw new Error(`Creation Failed: An authentication account for ${adminData.email} was created, but saving the organization data failed due to a database error: ${error.message}. Please go to the Firebase Console, delete the user from the 'Authentication' tab, and try again.`);
         }
         
         // This will now catch the batch commit failure and create a contextual error
@@ -132,16 +136,18 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
             path: 'organizations', // A representative path for the batch
             operation: 'create',
             requestResourceData: { 
-              organizationName: adminData.organizationName,
-              email: adminData.email,
-              departments: adminData.departments
-            }, // Pass only the relevant data
+                organizationName: adminData.organizationName, 
+                email: adminData.email 
+            },
         });
         errorEmitter.emit('permission-error', permissionError);
         throw permissionError; // Rethrow permission error
 
     } finally {
-        await signOut(tempAuth).catch(() => {});
+        // Always clean up the temporary app instance
+        if (tempAuth.currentUser) {
+            await signOut(tempAuth);
+        }
         await deleteApp(tempApp);
     }
 };
