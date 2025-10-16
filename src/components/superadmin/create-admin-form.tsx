@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -22,10 +23,11 @@ const formSchema = z.object({
 });
 
 type CreateAdminFormProps = {
-  onFinished: () => void;
+  onFinished: (organizationName: string) => void;
+  initialOrganizationName?: string;
 };
 
-export function CreateAdminForm({ onFinished }: CreateAdminFormProps) {
+export function CreateAdminForm({ onFinished, initialOrganizationName }: CreateAdminFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { createAdmin } = useAuth();
   const { toast } = useToast();
@@ -34,7 +36,7 @@ export function CreateAdminForm({ onFinished }: CreateAdminFormProps) {
     resolver: zodResolver(formSchema),
     defaultValues: {
       departmentName: '',
-      organizationName: '',
+      organizationName: initialOrganizationName || '',
       email: '',
       password: '',
       building: '',
@@ -42,6 +44,12 @@ export function CreateAdminForm({ onFinished }: CreateAdminFormProps) {
       location: '',
     },
   });
+
+  useEffect(() => {
+    if(initialOrganizationName) {
+        form.setValue('organizationName', initialOrganizationName);
+    }
+  }, [initialOrganizationName, form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
@@ -51,8 +59,16 @@ export function CreateAdminForm({ onFinished }: CreateAdminFormProps) {
         title: 'Admin Creation Initiated',
         description: `Account for ${values.departmentName} is being created.`,
       });
-      form.reset();
-      onFinished();
+      form.reset({
+        ...form.getValues(),
+        departmentName: '',
+        email: '',
+        password: '',
+        building: '',
+        floor: '',
+        location: '',
+      });
+      onFinished(values.organizationName);
     } catch (error: any) {
       toast({
         variant: 'destructive',
@@ -172,3 +188,5 @@ export function CreateAdminForm({ onFinished }: CreateAdminFormProps) {
     </Form>
   );
 }
+
+    

@@ -100,6 +100,7 @@ export default function SuperAdminDashboardPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+  const [lastUsedOrg, setLastUsedOrg] = useState('');
 
 
   const { totalOrgs, totalDevices, totalAlerts, orgsWithDetails } = useMemo(() => {
@@ -177,6 +178,11 @@ export default function SuperAdminDashboardPage() {
     }
     setIsActivateDialogOpen(false);
     setSelectedAdmin(null);
+  }
+
+  const handleCreateFinished = (orgName: string) => {
+    setLastUsedOrg(orgName);
+    setIsCreateDialogOpen(false);
   }
 
   return (
@@ -413,7 +419,10 @@ export default function SuperAdminDashboardPage() {
                         Enter the details for the new admin account. Credentials must be shared securely.
                       </DialogDescription>
                     </DialogHeader>
-                    <CreateAdminForm onFinished={() => setIsCreateDialogOpen(false)} />
+                    <CreateAdminForm 
+                        onFinished={handleCreateFinished} 
+                        initialOrganizationName={lastUsedOrg}
+                    />
                   </DialogContent>
                 </Dialog>
           </div>
@@ -453,8 +462,8 @@ export default function SuperAdminDashboardPage() {
                 <TableHead>Organization</TableHead>
                 <TableHead>Department</TableHead>
                 <TableHead>Admin (Email)</TableHead>
-                <TableHead className="hidden md:table-cell">Location</TableHead>
-                <TableHead className="hidden md:table-cell">Building/Floor</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Building/Floor</TableHead>
                 <TableHead className="text-center hidden sm:table-cell">Status</TableHead>
                 <TableHead className="text-center hidden lg:table-cell">Plan</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -466,10 +475,10 @@ export default function SuperAdminDashboardPage() {
                   <TableCell className="font-medium">{admin.organizationName}</TableCell>
                   <TableCell>{admin.departmentName}</TableCell>
                   <TableCell className="text-muted-foreground text-xs font-mono">{admin.email}</TableCell>
-                  <TableCell className="text-muted-foreground hidden md:table-cell">
+                  <TableCell className="text-muted-foreground">
                     {admin.location}
                   </TableCell>
-                  <TableCell className="text-muted-foreground hidden md:table-cell">
+                  <TableCell className="text-muted-foreground">
                     {admin.building}, Fl {admin.floor}
                   </TableCell>
                    <TableCell className="text-center hidden sm:table-cell">
@@ -556,3 +565,5 @@ export default function SuperAdminDashboardPage() {
     </div>
   );
 }
+
+    
