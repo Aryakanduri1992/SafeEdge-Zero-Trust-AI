@@ -8,6 +8,7 @@ import {
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   signOut,
+  fetchSignInMethodsForEmail,
   type User as FirebaseUser
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, addDoc, deleteDoc, writeBatch } from 'firebase/firestore';
@@ -80,10 +81,10 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
     let newOrgUID = '';
 
     try {
-        const orgsQuery = query(collection(firestore, 'organizations'), where("email", "==", adminData.email));
-        const orgsSnapshot = await getDocs(orgsQuery);
-        if (!orgsSnapshot.empty) {
-            throw new Error(`An organization with the email ${adminData.email} already exists.`);
+        // Check if the email is already in use in Firebase Auth
+        const signInMethods = await fetchSignInMethodsForEmail(tempAuth, adminData.email);
+        if (signInMethods.length > 0) {
+            throw new Error(`An account with the email ${adminData.email} already exists. Please use a different email.`);
         }
 
         const userCredential = await createUserWithEmailAndPassword(tempAuth, adminData.email, adminData.password);
@@ -124,9 +125,6 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
 
     } catch (error: any) {
         if (newOrgUID) {
-            // If user was created in auth but Firestore failed, we should try to clean up
-            // This requires admin privileges, which the temp auth client doesn't have.
-            // This part of the logic needs to be handled carefully, maybe with a cleanup function.
             console.error(`Cleanup needed: Auth user ${newOrgUID} was created but Firestore writes failed.`);
         }
 
@@ -141,7 +139,7 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
             requestResourceData: adminData,
         });
         errorEmitter.emit('permission-error', permissionError);
-        throw permissionError; // Rethrow so the UI can catch it.
+        throw error; // Rethrow original or permission error
 
     } finally {
         await signOut(tempAuth).catch(() => {});
