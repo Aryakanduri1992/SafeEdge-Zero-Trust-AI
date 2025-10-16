@@ -113,8 +113,8 @@ export default function SuperAdminDashboardPage() {
             </DialogHeader>
             <div className="max-h-[300px] overflow-y-auto pr-4">
               <ul className="space-y-2">
-                {organizationNames.map(org => (
-                  <li key={org} className="rounded-md border p-3 text-sm font-medium">
+                {organizationNames.map((org, index) => (
+                  <li key={`${org}-${index}`} className="rounded-md border p-3 text-sm font-medium">
                     {org}
                   </li>
                 ))}
