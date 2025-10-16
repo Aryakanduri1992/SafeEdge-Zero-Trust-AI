@@ -23,22 +23,28 @@ const formSchema = z.object({
 });
 
 type CreateAdminFormProps = {
-  onFinished: (organizationName: string) => void;
-  initialOrganizationName?: string;
+  onFinished: () => void;
+  initialValues: {
+    organizationName: string;
+    email?: string;
+    password?: string;
+  };
 };
 
-export function CreateAdminForm({ onFinished, initialOrganizationName }: CreateAdminFormProps) {
+export function CreateAdminForm({ onFinished, initialValues }: CreateAdminFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const { createAdmin } = useAuth();
   const { toast } = useToast();
+
+  const isAddingDepartment = !!initialValues.email;
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       departmentName: '',
-      organizationName: initialOrganizationName || '',
-      email: '',
-      password: '',
+      organizationName: initialValues.organizationName || '',
+      email: initialValues.email || '',
+      password: initialValues.password || '',
       building: '',
       floor: '',
       location: '',
@@ -46,29 +52,49 @@ export function CreateAdminForm({ onFinished, initialOrganizationName }: CreateA
   });
 
   useEffect(() => {
-    if(initialOrganizationName) {
-        form.setValue('organizationName', initialOrganizationName);
-    }
-  }, [initialOrganizationName, form]);
+    form.reset({
+      departmentName: '',
+      organizationName: initialValues.organizationName || '',
+      email: initialValues.email || '',
+      password: initialValues.password || '',
+      building: '',
+      floor: '',
+      location: '',
+    });
+  }, [initialValues, form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
+
+    const baseEmail = initialValues.email || values.email;
+    const emailDomain = baseEmail.substring(baseEmail.indexOf('@'));
+    const sanitizedDeptName = values.departmentName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const finalEmail = isAddingDepartment ? `${sanitizedDeptName}${emailDomain}` : values.email;
+
+    const finalValues = {
+        ...values,
+        email: finalEmail,
+    };
+    
     try {
-      await createAdmin(values);
+      await createAdmin(finalValues);
       toast({
-        title: 'Admin Creation Initiated',
+        title: isAddingDepartment ? 'Department Created' : 'Admin Creation Initiated',
         description: `Account for ${values.departmentName} is being created.`,
       });
       form.reset({
         ...form.getValues(),
         departmentName: '',
-        email: '',
-        password: '',
+        // Keep org name for next entry if adding departments
+        organizationName: values.organizationName, 
         building: '',
         floor: '',
         location: '',
+        // Don't reset email/password if they are part of the initial values
+        email: initialValues.email || '',
+        password: initialValues.password || '',
       });
-      onFinished(values.organizationName);
+      onFinished();
     } catch (error: any) {
       toast({
         variant: 'destructive',
@@ -90,7 +116,7 @@ export function CreateAdminForm({ onFinished, initialOrganizationName }: CreateA
             <FormItem>
               <FormLabel>Organization Name</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., AuthStation Inc." {...field} />
+                <Input placeholder="e.g., AuthStation Inc." {...field} disabled={isAddingDepartment}/>
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -109,32 +135,36 @@ export function CreateAdminForm({ onFinished, initialOrganizationName }: CreateA
             </FormItem>
           )}
         />
-        <FormField
-          control={form.control}
-          name="email"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Email</FormLabel>
-              <FormControl>
-                <Input placeholder="admin@example.com" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
-          name="password"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Password</FormLabel>
-              <FormControl>
-                <Input type="password" placeholder="Generate or enter a strong password" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+        {!isAddingDepartment && (
+            <>
+                <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Organization Email</FormLabel>
+                    <FormControl>
+                        <Input placeholder="admin@example.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+                <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                    <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                        <Input type="password" placeholder="Generate or enter a strong password" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                    </FormItem>
+                )}
+                />
+            </>
+        )}
          <FormField
           control={form.control}
           name="location"
@@ -181,12 +211,14 @@ export function CreateAdminForm({ onFinished, initialOrganizationName }: CreateA
             ) : (
               <UserPlus className="mr-2 h-4 w-4" />
             )}
-            Create Admin
+            {isAddingDepartment ? "Add Department" : "Create Organization"}
           </Button>
         </div>
       </form>
     </Form>
   );
 }
+
+    
 
     

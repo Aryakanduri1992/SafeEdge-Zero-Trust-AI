@@ -42,7 +42,7 @@ export const fetchUserProfile = async (uid: string): Promise<SuperAdminUser | Ad
     try {
         const adminSnap = await getDoc(adminRef);
         if (adminSnap.exists()) {
-            return { ...adminSnap.data(), id: uid } as AdminUser;
+            return { ...adminSnap.data(), id: uid, password: '••••••••' } as AdminUser; // Add dummy password
         }
     } catch (serverError: any) {
          const permissionError = new FirestorePermissionError({ path: adminRef.path, operation: 'get' });
@@ -82,7 +82,7 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
         const q = query(adminsRef, where("email", "==", adminData.email));
         const querySnapshot = await getDocs(q);
         if (!querySnapshot.empty) {
-            throw new Error("An admin with this email already exists in the database.");
+            throw new Error(`An account with the email ${adminData.email} already exists.`);
         }
         
         // 1. Create the new user in the temporary auth instance.
@@ -103,6 +103,7 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
             plan: 'Free',
             superAdminId: superAdminId,
             status: 'active',
+            password: adminData.password, // Storing password for "add department" flow.
         };
 
         const adminDocRef = doc(firestore, "admins", newAdminUID);
@@ -120,7 +121,7 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
     } catch (error: any) {
         console.error("Error creating admin user:", error);
         if (error.code === 'auth/email-already-in-use') {
-            throw new Error("This email is already registered in Firebase Authentication.");
+             throw new Error(`The email address ${adminData.email} is already in use by another account.`);
         }
         throw error; // Re-throw other errors to be caught by the form
     } finally {
@@ -217,3 +218,5 @@ const seedSuperAdmin = async () => {
 if (typeof window !== 'undefined') {
     seedSuperAdmin();
 }
+
+    

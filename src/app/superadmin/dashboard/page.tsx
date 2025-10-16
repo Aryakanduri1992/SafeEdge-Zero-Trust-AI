@@ -100,7 +100,12 @@ export default function SuperAdminDashboardPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
-  const [lastUsedOrg, setLastUsedOrg] = useState('');
+  
+  const [createFormInitialValues, setCreateFormInitialValues] = useState<{
+    organizationName: string;
+    email?: string;
+    password?: string;
+  }>({ organizationName: '' });
 
 
   const { totalOrgs, totalDevices, totalAlerts, orgsWithDetails } = useMemo(() => {
@@ -153,9 +158,18 @@ export default function SuperAdminDashboardPage() {
     setSelectedAdmin(admin);
     setIsEditDialogOpen(true);
   };
+  
+  const handleAddOrganizationClick = () => {
+    setCreateFormInitialValues({ organizationName: '' });
+    setIsCreateDialogOpen(true);
+  }
 
   const handleAddDepartmentClick = (admin: AdminUser) => {
-    setLastUsedOrg(admin.organizationName);
+    setCreateFormInitialValues({ 
+      organizationName: admin.organizationName,
+      email: admin.email,
+      password: admin.password,
+    });
     setIsCreateDialogOpen(true);
   };
   
@@ -185,8 +199,7 @@ export default function SuperAdminDashboardPage() {
     setSelectedAdmin(null);
   }
 
-  const handleCreateFinished = (orgName: string) => {
-    setLastUsedOrg(orgName);
+  const handleCreateFinished = () => {
     setIsCreateDialogOpen(false);
   }
 
@@ -220,7 +233,7 @@ export default function SuperAdminDashboardPage() {
               <Accordion type="single" collapsible>
                 {orgsWithDetails.map((org) => (
                   <AccordionItem value={org.name} key={org.name}>
-                    <AccordionTrigger className="text-lg font-semibold">{org.name} ({org.admins.length} admins)</AccordionTrigger>
+                    <AccordionTrigger className="text-lg font-semibold">{org.name} ({org.admins.length} departments)</AccordionTrigger>
                     <AccordionContent>
                       {org.admins.length > 0 ? (
                         <Table>
@@ -258,7 +271,7 @@ export default function SuperAdminDashboardPage() {
                         <div className="flex flex-col items-center justify-center text-center p-8">
                             <Users className="h-10 w-10 text-muted-foreground mb-3" />
                             <p className="text-sm text-muted-foreground">
-                                No administrators registered for this organization.
+                                No departments registered for this organization.
                             </p>
                         </div>
                       )}
@@ -274,7 +287,7 @@ export default function SuperAdminDashboardPage() {
           <DialogTrigger asChild>
             <Card className="cursor-pointer hover:border-primary/50 transition-colors">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Organizations</CardTitle>
+                <CardTitle className="text-sm font-medium">Total Departments</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
@@ -287,9 +300,9 @@ export default function SuperAdminDashboardPage() {
           </DialogTrigger>
           <DialogContent className="sm:max-w-2xl">
              <DialogHeader>
-              <DialogTitle>All Organizations</DialogTitle>
+              <DialogTitle>All Departments</DialogTitle>
               <DialogDescription>
-                A complete list of all organization accounts across all organizations.
+                A complete list of all department accounts across all organizations.
               </DialogDescription>
             </DialogHeader>
             <div className="max-h-[400px] overflow-y-auto pr-4">
@@ -297,6 +310,7 @@ export default function SuperAdminDashboardPage() {
                 <TableHeader>
                     <TableRow>
                         <TableHead>Organization</TableHead>
+                        <TableHead>Department</TableHead>
                         <TableHead>Location</TableHead>
                         <TableHead className="text-center">Status</TableHead>
                     </TableRow>
@@ -305,9 +319,10 @@ export default function SuperAdminDashboardPage() {
                     {admins.map((admin) => (
                         <TableRow key={admin.id}>
                             <TableCell>
-                                <div className="font-medium">{admin.departmentName}</div>
-                                <div className="text-xs text-muted-foreground font-mono">{admin.email}</div>
+                               <div className="font-medium">{admin.organizationName}</div>
+                               <div className="text-xs text-muted-foreground font-mono">{admin.email}</div>
                             </TableCell>
+                             <TableCell>{admin.departmentName}</TableCell>
                             <TableCell>{admin.building}, Floor {admin.floor}</TableCell>
                             <TableCell className="text-center">
                                {admin.status === 'active' ? (
@@ -407,26 +422,29 @@ export default function SuperAdminDashboardPage() {
               <div>
                 <CardTitle>Organization Management</CardTitle>
                 <CardDescription>
-                  Create and manage organization accounts for all organizations.
+                  Create and manage department accounts for all organizations.
                 </CardDescription>
               </div>
                <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button onClick={() => setLastUsedOrg('')}>
+                    <Button onClick={handleAddOrganizationClick}>
                       <PlusCircle className="mr-2 h-4 w-4" />
                       Add Organization
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-[425px]">
                     <DialogHeader>
-                      <DialogTitle>Create New Organization</DialogTitle>
+                      <DialogTitle>{createFormInitialValues.organizationName ? `Add Department to ${createFormInitialValues.organizationName}` : 'Create New Organization'}</DialogTitle>
                       <DialogDescription>
-                        Enter the details for the new organization account. Credentials must be shared securely.
+                         {createFormInitialValues.organizationName 
+                            ? "Enter the details for the new department. It will be created under the existing organization."
+                            : "Enter the details for the new organization. Credentials must be shared securely."
+                          }
                       </DialogDescription>
                     </DialogHeader>
                     <CreateAdminForm 
                         onFinished={handleCreateFinished} 
-                        initialOrganizationName={lastUsedOrg}
+                        initialValues={createFormInitialValues}
                     />
                   </DialogContent>
                 </Dialog>
@@ -578,3 +596,5 @@ export default function SuperAdminDashboardPage() {
     
 
       
+
+    
