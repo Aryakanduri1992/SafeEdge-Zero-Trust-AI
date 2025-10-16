@@ -8,7 +8,7 @@ export default function DevicesPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight">Devices</h1>
         <p className="text-muted-foreground">
-          View, add, and manage your organization's IoT devices.
+          View, add, and manage your IoT devices.
         </p>
       </div>
       <DeviceList />

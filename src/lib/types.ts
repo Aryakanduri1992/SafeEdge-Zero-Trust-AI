@@ -15,7 +15,8 @@ export interface BaseUser {
 
 export interface AdminUser extends BaseUser {
   role: 'admin';
-  organization: string;
+  building: string;
+  floor: string;
   createdAt: string; // ISO String
   devices: number;
   plan: Plan;
@@ -36,12 +37,6 @@ export interface Device {
     adminId: string;
     type: DeviceType;
     description?: string;
-    sensorData: {
-        temperature: number;
-        humidity: number;
-        motion: boolean;
-        gas: number;
-    }
 }
 
 export interface Alert {
@@ -62,7 +57,7 @@ export interface LoginCredentials {
   password?: string;
 }
 
-export type NewAdminData = Required<Pick<LoginCredentials, 'email' | 'password'>> & { name: string, organization: string };
+export type NewAdminData = Required<Pick<LoginCredentials, 'email' | 'password'>> & { name: string, building: string, floor: string };
 
 export type UpdateAdminData = {
   plan: Plan;

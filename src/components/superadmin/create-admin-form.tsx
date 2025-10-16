@@ -15,7 +15,8 @@ const formSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
   email: z.string().email({ message: 'Please enter a valid email.' }),
   password: z.string().min(8, { message: 'Password must be at least 8 characters.' }),
-  organization: z.string().min(2, { message: 'Organization name is required.' }),
+  building: z.string().min(2, { message: 'Building name is required.' }),
+  floor: z.string().min(1, { message: 'Floor is required.' }),
 });
 
 type CreateAdminFormProps = {
@@ -33,7 +34,8 @@ export function CreateAdminForm({ onFinished }: CreateAdminFormProps) {
       name: '',
       email: '',
       password: '',
-      organization: '',
+      building: '',
+      floor: '',
     },
   });
 
@@ -102,12 +104,25 @@ export function CreateAdminForm({ onFinished }: CreateAdminFormProps) {
         />
          <FormField
           control={form.control}
-          name="organization"
+          name="building"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Organization</FormLabel>
+              <FormLabel>Building</FormLabel>
               <FormControl>
-                <Input placeholder="Client Company Name" {...field} />
+                <Input placeholder="e.g., Main Campus" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+         <FormField
+          control={form.control}
+          name="floor"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Floor</FormLabel>
+              <FormControl>
+                <Input placeholder="e.g., 4th" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>

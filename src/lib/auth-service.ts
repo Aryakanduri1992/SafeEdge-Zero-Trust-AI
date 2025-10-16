@@ -93,7 +93,8 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
         const newAdminProfile: Omit<AdminUser, 'id'> = {
             name: adminData.name,
             email: adminData.email,
-            organization: adminData.organization,
+            building: adminData.building,
+            floor: adminData.floor,
             role: 'admin',
             createdAt: new Date().toISOString(),
             devices: 1,

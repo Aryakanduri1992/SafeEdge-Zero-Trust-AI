@@ -45,9 +45,13 @@
           "type": "string",
           "description": "Full name of the administrator."
         },
-        "organization": {
+        "floor": {
           "type": "string",
-          "description": "The name of the organization or startup the admin belongs to."
+          "description": "The floor the admin belongs to."
+        },
+        "building": {
+          "type": "string",
+          "description": "The building the admin belongs to."
         },
         "superAdminId": {
           "type": "string",
@@ -58,7 +62,8 @@
         "id",
         "email",
         "name",
-        "organization",
+        "floor",
+        "building",
         "superAdminId"
       ]
     },
@@ -102,15 +107,6 @@
         "description": {
             "type": "string",
             "description": "An optional description of the device's purpose."
-        },
-        "sensorData": {
-          "type": "object",
-          "properties": {
-            "temperature": { "type": "number" },
-            "humidity": { "type": "number" },
-            "motion": { "type": "boolean" },
-            "gas": { "type": "number", "description": "Gas concentration in PPM." }
-          }
         }
       },
       "required": ["id", "name", "status", "adminId", "type", "location"]

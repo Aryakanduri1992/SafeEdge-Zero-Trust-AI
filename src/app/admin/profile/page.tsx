@@ -68,7 +68,7 @@ export default function ProfilePage() {
         <Card className="lg:col-span-1">
           <CardHeader>
             <CardTitle>Account Information</CardTitle>
-            <CardDescription>Your personal and organizational details.</CardDescription>
+            <CardDescription>Your personal and location details.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-4">
@@ -81,8 +81,8 @@ export default function ProfilePage() {
             <div className="flex items-center gap-4">
               <Building className="h-5 w-5 text-muted-foreground" />
               <div>
-                <p className="text-sm font-medium">Organization</p>
-                <p className="text-sm text-foreground">{adminUser.organization}</p>
+                <p className="text-sm font-medium">Location</p>
+                <p className="text-sm text-foreground">{adminUser.building}, Floor {adminUser.floor}</p>
               </div>
             </div>
              <div className="flex items-center gap-4">

@@ -102,38 +102,35 @@ export default function SuperAdminDashboardPage() {
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
 
 
-  const { totalOrgs, totalDevices, totalAlerts, orgsWithDetails } = useMemo(() => {
-    const validOrgs = admins
-      .map(a => a.organization)
-      .filter((org): org is string => !!org && org.trim() !== '');
-    const orgSet = new Set(validOrgs);
+  const { totalBuildings, totalDevices, totalAlerts, buildingsWithDetails } = useMemo(() => {
+    const buildingSet = new Set(admins.map(a => a.building).filter(Boolean));
     
     const devices = allDevices.length;
-    // This is a placeholder until global alerts are fetched.
     const alerts = allDevices.filter(d => d.status === 'alerting').length;
     
-    const orgDetails = Array.from(orgSet).sort().map(orgName => {
-        const adminsInOrg = admins.filter(a => a.organization === orgName);
-        const adminIdsInOrg = adminsInOrg.map(a => a.id);
-        const devicesInOrg = allDevices.filter(d => adminIdsInOrg.includes(d.adminId));
+    const buildingDetails = Array.from(buildingSet).sort().map(buildingName => {
+        const adminsInBuilding = admins.filter(a => a.building === buildingName);
+        const adminIdsInBuilding = adminsInBuilding.map(a => a.id);
+        const devicesInBuilding = allDevices.filter(d => adminIdsInBuilding.includes(d.adminId));
         return {
-            name: orgName,
-            admins: adminsInOrg,
-            devices: devicesInOrg,
+            name: buildingName,
+            admins: adminsInBuilding,
+            devices: devicesInBuilding,
         };
     });
 
     return { 
-      totalOrgs: orgSet.size, 
+      totalBuildings: buildingSet.size, 
       totalDevices: devices, 
       totalAlerts: alerts,
-      orgsWithDetails: orgDetails
+      buildingsWithDetails: buildingDetails
     };
   }, [admins, allDevices]);
 
   const filteredAdmins = useMemo(() => {
     return admins.filter(admin => {
-        const matchesSearch = admin.name.toLowerCase().includes(searchTerm.toLowerCase()) || admin.email.toLowerCase().includes(searchTerm.toLowerCase()) || admin.organization?.toLowerCase().includes(searchTerm.toLowerCase());
+        const searchCorpus = `${admin.name} ${admin.email} ${admin.building} ${admin.floor}`.toLowerCase();
+        const matchesSearch = searchCorpus.includes(searchTerm.toLowerCase());
         const matchesStatus = statusFilter === 'all' || admin.status === statusFilter;
         return matchesSearch && matchesStatus;
     });
@@ -190,33 +187,33 @@ export default function SuperAdminDashboardPage() {
           <DialogTrigger asChild>
             <Card className="cursor-pointer hover:border-primary/50 transition-colors">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Organizations</CardTitle>
+                <CardTitle className="text-sm font-medium">Total Buildings</CardTitle>
                 <Building className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{totalOrgs}</div>
+                <div className="text-2xl font-bold">{totalBuildings}</div>
                 <p className="text-xs text-muted-foreground">
-                  Registered startup organizations
+                  Managed buildings
                 </p>
               </CardContent>
             </Card>
           </DialogTrigger>
           <DialogContent className="sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>Registered Organizations & Devices</DialogTitle>
+              <DialogTitle>Registered Buildings & Devices</DialogTitle>
               <DialogDescription>
-                Click an organization to see its registered devices.
+                Click a building to see its registered devices.
               </DialogDescription>
             </DialogHeader>
             <div className="max-h-[400px] overflow-y-auto pr-4">
               <Accordion type="single" collapsible>
-                {orgsWithDetails.map((org) => (
-                  <AccordionItem value={org.name} key={org.name}>
-                    <AccordionTrigger>{org.name} ({org.devices.length} devices)</AccordionTrigger>
+                {buildingsWithDetails.map((building) => (
+                  <AccordionItem value={building.name} key={building.name}>
+                    <AccordionTrigger>{building.name} ({building.devices.length} devices)</AccordionTrigger>
                     <AccordionContent>
-                      {org.devices.length > 0 ? (
+                      {building.devices.length > 0 ? (
                         <div className="space-y-3 pl-2">
-                          {org.devices.map(device => (
+                          {building.devices.map(device => (
                             <div key={device.id} className="flex items-start gap-4 p-2 rounded-md border border-border/50">
                                 {getDeviceTypeIcon(device.type)}
                                 <div className='flex-1'>
@@ -236,7 +233,7 @@ export default function SuperAdminDashboardPage() {
                         <div className="flex flex-col items-center justify-center text-center p-8">
                             <Server className="h-10 w-10 text-muted-foreground mb-3" />
                             <p className="text-sm text-muted-foreground">
-                                No devices registered for this organization.
+                                No devices registered for this building.
                             </p>
                         </div>
                       )}
@@ -258,7 +255,7 @@ export default function SuperAdminDashboardPage() {
               <CardContent>
                 <div className="text-2xl font-bold">{admins.length}</div>
                 <p className="text-xs text-muted-foreground">
-                  Across all organizations
+                  Across all buildings
                 </p>
               </CardContent>
             </Card>
@@ -267,7 +264,7 @@ export default function SuperAdminDashboardPage() {
              <DialogHeader>
               <DialogTitle>All Administrators</DialogTitle>
               <DialogDescription>
-                A complete list of all admin accounts across all organizations.
+                A complete list of all admin accounts across all buildings.
               </DialogDescription>
             </DialogHeader>
             <div className="max-h-[400px] overflow-y-auto pr-4">
@@ -275,7 +272,7 @@ export default function SuperAdminDashboardPage() {
                 <TableHeader>
                     <TableRow>
                         <TableHead>Admin</TableHead>
-                        <TableHead>Organization</TableHead>
+                        <TableHead>Location</TableHead>
                         <TableHead className="text-center">Status</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -286,7 +283,7 @@ export default function SuperAdminDashboardPage() {
                                 <div className="font-medium">{admin.name}</div>
                                 <div className="text-xs text-muted-foreground font-mono">{admin.email}</div>
                             </TableCell>
-                            <TableCell>{admin.organization}</TableCell>
+                            <TableCell>{admin.building}, Floor {admin.floor}</TableCell>
                             <TableCell className="text-center">
                                {admin.status === 'active' ? (
                                 <Badge variant="outline" className="text-green-400 border-green-400/50"><CheckCircle className="mr-1 h-3 w-3"/>Active</Badge>
@@ -312,7 +309,7 @@ export default function SuperAdminDashboardPage() {
               <CardContent>
                 <div className="text-2xl font-bold">{totalDevices}</div>
                 <p className="text-xs text-muted-foreground">
-                  Aggregate devices across all orgs
+                  Aggregate devices across all buildings
                 </p>
               </CardContent>
             </Card>
@@ -321,7 +318,7 @@ export default function SuperAdminDashboardPage() {
             <DialogHeader>
               <DialogTitle>All Registered Devices</DialogTitle>
               <DialogDescription>
-                A complete list of all IoT devices across all organizations.
+                A complete list of all IoT devices across all buildings.
               </DialogDescription>
             </DialogHeader>
             <div className="max-h-[400px] overflow-y-auto pr-4">
@@ -329,7 +326,7 @@ export default function SuperAdminDashboardPage() {
                 <TableHeader>
                     <TableRow>
                         <TableHead>Device</TableHead>
-                        <TableHead>Organization</TableHead>
+                        <TableHead>Location</TableHead>
                         <TableHead>Admin</TableHead>
                         <TableHead className="text-center">Status</TableHead>
                     </TableRow>
@@ -344,7 +341,7 @@ export default function SuperAdminDashboardPage() {
                                 <div className="font-medium">{device.name}</div>
                                 <div className="text-xs text-muted-foreground font-mono">{device.id}</div>
                             </TableCell>
-                            <TableCell>{admin?.organization || 'N/A'}</TableCell>
+                            <TableCell>{admin ? `${admin.building}, Floor ${admin.floor}` : 'N/A'}</TableCell>
                             <TableCell>{admin?.name || 'N/A'}</TableCell>
                             <TableCell className="text-center">
                                 <Badge
@@ -385,7 +382,7 @@ export default function SuperAdminDashboardPage() {
               <div>
                 <CardTitle>Admin Management</CardTitle>
                 <CardDescription>
-                  Create and manage administrator accounts for all organizations.
+                  Create and manage administrator accounts for all buildings.
                 </CardDescription>
               </div>
                <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
@@ -410,7 +407,7 @@ export default function SuperAdminDashboardPage() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name, email, or organization..."
+                placeholder="Search by name, email, building, or floor..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -439,8 +436,8 @@ export default function SuperAdminDashboardPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Admin Name</TableHead>
-                <TableHead className="hidden md:table-cell">Organization</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead className="hidden md:table-cell">Location</TableHead>
                 <TableHead className="text-center hidden sm:table-cell">Status</TableHead>
                 <TableHead className="text-center">Plan</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
@@ -451,10 +448,10 @@ export default function SuperAdminDashboardPage() {
                 <TableRow key={admin.id}>
                   <TableCell className="font-medium">
                     <div>{admin.name}</div>
-                    <div className="text-muted-foreground md:hidden text-xs">{admin.organization}</div>
+                    <div className="text-muted-foreground md:hidden text-xs">{admin.building}, Floor {admin.floor}</div>
                     <div className="text-muted-foreground text-xs font-mono">{admin.email}</div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground hidden md:table-cell">{admin.organization}</TableCell>
+                  <TableCell className="text-muted-foreground hidden md:table-cell">{admin.building}, Floor {admin.floor}</TableCell>
                    <TableCell className="text-center hidden sm:table-cell">
                     {admin.status === 'active' ? (
                       <Badge variant="outline" className="text-green-400 border-green-400/50"><CheckCircle className="mr-1 h-3 w-3"/>Active</Badge>
