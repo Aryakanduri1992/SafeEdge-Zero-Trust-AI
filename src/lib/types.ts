@@ -71,15 +71,18 @@ export interface LoginCredentials {
   password?: string;
 }
 
+export type DepartmentData = {
+  departmentName: string;
+  location: string;
+  building: string;
+  floor: string;
+}
+
 export type NewAdminData = { 
-  departmentName: string, 
-  organizationName: string,
-  email: string,
-  password: string,
-  building: string, 
-  floor: string,
-  location: string,
-  organizationId?: string, // UID of parent organization, if adding a department
+  organizationName: string;
+  email: string;
+  password: string;
+  departments: DepartmentData[];
 };
 
 export type UpdateAdminData = {

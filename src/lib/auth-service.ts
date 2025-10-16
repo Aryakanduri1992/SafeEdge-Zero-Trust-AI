@@ -10,7 +10,7 @@ import {
   signOut,
   type User as FirebaseUser
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, addDoc, deleteDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, query, where, getDocs, addDoc, deleteDoc, writeBatch } from 'firebase/firestore';
 import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateAdminData, Organization } from './types';
 import { initializeFirebase } from '@/firebase';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -68,125 +68,79 @@ export const logout = async (): Promise<void> => {
 };
 
 export const createAdmin = async (adminData: NewAdminData, superAdminId: string): Promise<void> => {
-    // THIS IS THE CRITICAL FIX: Explicitly check if we are adding a department.
-    if (adminData.organizationId) {
-        // --- SCENARIO 1: ADDING A DEPARTMENT TO AN EXISTING ORGANIZATION ---
-        // In this block, we ONLY interact with Firestore. NO AUTHENTICATION.
-        
-        if (!adminData.email) {
-             throw new Error("Organization email is missing when adding a department.");
+    if (!adminData.password) throw new Error("A password is required to create a new organization.");
+    if (!adminData.email) throw new Error("An email is required to create a new organization.");
+    if (!adminData.departments || adminData.departments.length === 0) {
+        throw new Error("At least one department must be specified.");
+    }
+    
+    // Use a temporary Firebase app to avoid logging out the Super Admin.
+    const tempAppName = `temp-admin-creation-${Date.now()}`;
+    const tempApp = initializeApp(firebaseConfig, tempAppName);
+    const tempAuth = getAuth(tempApp);
+
+    try {
+        // Check if an organization with this email already has an auth account
+        const orgsQuery = query(collection(firestore, 'organizations'), where("email", "==", adminData.email));
+        const orgsSnapshot = await getDocs(orgsQuery);
+        if (!orgsSnapshot.empty) {
+            throw new Error(`An organization with the email ${adminData.email} already exists.`);
         }
 
-        const departmentCollectionRef = collection(firestore, 'admins');
-        const newDepartmentProfile: Omit<AdminUser, 'id'> = {
-            departmentName: adminData.departmentName,
+        // 1. Create Auth User
+        const userCredential = await createUserWithEmailAndPassword(tempAuth, adminData.email, adminData.password);
+        const newOrgUID = userCredential.user.uid;
+
+        // Use a Firestore batch to ensure all writes succeed or fail together
+        const batch = writeBatch(firestore);
+
+        // 2. Create the Organization document
+        const newOrgProfile: Omit<Organization, 'id' | 'role'> = {
             organizationName: adminData.organizationName,
-            email: adminData.email, // The parent org's email
-            building: adminData.building,
-            floor: adminData.floor,
-            location: adminData.location,
-            role: 'admin',
+            email: adminData.email,
             createdAt: new Date().toISOString(),
-            devices: 1, // Default quota
-            plan: 'Free', // Default plan
             superAdminId: superAdminId,
-            status: 'active',
-            organizationId: adminData.organizationId,
         };
+        const orgDocRef = doc(firestore, "organizations", newOrgUID);
+        batch.set(orgDocRef, newOrgProfile);
         
-        await addDoc(departmentCollectionRef, newDepartmentProfile).catch(serverError => {
-             const permissionError = new FirestorePermissionError({
-                path: departmentCollectionRef.path,
-                operation: 'create',
-                requestResourceData: newDepartmentProfile,
-            });
-            errorEmitter.emit('permission-error', permissionError);
-            throw permissionError;
-        });
-
-    } else {
-        // --- SCENARIO 2: CREATING A NEW ORGANIZATION (and its first department) ---
-        // This is the only path that creates a new Auth user.
-        
-        if (!adminData.password) throw new Error("A password is required to create a new organization.");
-        if (!adminData.email) throw new Error("An email is required to create a new organization.");
-        
-        // Use a temporary Firebase app to avoid logging out the Super Admin.
-        const tempAppName = `temp-admin-creation-${Date.now()}`;
-        const tempApp = initializeApp(firebaseConfig, tempAppName);
-        const tempAuth = getAuth(tempApp);
-
-        try {
-            // Check if an organization with this email already has an auth account
-            const orgsQuery = query(collection(firestore, 'organizations'), where("email", "==", adminData.email));
-            const orgsSnapshot = await getDocs(orgsQuery);
-            if (!orgsSnapshot.empty) {
-                throw new Error(`An organization with the email ${adminData.email} already exists.`);
-            }
-
-            const userCredential = await createUserWithEmailAndPassword(tempAuth, adminData.email, adminData.password);
-            const newOrgUID = userCredential.user.uid;
-
-            // Create the Organization document
-            const newOrgProfile: Omit<Organization, 'id' | 'role'> = {
-                organizationName: adminData.organizationName,
-                email: adminData.email,
-                createdAt: new Date().toISOString(),
-                superAdminId: superAdminId,
-            };
-            const orgDocRef = doc(firestore, "organizations", newOrgUID);
-            await setDoc(orgDocRef, newOrgProfile).catch(async (serverError) => {
-                const permissionError = new FirestorePermissionError({
-                    path: orgDocRef.path,
-                    operation: 'create',
-                    requestResourceData: newOrgProfile,
-                });
-                errorEmitter.emit('permission-error', permissionError);
-                await userCredential.user.delete().catch(delError => console.error("Failed to delete orphaned auth user", delError));
-                throw permissionError;
-            });
-            
-            // Create the first Department document for this new organization
-            const departmentCollectionRef = collection(firestore, 'admins');
+        // 3. Create all Department documents for this new organization
+        for (const dept of adminData.departments) {
             const newDepartmentProfile: Omit<AdminUser, 'id'> = {
-                departmentName: adminData.departmentName,
+                departmentName: dept.departmentName,
                 organizationName: adminData.organizationName,
-                email: adminData.email,
-                building: adminData.building,
-                floor: adminData.floor,
-                location: adminData.location,
+                email: adminData.email, // Organization's primary email
+                building: dept.building,
+                floor: dept.floor,
+                location: dept.location,
                 role: 'admin',
                 createdAt: new Date().toISOString(),
-                devices: 1,
-                plan: 'Free',
+                devices: 10, // Default quota
+                plan: 'Pro', // Default plan
                 superAdminId: superAdminId,
                 status: 'active',
                 organizationId: newOrgUID,
             };
-            await addDoc(departmentCollectionRef, newDepartmentProfile).catch(async (serverError) => {
-                 const permissionError = new FirestorePermissionError({
-                    path: departmentCollectionRef.path,
-                    operation: 'create',
-                    requestResourceData: newDepartmentProfile,
-                });
-                errorEmitter.emit('permission-error', permissionError);
-                 await userCredential.user.delete().catch(delError => console.error("Failed to delete orphaned auth user", delError));
-                 const orgDocToDeleteRef = doc(firestore, "organizations", newOrgUID);
-                 await deleteDoc(orgDocToDeleteRef).catch(delError => console.error("Failed to delete orphaned organization document", delError));
-                throw permissionError;
-            });
-        } catch (error: any) {
-            console.error("Error creating org:", error);
-            if (error.code === 'auth/email-already-in-use') {
-                 throw new Error(`An account with the email ${adminData.email} is already in use.`);
-            }
-            throw error;
-        } finally {
-            await signOut(tempAuth).catch(() => {});
-            await deleteApp(tempApp);
+            const deptDocRef = doc(collection(firestore, 'admins')); // Auto-generate ID
+            batch.set(deptDocRef, newDepartmentProfile);
         }
+
+        // 4. Commit the batch
+        await batch.commit();
+
+    } catch (error: any) {
+        console.error("Error creating organization and departments:", error);
+        if (error.code === 'auth/email-already-in-use') {
+             throw new Error(`An account with the email ${adminData.email} is already in use.`);
+        }
+        // Additional error handling to clean up if something goes wrong mid-process
+        throw error;
+    } finally {
+        await signOut(tempAuth).catch(() => {});
+        await deleteApp(tempApp);
     }
 };
+
 
 
 export const updateAdmin = async (adminId: string, adminData: UpdateAdminData): Promise<void> => {

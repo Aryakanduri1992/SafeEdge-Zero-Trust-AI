@@ -100,12 +100,6 @@ export default function SuperAdminDashboardPage() {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
-  
-  const [createFormInitialValues, setCreateFormInitialValues] = useState<{
-    organizationName: string;
-    email?: string;
-    organizationId?: string;
-  }>({ organizationName: '' });
 
 
   const { totalOrgs, totalDepartments, totalDevices, totalAlerts, orgsWithDetails } = useMemo(() => {
@@ -174,18 +168,8 @@ export default function SuperAdminDashboardPage() {
   };
   
   const handleAddOrganizationClick = () => {
-    setCreateFormInitialValues({ organizationName: '' });
     setIsCreateDialogOpen(true);
   }
-
-  const handleAddDepartmentClick = (org: {id: string, name: string, email: string}) => {
-    setCreateFormInitialValues({ 
-      organizationName: org.name,
-      email: org.email,
-      organizationId: org.id
-    });
-    setIsCreateDialogOpen(true);
-  };
   
   const handleDeactivateClick = (admin: AdminUser) => {
     setSelectedAdmin(admin);
@@ -397,19 +381,15 @@ export default function SuperAdminDashboardPage() {
                       Add Organization
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="sm:max-w-[425px]">
+                  <DialogContent className="sm:max-w-2xl">
                     <DialogHeader>
-                      <DialogTitle>{createFormInitialValues.organizationId ? `Add Department to ${createFormInitialValues.organizationName}` : 'Create New Organization'}</DialogTitle>
+                      <DialogTitle>Create New Organization</DialogTitle>
                       <DialogDescription>
-                         {createFormInitialValues.organizationId 
-                            ? "Enter the details for the new department. It will be created under the existing organization."
-                            : "Enter the details for the new organization and its first department."
-                          }
+                         Enter the details for the new organization and its departments.
                       </DialogDescription>
                     </DialogHeader>
                     <CreateAdminForm 
                         onFinished={handleCreateFinished} 
-                        initialValues={createFormInitialValues}
                     />
                   </DialogContent>
                 </Dialog>
@@ -488,10 +468,6 @@ export default function SuperAdminDashboardPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleAddDepartmentClick({id: admin.organizationId, name: admin.organizationName, email: admin.email })}>
-                          <UserPlus className="mr-2 h-4 w-4" />
-                          <span>Add Department</span>
-                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleEditClick(admin)}>
                           <Edit className="mr-2 h-4 w-4" />
                           <span>Edit Plan/Quota</span>
