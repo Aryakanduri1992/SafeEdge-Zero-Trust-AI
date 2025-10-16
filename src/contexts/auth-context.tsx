@@ -4,7 +4,7 @@
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import * as authService from '@/lib/auth-service';
-import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateAdminData } from '@/lib/types';
+import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateAdminData, Device } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { useUser, useFirestore, FirestorePermissionError, errorEmitter } from '@/firebase';
@@ -13,6 +13,7 @@ import { collection, onSnapshot, Unsubscribe } from 'firebase/firestore';
 type AuthContextType = {
   user: SuperAdminUser | AdminUser | null;
   admins: AdminUser[];
+  allDevices: Device[]; // Added to hold all devices for superadmin
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (credentials: LoginCredentials, role: 'admin' | 'superadmin') => Promise<void>;
@@ -28,6 +29,7 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [appUser, setAppUser] = useState<SuperAdminUser | AdminUser | null>(null);
   const [admins, setAdmins] = useState<AdminUser[]>([]);
+  const [allDevices, setAllDevices] = useState<Device[]>([]);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
@@ -129,11 +131,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [appUser, firestore]);
 
   useEffect(() => {
-    let unsubscribe: Unsubscribe | undefined;
+    let adminsUnsubscribe: Unsubscribe | undefined;
+    let devicesUnsubscribe: Unsubscribe | undefined;
+
     if (appUser?.role === 'superadmin' && firestore) {
       const adminsCollection = collection(firestore, 'admins');
-      
-      unsubscribe = onSnapshot(adminsCollection, (snapshot) => {
+      adminsUnsubscribe = onSnapshot(adminsCollection, (snapshot) => {
         const adminList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as AdminUser));
         setAdmins(adminList);
       }, (serverError) => {
@@ -144,10 +147,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         errorEmitter.emit('permission-error', permissionError);
         setAdmins([]);
       });
+
+      const devicesCollection = collection(firestore, 'devices');
+      devicesUnsubscribe = onSnapshot(devicesCollection, (snapshot) => {
+        const deviceList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Device));
+        setAllDevices(deviceList);
+      }, (serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: 'devices',
+          operation: 'list',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        setAllDevices([]);
+      });
+
     } else {
         setAdmins([]);
+        setAllDevices([]);
     }
-    return () => unsubscribe && unsubscribe();
+    return () => {
+        if (adminsUnsubscribe) adminsUnsubscribe();
+        if (devicesUnsubscribe) devicesUnsubscribe();
+    }
   }, [appUser, firestore]);
 
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
@@ -170,6 +191,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await authService.logout();
     setAppUser(null);
     setAdmins([]); // Clear admin list on logout
+    setAllDevices([]); // Clear device list on logout
     if (previousRole === 'superadmin') {
       router.push('/superadmin-login');
     } else {
@@ -207,7 +229,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   
   const contextValue = { 
     user: appUser, 
-    admins, 
+    admins,
+    allDevices,
     isAuthenticated: !!appUser, 
     isLoading, 
     login, 

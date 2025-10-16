@@ -26,7 +26,7 @@ import { PlusCircle, Users, Edit, Building, RadioTower, ShieldAlert, Power, Chec
 import { useState, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { AdminUser } from '@/lib/types';
+import { AdminUser, Device } from '@/lib/types';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,29 +34,43 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 export default function SuperAdminDashboardPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeactivateDialogOpen, setIsDeactivateDialogOpen] = useState(false);
   const [selectedAdmin, setSelectedAdmin] = useState<AdminUser | null>(null);
-  const { user, admins, deactivateAdmin } = useAuth();
+  const { user, admins, allDevices, deactivateAdmin } = useAuth();
 
-  const { totalOrgs, totalDevices, totalAlerts, organizationNames } = useMemo(() => {
+  const { totalOrgs, totalDevices, totalAlerts, orgsWithDetails } = useMemo(() => {
     const validOrgs = admins
       .map(a => a.organization)
-      .filter(org => org && org.trim() !== '');
-    const orgs = new Set(validOrgs);
-    const devices = admins.reduce((sum, admin) => sum + (admin.devices || 0), 0);
+      .filter((org): org is string => !!org && org.trim() !== '');
+    const orgSet = new Set(validOrgs);
+    
+    const devices = allDevices.length;
     // This is a placeholder until global alerts are fetched.
     const alerts = 0; 
+    
+    const orgDetails = Array.from(orgSet).sort().map(orgName => {
+        const adminsInOrg = admins.filter(a => a.organization === orgName);
+        const adminIdsInOrg = adminsInOrg.map(a => a.id);
+        const devicesInOrg = allDevices.filter(d => adminIdsInOrg.includes(d.adminId));
+        return {
+            name: orgName,
+            admins: adminsInOrg,
+            devices: devicesInOrg,
+        };
+    });
+
     return { 
-      totalOrgs: orgs.size, 
+      totalOrgs: orgSet.size, 
       totalDevices: devices, 
       totalAlerts: alerts,
-      organizationNames: Array.from(orgs).sort()
+      orgsWithDetails: orgDetails
     };
-  }, [admins]);
+  }, [admins, allDevices]);
 
 
   const planVariant = (plan: AdminUser['plan']) => {
@@ -107,21 +121,40 @@ export default function SuperAdminDashboardPage() {
               </CardContent>
             </Card>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-lg">
             <DialogHeader>
-              <DialogTitle>Registered Organizations</DialogTitle>
+              <DialogTitle>Registered Organizations & Devices</DialogTitle>
               <DialogDescription>
-                A complete list of all organizations on the platform.
+                Click an organization to see its registered devices.
               </DialogDescription>
             </DialogHeader>
-            <div className="max-h-[300px] overflow-y-auto pr-4">
-              <ul className="space-y-2">
-                {organizationNames.map((org, index) => (
-                  <li key={`${org}-${index}`} className="rounded-md border p-3 text-sm font-medium">
-                    {org}
-                  </li>
+            <div className="max-h-[400px] overflow-y-auto pr-4">
+              <Accordion type="single" collapsible>
+                {orgsWithDetails.map((org) => (
+                  <AccordionItem value={org.name} key={org.name}>
+                    <AccordionTrigger>{org.name} ({org.devices.length} devices)</AccordionTrigger>
+                    <AccordionContent>
+                      {org.devices.length > 0 ? (
+                        <div className="space-y-2 pl-4">
+                          {org.devices.map(device => (
+                            <div key={device.id} className="text-sm p-2 rounded-md border border-border/50">
+                              <p className="font-medium">{device.name}</p>
+                              <p className="text-xs text-muted-foreground font-mono">{device.id} - {device.type}</p>
+                              <p className="text-xs text-muted-foreground">
+                                Admin: {admins.find(a => a.id === device.adminId)?.name || 'N/A'}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          No devices registered for this organization.
+                        </p>
+                      )}
+                    </AccordionContent>
+                  </AccordionItem>
                 ))}
-              </ul>
+              </Accordion>
             </div>
           </DialogContent>
         </Dialog>
