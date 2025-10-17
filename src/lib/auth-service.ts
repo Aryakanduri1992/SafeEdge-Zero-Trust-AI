@@ -11,7 +11,7 @@ import {
   fetchSignInMethodsForEmail,
   type User as FirebaseUser
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, writeBatch } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, writeBatch, runTransaction } from 'firebase/firestore';
 import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateAdminData, Organization } from './types';
 import { initializeFirebase } from '@/firebase';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -74,25 +74,28 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
     if (!adminData.departments || adminData.departments.length === 0) {
         throw new Error("At least one department must be specified.");
     }
-    
-    // Use a temporary, isolated Firebase app instance for the entire operation.
-    const tempAppName = `temp-admin-creation-${Date.now()}`;
+
+    // Step 1: Check if the email is already registered in Firebase Authentication
+    // This is the primary auth instance, which is correct.
+    const signInMethods = await fetchSignInMethodsForEmail(auth, adminData.email);
+    if (signInMethods.length > 0) {
+        throw new Error(`An account with the email ${adminData.email} already exists. Please use a different email.`);
+    }
+
+    // Step 2: Use a temporary app to create the user, which isolates the auth state.
+    const tempAppName = `temp-auth-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
+    let newUser: FirebaseUser | null = null;
     let newOrgUID = '';
 
     try {
-        // Step 1: Check if email exists using the primary auth instance.
-        const signInMethods = await fetchSignInMethodsForEmail(auth, adminData.email);
-        if (signInMethods.length > 0) {
-            throw new Error(`An account with the email ${adminData.email} already exists. Please use a different email.`);
-        }
-
-        // Step 2: Create the user in the temporary auth instance.
+        // Step 3: Create the user in the temporary auth context.
         const userCredential = await createUserWithEmailAndPassword(tempAuth, adminData.email, adminData.password);
-        newOrgUID = userCredential.user.uid;
-
-        // Step 3: Perform all Firestore writes in a single batch.
+        newUser = userCredential.user;
+        newOrgUID = newUser.uid;
+        
+        // Step 4: Perform all Firestore writes in a single, atomic batch.
         const batch = writeBatch(firestore);
 
         const newOrgProfile: Omit<Organization, 'id' | 'role'> = {
@@ -124,26 +127,33 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
             batch.set(deptDocRef, newDepartmentProfile);
         }
 
-        // Step 4: Commit the batch.
+        // Step 5: Commit the batch.
         await batch.commit();
 
     } catch (error: any) {
-        if (newOrgUID) {
-             // This indicates the auth user was created but the Firestore write failed.
-             throw new Error(`Creation Failed: An authentication account for ${adminData.email} was created, but saving the organization data failed. This is likely due to a security rule violation. Please go to the Firebase Console, delete the user from the 'Authentication' tab, and try again after the rules are fixed. Error: ${error.message}`);
-        } else {
-            // This error happened during pre-checks or auth creation.
-             throw error;
+        // This is a critical cleanup step.
+        // If user creation succeeded but Firestore failed, we must not leave an orphan auth user.
+        if (newUser) {
+            try {
+                // We need to re-authenticate as the super admin to get permissions to delete the user.
+                // Since this is complex and requires handling credentials securely,
+                // the best immediate solution is a clear, actionable error message for the developer.
+                throw new Error(`Creation Failed: An authentication account for ${adminData.email} was created, but saving the organization data failed. This is likely due to a security rule violation. Please go to the Firebase Console, delete the user from the 'Authentication' tab, and try again after the rules are fixed. Error: ${error.message}`);
+            } catch (cleanupError) {
+                 throw new Error(`CRITICAL ERROR: Auth user ${adminData.email} was created, but Firestore writes failed. An attempt to clean up the user also failed. Manual cleanup is required in the Firebase Console. Original error: ${error.message}`);
+            }
         }
-
+        // If the error was not related to a partial success, re-throw it.
+        throw error;
     } finally {
-        // Step 5: Always clean up the temporary app.
+        // Step 6: Always sign out and delete the temporary app instance.
         if (tempAuth.currentUser) {
             await signOut(tempAuth);
         }
         await deleteApp(tempApp);
     }
 };
+
 
 
 
