@@ -58,15 +58,15 @@
         },
         "required": ["id", "organizationName", "email", "createdAt", "superAdminId"]
     },
-    "Admin": {
+    "Department": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Admin",
+      "title": "Department",
       "type": "object",
       "description": "Represents a department within an organization. It does not have its own login credentials.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the Admin entity (department)."
+          "description": "Unique identifier for the Department entity."
         },
         "email": {
           "type": "string",
@@ -142,9 +142,9 @@
           "format": "date-time",
           "description": "The ISO timestamp of when the device last reported its status."
         },
-        "adminId": {
+        "departmentId": {
           "type": "string",
-          "description": "The ID of the department (Admin document) this device is registered under."
+          "description": "The ID of the department (Department document) this device is registered under."
         },
         "type": {
           "type": "string",
@@ -156,7 +156,7 @@
             "description": "An optional description of the device's purpose."
         }
       },
-      "required": ["id", "name", "status", "adminId", "type", "location"]
+      "required": ["id", "name", "status", "departmentId", "type", "location"]
     },
     "Alert": {
       "title": "Alert",
@@ -165,14 +165,14 @@
       "properties": {
         "deviceId": { "type": "string", "description": "The ID of the device that triggered the alert." },
         "deviceName": { "type": "string", "description": "The name of the device for easy identification." },
-        "adminId": { "type": "string", "description": "The ID of the department (Admin document) this alert belongs to." },
+        "departmentId": { "type": "string", "description": "The ID of the department (Department document) this alert belongs to." },
         "type": { "type": "string", "description": "The type of event that triggered the alert (e.g., 'Device Offline', 'Anomalous Behaviour')." },
         "severity": { "type": "string", "enum": ["critical", "high", "medium", "low"], "description": "The severity level of the alert." },
         "status": { "type": "string", "enum": ["new", "acknowledged", "resolved"], "description": "The current lifecycle status of the alert." },
         "createdAt": { "type": "string", "format": "date-time", "description": "The ISO timestamp when the alert was created." },
         "details": { "type": "string", "description": "An optional detailed message about the alert." }
       },
-      "required": ["deviceId", "deviceName", "adminId", "type", "severity", "status", "createdAt"]
+      "required": ["deviceId", "deviceName", "departmentId", "type", "severity", "status", "createdAt"]
     }
   },
   "auth": {
@@ -214,16 +214,16 @@
         }
       },
       {
-        "path": "/admins/{adminId}",
+        "path": "/departments/{departmentId}",
         "definition": {
-          "entityName": "Admin",
+          "entityName": "Department",
           "schema": {
-            "$ref": "#/backend/entities/Admin"
+            "$ref": "#/backend/entities/Department"
           },
           "description": "Stores department profiles. Each document includes an 'organizationId' to link it to the parent organization's auth account.",
           "params": [
             {
-              "name": "adminId",
+              "name": "departmentId",
               "description": "The unique identifier for the department document."
             }
           ]
@@ -236,7 +236,7 @@
           "schema": {
             "$ref": "#/backend/entities/Device"
           },
-          "description": "Stores IoT device data, linked to a department (Admin document).",
+          "description": "Stores IoT device data, linked to a department (Department document).",
           "params": [
             {
               "name": "deviceId",
@@ -252,7 +252,7 @@
           "schema": {
             "$ref": "#/backend/entities/Alert"
           },
-          "description": "Stores system alerts generated from devices, linked to a department (Admin document).",
+          "description": "Stores system alerts generated from devices, linked to a department (Department document).",
           "params": [
             {
               "name": "alertId",
@@ -262,7 +262,6 @@
         }
       }
     ],
-    "reasoning": "This Firestore data structure is designed to support the AuthStation application, focusing on secure authentication and access control for Super Admins and Organizations. The key change is the introduction of a single login per organization. The '/organizations/{orgId}' collection holds the primary record for each company, and its document ID is the Firebase Auth UID. The '/admins' collection now represents departments, with each document containing an 'organizationId' field that links it back to the parent organization's auth account. This avoids creating separate auth users for each department, simplifying user management while maintaining a clear, hierarchical data structure."
+    "reasoning": "This Firestore data structure is designed to support the AuthStation application, focusing on secure authentication and access control for Super Admins and Organizations. The key change is the introduction of a single login per organization. The '/organizations/{orgId}' collection holds the primary record for each company, and its document ID is the Firebase Auth UID. The '/departments' collection now represents departments, with each document containing an 'organizationId' field that links it back to the parent organization's auth account. This avoids creating separate auth users for each department, simplifying user management while maintaining a clear, hierarchical data structure."
   }
 }
-
