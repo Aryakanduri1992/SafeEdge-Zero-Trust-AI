@@ -1,9 +1,10 @@
+
 import { AdminLoginForm } from '@/components/auth/admin-login-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
 import { Logo } from '@/components/logo';
 
-export default function AdminLoginPage() {
+export default function OrganisationLoginPage() {
   return (
     <div className="flex flex-col items-center justify-center space-y-8 text-center">
       <div className="flex flex-col items-center gap-4">

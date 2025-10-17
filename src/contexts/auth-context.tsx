@@ -60,7 +60,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 description: 'Your user profile could not be found. Please log in again.',
              });
              if (!pathname.includes('login')) {
-                router.replace('/admin-login');
+                router.replace('/organisation-login');
              }
              setIsAuthLoading(false);
              return;
@@ -68,7 +68,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
           setAppUser(userProfile);
           
-          const onAdminLoginPage = pathname.includes('admin-login');
+          const onAdminLoginPage = pathname.includes('organisation-login');
           const onSuperAdminLoginPage = pathname.includes('superadmin-login');
 
           if (userProfile.role === 'superadmin' && (onSuperAdminLoginPage || onAdminLoginPage)) {
@@ -100,7 +100,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             if (pathname.startsWith('/superadmin')) {
                  router.replace('/superadmin-login');
             } else {
-                 router.replace('/admin-login');
+                 router.replace('/organisation-login');
             }
         }
       }
@@ -141,18 +141,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         });
 
       } else if (appUser.role === 'admin') {
-          const departmentsQuery = query(collection(firestore, 'departments'), where("organizationId", "==", appUser.id));
-          departmentsUnsubscribe = onSnapshot(departmentsQuery, (snapshot) => {
-              const deptList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Department));
-              setDepartments(deptList);
-          }, (serverError) => {
-              const permissionError = new FirestorePermissionError({
-                  path: `departments`,
-                  operation: 'list',
-              });
-              errorEmitter.emit('permission-error', permissionError);
-              setDepartments([]);
-          });
+          // No department fetching for organization admin in this simplified version
       }
     } else {
         setDepartments([]);
@@ -189,7 +178,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (previousRole === 'superadmin') {
       router.push('/superadmin-login');
     } else {
-      router.push('/admin-login');
+      router.push('/organisation-login');
     }
   };
 

@@ -1,3 +1,4 @@
+
 import { SuperAdminLoginForm } from '@/components/auth/super-admin-login-form';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
@@ -26,9 +27,9 @@ export default function SuperAdminLoginPage() {
           <SuperAdminLoginForm />
         </CardContent>
       </Card>
-       <Link href="/admin-login" className="text-sm text-primary transition-colors hover:text-primary/80">
-        Are you an Admin?
-      </Link>
+       <Link href="/organisation-login" className="text-sm text-primary transition-colors hover:text-primary/80">
+        Are you an Organization?
+       </Link>
     </div>
   );
 }
