@@ -104,10 +104,17 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
     } catch (error: any) {
         if (newUser) {
             const detailedError = `Creation Failed: An authentication account for ${orgData.email} was created, but saving the organization data to the database was blocked. This is almost certainly due to a security rule violation. Please go to the Firebase Console, delete the user from the 'Authentication' tab, check the security rules, and try again. Original Error: ${error.message}`;
+             const orgDocRef = doc(firestore, "organizations", newOrgUID);
+            const newOrgProfile: Omit<Organization, 'id' | 'role'> = {
+                organizationName: orgData.organizationName,
+                email: orgData.email,
+                createdAt: new Date().toISOString(),
+                superAdminId: superAdminId,
+            };
             errorEmitter.emit('permission-error', new FirestorePermissionError({
                 path: `organizations/${newOrgUID}`,
                 operation: 'create',
-                requestResourceData: { org: orgData, superAdminId }
+                requestResourceData: newOrgProfile
             }));
              throw new Error(detailedError);
         }
