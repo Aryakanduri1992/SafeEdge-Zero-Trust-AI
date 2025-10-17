@@ -4,7 +4,7 @@
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import * as authService from '@/lib/auth-service';
-import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateAdminData, Device, Organization } from '@/lib/types';
+import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Device, Organization } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { useUser, useFirestore, FirestorePermissionError, errorEmitter } from '@/firebase';
@@ -12,26 +12,23 @@ import { collection, onSnapshot, Unsubscribe, query, where } from 'firebase/fire
 
 type AuthContextType = {
   user: SuperAdminUser | Organization | null;
-  admins: AdminUser[];
-  departments: AdminUser[]; // For admin role to see their org's departments
+  departments: Department[]; // All departments for superadmin, or org-specific for admin
   allDevices: Device[]; // Added to hold all devices for superadmin
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (credentials: LoginCredentials, role: 'admin' | 'superadmin') => Promise<void>;
   logout: () => Promise<void>;
-  createAdmin: (adminData: NewAdminData) => Promise<void>;
-  updateAdmin: (adminId: string, adminData: UpdateAdminData) => Promise<void>;
-  deactivateAdmin: (adminId: string) => Promise<void>;
-  activateAdmin: (adminId: string) => Promise<void>;
-  refreshAdmins: () => Promise<void>;
+  createOrganization: (orgData: NewOrgData) => Promise<void>;
+  updateDepartment: (departmentId: string, departmentData: UpdateDepartmentData) => Promise<void>;
+  deactivateDepartment: (departmentId: string) => Promise<void>;
+  activateDepartment: (departmentId: string) => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [appUser, setAppUser] = useState<SuperAdminUser | Organization | null>(null);
-  const [admins, setAdmins] = useState<AdminUser[]>([]);
-  const [departments, setDepartments] = useState<AdminUser[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [allDevices, setAllDevices] = useState<Device[]>([]);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const router = useRouter();
@@ -111,28 +108,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     handleAuthChange();
   }, [firebaseUser, isFirebaseUserLoading, router, pathname, toast]);
 
-  const refreshAdmins = useCallback(async () => {
-    // This is handled by the real-time listener
-  }, []);
-
   useEffect(() => {
-    let adminsUnsubscribe: Unsubscribe | undefined;
-    let devicesUnsubscribe: Unsubscribe | undefined;
     let departmentsUnsubscribe: Unsubscribe | undefined;
+    let devicesUnsubscribe: Unsubscribe | undefined;
 
-    if (firestore) {
-      if (appUser?.role === 'superadmin') {
-        const adminsQuery = query(collection(firestore, 'admins'));
-        adminsUnsubscribe = onSnapshot(adminsQuery, (snapshot) => {
-          const adminList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as AdminUser));
-          setAdmins(adminList);
+    if (firestore && appUser) {
+      if (appUser.role === 'superadmin') {
+        const deptsQuery = query(collection(firestore, 'departments'));
+        departmentsUnsubscribe = onSnapshot(deptsQuery, (snapshot) => {
+          const deptList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Department));
+          setDepartments(deptList);
         }, (serverError) => {
           const permissionError = new FirestorePermissionError({
-              path: 'admins',
+              path: 'departments',
               operation: 'list',
           });
           errorEmitter.emit('permission-error', permissionError);
-          setAdmins([]);
+          setDepartments([]);
         });
 
         const devicesQuery = query(collection(firestore, 'devices'));
@@ -148,32 +140,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setAllDevices([]);
         });
 
-      } else if (appUser?.role === 'admin') {
-          // An 'admin' user is an 'Organization'. Fetch all 'AdminUser' (department) docs for that org.
-          const departmentsQuery = query(collection(firestore, 'admins'), where("organizationId", "==", appUser.id));
+      } else if (appUser.role === 'admin') {
+          const departmentsQuery = query(collection(firestore, 'departments'), where("organizationId", "==", appUser.id));
           departmentsUnsubscribe = onSnapshot(departmentsQuery, (snapshot) => {
-              const deptList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as AdminUser));
+              const deptList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Department));
               setDepartments(deptList);
           }, (serverError) => {
               const permissionError = new FirestorePermissionError({
-                  path: `admins`,
+                  path: `departments`,
                   operation: 'list',
               });
               errorEmitter.emit('permission-error', permissionError);
               setDepartments([]);
           });
       }
-      else {
-          setAdmins([]);
-          setAllDevices([]);
-          setDepartments([]);
-      }
+    } else {
+        setDepartments([]);
+        setAllDevices([]);
     }
     
     return () => {
-        if (adminsUnsubscribe) adminsUnsubscribe();
-        if (devicesUnsubscribe) devicesUnsubscribe();
         if (departmentsUnsubscribe) departmentsUnsubscribe();
+        if (devicesUnsubscribe) devicesUnsubscribe();
     }
   }, [appUser, firestore]);
 
@@ -195,7 +183,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const previousRole = appUser?.role;
     await authService.logout();
     setAppUser(null);
-    setAdmins([]);
+    setDepartments([]);
     setAllDevices([]);
     if (previousRole === 'superadmin') {
       router.push('/superadmin-login');
@@ -204,36 +192,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   };
 
-  const createAdmin = async (adminData: NewAdminData) => {
+  const createOrganization = async (orgData: NewOrgData) => {
     if (!appUser || appUser.role !== 'superadmin') {
       throw new Error("Unauthorized");
     }
-    await authService.createAdmin(adminData, appUser.id);
+    await authService.createOrganization(orgData, appUser.id);
   };
   
-  const updateAdmin = async (adminId: string, adminData: UpdateAdminData) => {
+  const updateDepartment = async (departmentId: string, departmentData: UpdateDepartmentData) => {
      if (!appUser || appUser.role !== 'superadmin') {
       throw new Error("Unauthorized");
     }
-    await authService.updateAdmin(adminId, adminData);
+    await authService.updateDepartment(departmentId, departmentData);
   };
 
-  const deactivateAdmin = async (adminId: string) => {
+  const deactivateDepartment = async (departmentId: string) => {
     if (!appUser || appUser.role !== 'superadmin') {
       throw new Error("Unauthorized");
     }
-    await authService.deactivateAdmin(adminId);
+    await authService.deactivateDepartment(departmentId);
     toast({
       title: "Department Deactivated",
       description: "The department has been successfully deactivated.",
     });
   };
 
-  const activateAdmin = async (adminId: string) => {
+  const activateDepartment = async (departmentId: string) => {
     if (!appUser || appUser.role !== 'superadmin') {
       throw new Error("Unauthorized");
     }
-    await authService.activateAdmin(adminId);
+    await authService.activateDepartment(departmentId);
     toast({
       title: "Department Activated",
       description: "The department has been successfully activated.",
@@ -244,18 +232,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   
   const contextValue = { 
     user: appUser, 
-    admins,
     departments,
     allDevices,
     isAuthenticated: !!appUser, 
     isLoading, 
     login, 
     logout, 
-    createAdmin, 
-    updateAdmin, 
-    deactivateAdmin,
-    activateAdmin,
-    refreshAdmins 
+    createOrganization, 
+    updateDepartment, 
+    deactivateDepartment,
+    activateDepartment,
   };
 
   return (
@@ -268,5 +254,3 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     </AuthContext.Provider>
   );
 };
-
-    

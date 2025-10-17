@@ -2,7 +2,7 @@
 "use client";
 
 import { useState } from 'react';
-import { useForm, useFieldArray, Controller } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { Button } from '@/components/ui/button';
@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2, UserPlus, Trash2 } from 'lucide-react';
+import { Loader2, UserPlus } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 const departmentSchema = z.object({
@@ -24,17 +24,16 @@ const formSchema = z.object({
   organizationName: z.string().min(2, { message: 'Organization Name must be at least 2 characters.' }),
   email: z.string().email({ message: 'Please enter a valid email.' }),
   password: z.string().min(8, { message: 'Password must be at least 8 characters.' }),
-  numberOfDepartments: z.coerce.number().min(1, 'You must add at least one department.').max(10, 'You can add a maximum of 10 departments at once.'),
   departments: z.array(departmentSchema).nonempty('You must add at least one department.'),
 });
 
-type CreateAdminFormProps = {
+type CreateOrgFormProps = {
   onFinished: () => void;
 };
 
-export function CreateAdminForm({ onFinished }: CreateAdminFormProps) {
+export function CreateAdminForm({ onFinished }: CreateOrgFormProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const { createAdmin } = useAuth();
+  const { createOrganization } = useAuth();
   const { toast } = useToast();
   
   const form = useForm<z.infer<typeof formSchema>>({
@@ -43,7 +42,6 @@ export function CreateAdminForm({ onFinished }: CreateAdminFormProps) {
       organizationName: '',
       email: '',
       password: '',
-      numberOfDepartments: 1,
       departments: [{ departmentName: '', location: '', building: '', floor: '' }],
     },
     mode: 'onChange',
@@ -54,30 +52,11 @@ export function CreateAdminForm({ onFinished }: CreateAdminFormProps) {
     name: "departments"
   });
 
-  const numberOfDepartments = form.watch('numberOfDepartments');
-
-  const handleDepartmentCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const count = parseInt(e.target.value, 10) || 0;
-    const clampedCount = Math.max(1, Math.min(10, count));
-    form.setValue('numberOfDepartments', clampedCount);
-
-    const currentCount = fields.length;
-    if (clampedCount > currentCount) {
-      for (let i = 0; i < clampedCount - currentCount; i++) {
-        append({ departmentName: '', location: '', building: '', floor: '' });
-      }
-    } else if (clampedCount < currentCount) {
-      for (let i = 0; i < currentCount - clampedCount; i++) {
-        remove(currentCount - 1 - i);
-      }
-    }
-  };
-
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     
     try {
-      await createAdmin(values);
+      await createOrganization(values);
       toast({
         title: 'Organization Created',
         description: `Organization "${values.organizationName}" and its departments have been successfully created.`,
@@ -140,25 +119,16 @@ export function CreateAdminForm({ onFinished }: CreateAdminFormProps) {
                 )}
                 />
 
-                <FormField
-                control={form.control}
-                name="numberOfDepartments"
-                render={({ field }) => (
-                    <FormItem>
-                    <FormLabel>Number of Departments</FormLabel>
-                    <FormControl>
-                        <Input type="number" min="1" max="10" {...field} onChange={handleDepartmentCountChange} />
-                    </FormControl>
-                    <FormMessage />
-                    </FormItem>
-                )}
-                />
-
                 <hr className="my-4 border-dashed" />
 
                 {fields.map((field, index) => (
-                    <div key={field.id} className="space-y-4 rounded-md border p-4">
-                        <h3 className="text-md font-medium">Department {index + 1}</h3>
+                    <div key={field.id} className="space-y-4 rounded-md border p-4 relative">
+                        <div className="flex justify-between items-center">
+                            <h3 className="text-md font-medium">Department {index + 1}</h3>
+                            {fields.length > 1 && (
+                                <Button type="button" variant="ghost" size="sm" onClick={() => remove(index)}>Remove</Button>
+                            )}
+                        </div>
                         <FormField
                         control={form.control}
                         name={`departments.${index}.departmentName`}
@@ -213,6 +183,16 @@ export function CreateAdminForm({ onFinished }: CreateAdminFormProps) {
                         />
                     </div>
                 ))}
+
+                 <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-2"
+                    onClick={() => append({ departmentName: '', location: '', building: '', floor: '' })}
+                    >
+                    Add Department
+                </Button>
             </div>
         </ScrollArea>
         <div className="flex justify-end pt-4">

@@ -22,11 +22,11 @@ import { Badge } from "@/components/ui/badge";
 import { CreateAdminForm } from '@/components/superadmin/create-admin-form';
 import { EditAdminForm } from '@/components/superadmin/edit-admin-form';
 import { DeactivateAdminDialog } from '@/components/superadmin/deactivate-admin-dialog';
-import { PlusCircle, Users, Edit, Building, RadioTower, ShieldAlert, Power, CheckCircle, XCircle, MoreHorizontal, User, Server, Camera, HardDrive, Cpu, Radio, ShieldCheck, SignalHigh, Signal, SignalLow, Search, Filter, MapPin, UserPlus } from 'lucide-react';
+import { PlusCircle, Users, Edit, Building, RadioTower, ShieldAlert, Power, CheckCircle, XCircle, MoreHorizontal, User, Server, Camera, HardDrive, Cpu, Radio, ShieldCheck, SignalHigh, Signal, SignalLow, Search, Filter, MapPin } from 'lucide-react';
 import { useState, useMemo, ReactNode } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { AdminUser, Device, DeviceType, DeviceStatus, AdminStatus } from '@/lib/types';
+import { Department, Device, DeviceType, DeviceStatus, DepartmentStatus } from '@/lib/types';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -95,63 +95,63 @@ export default function SuperAdminDashboardPage() {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeactivateDialogOpen, setIsDeactivateDialogOpen] = useState(false);
   const [isActivateDialogOpen, setIsActivateDialogOpen] = useState(false);
-  const [selectedAdmin, setSelectedAdmin] = useState<AdminUser | null>(null);
-  const { user, admins, allDevices, deactivateAdmin, activateAdmin } = useAuth();
+  const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
+  const { user, departments, allDevices, deactivateDepartment, activateDepartment } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
 
 
   const { totalOrgs, totalDepartments, totalDevices, totalAlerts, orgsWithDetails } = useMemo(() => {
-    const orgMap = new Map<string, { orgName: string; orgEmail: string, departments: AdminUser[] }>();
+    const orgMap = new Map<string, { orgName: string; orgEmail: string, departments: Department[] }>();
 
-    admins.forEach(admin => {
-        if (!admin.organizationId) return;
-        if (!orgMap.has(admin.organizationId)) {
-            orgMap.set(admin.organizationId, {
-                orgName: admin.organizationName,
-                orgEmail: admin.email,
+    departments.forEach(dept => {
+        if (!dept.organizationId) return;
+        if (!orgMap.has(dept.organizationId)) {
+            orgMap.set(dept.organizationId, {
+                orgName: dept.organizationName,
+                orgEmail: dept.email,
                 departments: []
             });
         }
-        orgMap.get(admin.organizationId)!.departments.push(admin);
+        orgMap.get(dept.organizationId)!.departments.push(dept);
     });
 
     const devices = allDevices.length;
     const alerts = allDevices.filter(d => d.status === 'alerting').length;
     
     const orgDetails = Array.from(orgMap.entries()).map(([orgId, orgData]) => {
-        const adminIdsInOrg = orgData.departments.map(a => a.id);
-        const devicesInOrg = allDevices.filter(d => adminIdsInOrg.includes(d.adminId));
+        const deptIdsInOrg = orgData.departments.map(d => d.id);
+        const devicesInOrg = allDevices.filter(d => deptIdsInOrg.includes(d.departmentId));
         return {
             id: orgId,
             name: orgData.orgName,
             email: orgData.orgEmail,
-            admins: orgData.departments,
+            departments: orgData.departments,
             devices: devicesInOrg,
         };
     }).sort((a,b) => a.name.localeCompare(b.name));
 
     return { 
       totalOrgs: orgMap.size,
-      totalDepartments: admins.length,
+      totalDepartments: departments.length,
       totalDevices: devices, 
       totalAlerts: alerts,
       orgsWithDetails: orgDetails
     };
-  }, [admins, allDevices]);
+  }, [departments, allDevices]);
 
-  const filteredAdmins = useMemo(() => {
-    return admins.filter(admin => {
-        const searchCorpus = `${admin.departmentName} ${admin.email} ${admin.building} ${admin.floor} ${admin.organizationName} ${admin.location}`.toLowerCase();
+  const filteredDepartments = useMemo(() => {
+    return departments.filter(dept => {
+        const searchCorpus = `${dept.departmentName} ${dept.email} ${dept.building} ${dept.floor} ${dept.organizationName} ${dept.location}`.toLowerCase();
         const matchesSearch = searchCorpus.includes(searchTerm.toLowerCase());
-        const matchesStatus = statusFilter === 'all' || admin.status === statusFilter;
+        const matchesStatus = statusFilter === 'all' || dept.status === statusFilter;
         return matchesSearch && matchesStatus;
     });
-  }, [admins, searchTerm, statusFilter]);
+  }, [departments, searchTerm, statusFilter]);
 
 
-  const planVariant = (plan: AdminUser['plan']) => {
+  const planVariant = (plan: Department['plan']) => {
     switch (plan) {
       case 'Pro':
         return 'default';
@@ -162,8 +162,8 @@ export default function SuperAdminDashboardPage() {
     }
   };
 
-  const handleEditClick = (admin: AdminUser) => {
-    setSelectedAdmin(admin);
+  const handleEditClick = (department: Department) => {
+    setSelectedDepartment(department);
     setIsEditDialogOpen(true);
   };
   
@@ -171,30 +171,30 @@ export default function SuperAdminDashboardPage() {
     setIsCreateDialogOpen(true);
   }
   
-  const handleDeactivateClick = (admin: AdminUser) => {
-    setSelectedAdmin(admin);
+  const handleDeactivateClick = (department: Department) => {
+    setSelectedDepartment(department);
     setIsDeactivateDialogOpen(true);
   };
 
-  const handleActivateClick = (admin: AdminUser) => {
-    setSelectedAdmin(admin);
+  const handleActivateClick = (department: Department) => {
+    setSelectedDepartment(department);
     setIsActivateDialogOpen(true);
   };
 
   const handleDeactivateConfirm = () => {
-    if (selectedAdmin) {
-      deactivateAdmin(selectedAdmin.id);
+    if (selectedDepartment) {
+      deactivateDepartment(selectedDepartment.id);
     }
     setIsDeactivateDialogOpen(false);
-    setSelectedAdmin(null);
+    setSelectedDepartment(null);
   }
 
   const handleActivateConfirm = () => {
-    if (selectedAdmin) {
-      activateAdmin(selectedAdmin.id);
+    if (selectedDepartment) {
+      activateDepartment(selectedDepartment.id);
     }
     setIsActivateDialogOpen(false);
-    setSelectedAdmin(null);
+    setSelectedDepartment(null);
   }
 
   const handleCreateFinished = () => {
@@ -231,9 +231,9 @@ export default function SuperAdminDashboardPage() {
               <Accordion type="single" collapsible>
                 {orgsWithDetails.map((org) => (
                   <AccordionItem value={org.name} key={org.name}>
-                    <AccordionTrigger className="text-lg font-semibold">{org.name} ({org.admins.length} departments)</AccordionTrigger>
+                    <AccordionTrigger className="text-lg font-semibold">{org.name} ({org.departments.length} departments)</AccordionTrigger>
                     <AccordionContent>
-                      {org.admins.length > 0 ? (
+                      {org.departments.length > 0 ? (
                         <Table>
                           <TableHeader>
                             <TableRow>
@@ -245,17 +245,17 @@ export default function SuperAdminDashboardPage() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {org.admins.map(admin => (
-                              <TableRow key={admin.id}>
+                            {org.departments.map(dept => (
+                              <TableRow key={dept.id}>
                                 <TableCell>
-                                  <div className="font-medium">{admin.departmentName}</div>
-                                  <div className="text-xs text-muted-foreground font-mono">{admin.organizationName}</div>
+                                  <div className="font-medium">{dept.departmentName}</div>
+                                  <div className="text-xs text-muted-foreground font-mono">{dept.organizationName}</div>
                                 </TableCell>
-                                <TableCell>{admin.location}</TableCell>
-                                <TableCell>{admin.building}</TableCell>
-                                <TableCell>{admin.floor}</TableCell>
+                                <TableCell>{dept.location}</TableCell>
+                                <TableCell>{dept.building}</TableCell>
+                                <TableCell>{dept.floor}</TableCell>
                                 <TableCell className="text-center">
-                                  {admin.status === 'active' ? (
+                                  {dept.status === 'active' ? (
                                     <Badge variant="outline" className="text-green-400 border-green-400/50"><CheckCircle className="mr-1 h-3 w-3"/>Active</Badge>
                                   ) : (
                                     <Badge variant="destructive" className="bg-muted-foreground/20 text-muted-foreground border-muted-foreground/30"><XCircle className="mr-1 h-3 w-3"/>Inactive</Badge>
@@ -314,16 +314,16 @@ export default function SuperAdminDashboardPage() {
                     </TableRow>
                 </TableHeader>
                 <TableBody>
-                    {admins.map((admin) => (
-                        <TableRow key={admin.id}>
+                    {departments.map((dept) => (
+                        <TableRow key={dept.id}>
                             <TableCell>
-                               <div className="font-medium">{admin.organizationName}</div>
-                               <div className="text-xs text-muted-foreground font-mono">{admin.email}</div>
+                               <div className="font-medium">{dept.organizationName}</div>
+                               <div className="text-xs text-muted-foreground font-mono">{dept.email}</div>
                             </TableCell>
-                             <TableCell>{admin.departmentName}</TableCell>
-                            <TableCell>{admin.building}, Fl {admin.floor}</TableCell>
+                             <TableCell>{dept.departmentName}</TableCell>
+                            <TableCell>{dept.building}, Fl {dept.floor}</TableCell>
                             <TableCell className="text-center">
-                               {admin.status === 'active' ? (
+                               {dept.status === 'active' ? (
                                 <Badge variant="outline" className="text-green-400 border-green-400/50"><CheckCircle className="mr-1 h-3 w-3"/>Active</Badge>
                                 ) : (
                                 <Badge variant="destructive" className="bg-muted-foreground/20 text-muted-foreground border-muted-foreground/30"><XCircle className="mr-1 h-3 w-3"/>Inactive</Badge>
@@ -438,22 +438,22 @@ export default function SuperAdminDashboardPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredAdmins.map((admin) => (
-                <TableRow key={admin.id}>
-                  <TableCell className="font-medium">{admin.organizationName}</TableCell>
-                  <TableCell>{admin.departmentName}</TableCell>
-                  <TableCell className="text-muted-foreground text-xs font-mono">{admin.email}</TableCell>
+              {filteredDepartments.map((dept) => (
+                <TableRow key={dept.id}>
+                  <TableCell className="font-medium">{dept.organizationName}</TableCell>
+                  <TableCell>{dept.departmentName}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs font-mono">{dept.email}</TableCell>
                   <TableCell className="text-muted-foreground">
-                    {admin.location}
+                    {dept.location}
                   </TableCell>
                   <TableCell className="text-muted-foreground">
-                    {admin.building}, Fl {admin.floor}
+                    {dept.building}, Fl {dept.floor}
                   </TableCell>
                    <TableCell className="text-center">
-                    <Badge variant={planVariant(admin.plan)}>{admin.plan}</Badge>
+                    <Badge variant={planVariant(dept.plan)}>{dept.plan}</Badge>
                   </TableCell>
                    <TableCell className="text-center">
-                    {admin.status === 'active' ? (
+                    {dept.status === 'active' ? (
                       <Badge variant="outline" className="text-green-400 border-green-400/50"><CheckCircle className="mr-1 h-3 w-3"/>Active</Badge>
                     ) : (
                        <Badge variant="destructive" className="bg-muted-foreground/20 text-muted-foreground border-muted-foreground/30"><XCircle className="mr-1 h-3 w-3"/>Inactive</Badge>
@@ -468,13 +468,13 @@ export default function SuperAdminDashboardPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => handleEditClick(admin)}>
+                        <DropdownMenuItem onClick={() => handleEditClick(dept)}>
                           <Edit className="mr-2 h-4 w-4" />
                           <span>Edit Plan/Quota</span>
                         </DropdownMenuItem>
-                         {admin.status === 'active' ? (
+                         {dept.status === 'active' ? (
                             <DropdownMenuItem 
-                                onClick={() => handleDeactivateClick(admin)} 
+                                onClick={() => handleDeactivateClick(dept)} 
                                 className="text-destructive focus:text-destructive focus:bg-destructive/10"
                             >
                                 <Power className="mr-2 h-4 w-4" />
@@ -482,7 +482,7 @@ export default function SuperAdminDashboardPage() {
                             </DropdownMenuItem>
                          ) : (
                             <DropdownMenuItem 
-                                onClick={() => handleActivateClick(admin)} 
+                                onClick={() => handleActivateClick(dept)} 
                                 className="text-green-400 focus:text-green-400 focus:bg-green-400/10"
                             >
                                 <ShieldCheck className="mr-2 h-4 w-4" />
@@ -494,7 +494,7 @@ export default function SuperAdminDashboardPage() {
                   </TableCell>
                 </TableRow>
               ))}
-                 {filteredAdmins.length === 0 && (
+                 {filteredDepartments.length === 0 && (
                     <TableRow>
                         <TableCell colSpan={8} className="h-24 text-center">
                             No departments found matching your criteria.
@@ -509,29 +509,27 @@ export default function SuperAdminDashboardPage() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
-            <DialogTitle>Edit Department: {selectedAdmin?.departmentName}</DialogTitle>
+            <DialogTitle>Edit Department: {selectedDepartment?.departmentName}</DialogTitle>
             <DialogDescription>
               Update the plan and device allocation for this department.
             </DialogDescription>
           </DialogHeader>
-          {selectedAdmin && <EditAdminForm admin={selectedAdmin} onFinished={() => setIsEditDialogOpen(false)} />}
+          {selectedDepartment && <EditAdminForm department={selectedDepartment} onFinished={() => setIsEditDialogOpen(false)} />}
         </DialogContent>
       </Dialog>
       
       <DeactivateAdminDialog
         isOpen={isDeactivateDialogOpen}
         onOpenChange={setIsDeactivateDialogOpen}
-        admin={selectedAdmin}
+        department={selectedDepartment}
         onConfirm={handleDeactivateConfirm}
       />
       <ActivateAdminDialog
         isOpen={isActivateDialogOpen}
         onOpenChange={setIsActivateDialogOpen}
-        admin={selectedAdmin}
+        department={selectedDepartment}
         onConfirm={handleActivateConfirm}
       />
     </div>
   );
 }
-
-    

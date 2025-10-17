@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { initializeApp, deleteApp } from 'firebase/app';
@@ -11,8 +12,8 @@ import {
   fetchSignInMethodsForEmail,
   type User as FirebaseUser
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, writeBatch, runTransaction } from 'firebase/firestore';
-import type { AdminUser, SuperAdminUser, LoginCredentials, NewAdminData, UpdateAdminData, Organization } from './types';
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, writeBatch } from 'firebase/firestore';
+import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization } from './types';
 import { initializeFirebase } from '@/firebase';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -68,21 +69,18 @@ export const logout = async (): Promise<void> => {
   await signOut(auth);
 };
 
-export const createAdmin = async (adminData: NewAdminData, superAdminId: string): Promise<void> => {
-    if (!adminData.password) throw new Error("A password is required to create a new organization.");
-    if (!adminData.email) throw new Error("An email is required to create a new organization.");
-    if (!adminData.departments || adminData.departments.length === 0) {
+export const createOrganization = async (orgData: NewOrgData, superAdminId: string): Promise<void> => {
+    if (!orgData.password) throw new Error("A password is required to create a new organization.");
+    if (!orgData.email) throw new Error("An email is required to create a new organization.");
+    if (!orgData.departments || orgData.departments.length === 0) {
         throw new Error("At least one department must be specified.");
     }
 
-    // Step 1: Check if the email is already registered in Firebase Authentication
-    // This is the primary auth instance, which is correct.
-    const signInMethods = await fetchSignInMethodsForEmail(auth, adminData.email);
+    const signInMethods = await fetchSignInMethodsForEmail(auth, orgData.email);
     if (signInMethods.length > 0) {
-        throw new Error(`An account with the email ${adminData.email} already exists. Please use a different email.`);
+        throw new Error(`An account with the email ${orgData.email} already exists. Please use a different email.`);
     }
 
-    // Step 2: Use a temporary app to create the user, which isolates the auth state.
     const tempAppName = `temp-auth-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
@@ -90,33 +88,30 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
     let newOrgUID = '';
 
     try {
-        // Step 3: Create the user in the temporary auth context.
-        const userCredential = await createUserWithEmailAndPassword(tempAuth, adminData.email, adminData.password);
+        const userCredential = await createUserWithEmailAndPassword(tempAuth, orgData.email, orgData.password);
         newUser = userCredential.user;
         newOrgUID = newUser.uid;
         
-        // Step 4: Perform all Firestore writes in a single, atomic batch.
         const batch = writeBatch(firestore);
 
         const newOrgProfile: Omit<Organization, 'id' | 'role'> = {
-            organizationName: adminData.organizationName,
-            email: adminData.email,
+            organizationName: orgData.organizationName,
+            email: orgData.email,
             createdAt: new Date().toISOString(),
             superAdminId: superAdminId,
         };
         const orgDocRef = doc(firestore, "organizations", newOrgUID);
         batch.set(orgDocRef, newOrgProfile);
         
-        for (const dept of adminData.departments) {
-            const deptDocRef = doc(collection(firestore, 'admins'));
-            const newDepartmentProfile: Omit<AdminUser, 'id'> = {
+        for (const dept of orgData.departments) {
+            const deptDocRef = doc(collection(firestore, 'departments'));
+            const newDepartmentProfile: Omit<Department, 'id'> = {
                 departmentName: dept.departmentName,
-                organizationName: adminData.organizationName,
-                email: adminData.email,
+                organizationName: orgData.organizationName,
+                email: orgData.email,
                 building: dept.building,
                 floor: dept.floor,
                 location: dept.location,
-                role: 'admin',
                 createdAt: new Date().toISOString(),
                 devices: 10,
                 plan: 'Pro',
@@ -127,26 +122,14 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
             batch.set(deptDocRef, newDepartmentProfile);
         }
 
-        // Step 5: Commit the batch.
         await batch.commit();
 
     } catch (error: any) {
-        // This is a critical cleanup step.
-        // If user creation succeeded but Firestore failed, we must not leave an orphan auth user.
         if (newUser) {
-            try {
-                // We need to re-authenticate as the super admin to get permissions to delete the user.
-                // Since this is complex and requires handling credentials securely,
-                // the best immediate solution is a clear, actionable error message for the developer.
-                throw new Error(`Creation Failed: An authentication account for ${adminData.email} was created, but saving the organization data failed. This is likely due to a security rule violation. Please go to the Firebase Console, delete the user from the 'Authentication' tab, and try again after the rules are fixed. Error: ${error.message}`);
-            } catch (cleanupError) {
-                 throw new Error(`CRITICAL ERROR: Auth user ${adminData.email} was created, but Firestore writes failed. An attempt to clean up the user also failed. Manual cleanup is required in the Firebase Console. Original error: ${error.message}`);
-            }
+            throw new Error(`Creation Failed: An authentication account for ${orgData.email} was created, but saving the organization data failed. This is likely due to a security rule violation. Please go to the Firebase Console, delete the user from the 'Authentication' tab, and try again after checking the rules. Original Error: ${error.message}`);
         }
-        // If the error was not related to a partial success, re-throw it.
         throw error;
     } finally {
-        // Step 6: Always sign out and delete the temporary app instance.
         if (tempAuth.currentUser) {
             await signOut(tempAuth);
         }
@@ -157,25 +140,25 @@ export const createAdmin = async (adminData: NewAdminData, superAdminId: string)
 
 
 
-export const updateAdmin = async (adminId: string, adminData: UpdateAdminData): Promise<void> => {
-    const adminDocRef = doc(firestore, "admins", adminId);
-    await updateDoc(adminDocRef, adminData).catch(serverError => {
+export const updateDepartment = async (departmentId: string, departmentData: UpdateDepartmentData): Promise<void> => {
+    const departmentDocRef = doc(firestore, "departments", departmentId);
+    await updateDoc(departmentDocRef, departmentData).catch(serverError => {
         const permissionError = new FirestorePermissionError({
-            path: adminDocRef.path,
+            path: departmentDocRef.path,
             operation: 'update',
-            requestResourceData: adminData,
+            requestResourceData: departmentData,
         });
         errorEmitter.emit('permission-error', permissionError);
         throw permissionError;
     });
 };
 
-export const deactivateAdmin = async (adminId: string): Promise<void> => {
-    const adminDocRef = doc(firestore, "admins", adminId);
+export const deactivateDepartment = async (departmentId: string): Promise<void> => {
+    const departmentDocRef = doc(firestore, "departments", departmentId);
     const updateData = { status: 'inactive' };
-    await updateDoc(adminDocRef, updateData).catch(serverError => {
+    await updateDoc(departmentDocRef, updateData).catch(serverError => {
         const permissionError = new FirestorePermissionError({
-            path: adminDocRef.path,
+            path: departmentDocRef.path,
             operation: 'update',
             requestResourceData: updateData,
         });
@@ -184,12 +167,12 @@ export const deactivateAdmin = async (adminId: string): Promise<void> => {
     });
 };
 
-export const activateAdmin = async (adminId: string): Promise<void> => {
-    const adminDocRef = doc(firestore, "admins", adminId);
+export const activateDepartment = async (departmentId: string): Promise<void> => {
+    const departmentDocRef = doc(firestore, "departments", departmentId);
     const updateData = { status: 'active' };
-    await updateDoc(adminDocRef, updateData).catch(serverError => {
+    await updateDoc(departmentDocRef, updateData).catch(serverError => {
         const permissionError = new FirestorePermissionError({
-            path: adminDocRef.path,
+            path: departmentDocRef.path,
             operation: 'update',
             requestResourceData: updateData,
         });
@@ -204,17 +187,13 @@ const seedSuperAdmin = async () => {
     const superAdminEmail = 'super@authstation.com';
     const superAdminPassword = 'super-password';
 
-    // Use a temporary, separate Firebase app instance to check/create the super admin
-    // without affecting the current user's auth state.
     const tempAppName = `temp-superadmin-check-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
 
     try {
-        // Try to sign in to see if the user exists
         await signInWithEmailAndPassword(tempAuth, superAdminEmail, superAdminPassword);
     } catch (error: any) {
-        // If user not found, create them
         if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
              try {
                 const userCredential = await createUserWithEmailAndPassword(tempAuth, superAdminEmail, superAdminPassword);
@@ -229,22 +208,18 @@ const seedSuperAdmin = async () => {
                     await setDoc(superAdminRoleRef, superAdminProfile);
                  }
              } catch (seedError: any) {
-                // If the user already exists (e.g., race condition), we can ignore the error.
                 if (seedError.code !== 'auth/email-already-in-use') {
                     console.error("Error seeding Super Admin:", seedError);
                 }
              }
         }
     } finally {
-        // Always clean up the temporary app instance
-        await signOut(tempAuth).catch(() => {}); // Sign out from temp app
+        await signOut(tempAuth).catch(() => {});
         await deleteApp(tempApp);
     }
 };
 
-// Run this only once on client-side initialization
 if (typeof window !== 'undefined') {
-    // A check to prevent this from running multiple times in development HMR
     if (!(window as any).__superAdminSeeded) {
         seedSuperAdmin();
         (window as any).__superAdminSeeded = true;

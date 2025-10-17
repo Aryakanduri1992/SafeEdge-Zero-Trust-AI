@@ -34,7 +34,7 @@ export default function ProfilePage() {
 
   const devicesQuery = useMemoFirebase(() => {
     if (!firestore || departmentIds.length === 0) return null;
-    return query(collection(firestore, "devices"), where("adminId", "in", departmentIds));
+    return query(collection(firestore, "devices"), where("departmentId", "in", departmentIds));
   }, [firestore, departmentIds]);
 
   const { data: devices, isLoading: areDevicesLoading } = useCollection<Device>(devicesQuery);
@@ -126,5 +126,3 @@ export default function ProfilePage() {
     </div>
   );
 }
-
-    

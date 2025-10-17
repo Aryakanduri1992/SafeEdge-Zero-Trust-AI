@@ -12,22 +12,22 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { buttonVariants } from "@/components/ui/button";
-import { AdminUser } from "@/lib/types";
+import { Department } from "@/lib/types";
 
-type DeactivateAdminDialogProps = {
+type DeactivateDepartmentDialogProps = {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  admin: AdminUser | null;
+  department: Department | null;
   onConfirm: () => void;
 };
 
 export function DeactivateAdminDialog({
   isOpen,
   onOpenChange,
-  admin,
+  department,
   onConfirm,
-}: DeactivateAdminDialogProps) {
-  if (!admin) return null;
+}: DeactivateDepartmentDialogProps) {
+  if (!department) return null;
 
   return (
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
@@ -35,7 +35,7 @@ export function DeactivateAdminDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Deactivate Department?</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to deactivate the department "{admin.departmentName}"?
+            Are you sure you want to deactivate the department "{department.departmentName}"?
             This will prevent access for this department but will not affect the rest of the organization. This can be undone later.
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -52,5 +52,3 @@ export function DeactivateAdminDialog({
     </AlertDialog>
   );
 }
-
-    

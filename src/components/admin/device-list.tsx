@@ -83,14 +83,13 @@ export function DeviceList() {
   const [isMutationLoading, setIsMutationLoading] = useState(false);
   const { toast } = useToast();
   const { user, departments } = useAuth();
-  const orgUser = user as Organization;
   const firestore = useFirestore();
 
   const departmentIds = useMemo(() => departments.map(d => d.id), [departments]);
 
   const devicesQuery = useMemoFirebase(() => {
     if (!firestore || departmentIds.length === 0) return null;
-    return query(collection(firestore, "devices"), where("adminId", "in", departmentIds));
+    return query(collection(firestore, "devices"), where("departmentId", "in", departmentIds));
   }, [firestore, departmentIds]);
 
   const { data: devices, isLoading: areDevicesLoading } = useCollection<Device>(devicesQuery);
@@ -130,7 +129,7 @@ export function DeviceList() {
         location: values.location,
         type: values.type,
         description: values.description,
-        adminId: values.adminId
+        departmentId: values.departmentId
     }
     
     if (selectedDevice) {
@@ -271,7 +270,7 @@ export function DeviceList() {
               <TableBody>
                 {devices.map((device) => {
                   const statusInfo = getStatusInfo(device.status);
-                  const department = departments.find(d => d.id === device.adminId);
+                  const department = departments.find(d => d.id === device.departmentId);
                   return (
                     <TableRow key={device.id}>
                       <TableCell>
@@ -346,7 +345,7 @@ export function DeviceList() {
             onSubmit={handleFormSubmit}
             isLoading={isMutationLoading}
             departments={departments}
-            currentUserId={departments[0]?.id} // Pass a default department
+            defaultDepartmentId={departments[0]?.id}
           />
         </DialogContent>
       </Dialog>
@@ -360,5 +359,3 @@ export function DeviceList() {
     </>
   );
 }
-
-    

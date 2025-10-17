@@ -12,38 +12,38 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Save } from 'lucide-react';
-import type { AdminUser, Plan } from '@/lib/types';
+import type { Department, Plan } from '@/lib/types';
 
 const formSchema = z.object({
   devices: z.coerce.number().min(1, { message: 'Must have at least 1 device.' }),
   plan: z.enum(['Free', 'Pro', 'Enterprise']),
 });
 
-type EditAdminFormProps = {
-  admin: AdminUser;
+type EditDepartmentFormProps = {
+  department: Department;
   onFinished: () => void;
 };
 
-export function EditAdminForm({ admin, onFinished }: EditAdminFormProps) {
+export function EditAdminForm({ department, onFinished }: EditDepartmentFormProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const { updateAdmin } = useAuth();
+  const { updateDepartment } = useAuth();
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      devices: admin.devices,
-      plan: admin.plan,
+      devices: department.devices,
+      plan: department.plan,
     },
   });
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      await updateAdmin(admin.id, values);
+      await updateDepartment(department.id, values);
       toast({
         title: 'Department Update Initiated',
-        description: `${admin.departmentName}'s profile is being updated.`,
+        description: `${department.departmentName}'s profile is being updated.`,
       });
       onFinished();
     } catch (error: any) {
@@ -109,5 +109,3 @@ export function EditAdminForm({ admin, onFinished }: EditAdminFormProps) {
     </Form>
   );
 }
-
-    

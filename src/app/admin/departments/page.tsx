@@ -2,7 +2,7 @@
 "use client";
 
 import { useAuth } from "@/hooks/use-auth";
-import { AdminUser, Organization, Device } from "@/lib/types";
+import { Organization, Device, Department } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -37,7 +37,7 @@ export default function DepartmentsPage() {
 
   const devicesQuery = useMemoFirebase(() => {
     if (!firestore || departmentIds.length === 0) return null;
-    return query(collection(firestore, "devices"), where("adminId", "in", departmentIds));
+    return query(collection(firestore, "devices"), where("departmentId", "in", departmentIds));
   }, [firestore, departmentIds]);
 
   const { data: allDevices, isLoading: areDevicesLoading } = useCollection<Device>(devicesQuery);
@@ -45,7 +45,8 @@ export default function DepartmentsPage() {
   const devicesByDepartment = useMemo(() => {
     if (!allDevices) return {};
     return allDevices.reduce((acc, device) => {
-      acc[device.adminId] = (acc[device.adminId] || 0) + 1;
+      const key = device.departmentId;
+      acc[key] = (acc[key] || 0) + 1;
       return acc;
     }, {} as Record<string, number>);
   }, [allDevices]);
@@ -66,7 +67,7 @@ export default function DepartmentsPage() {
         <CardHeader>
           <CardTitle>Department List</CardTitle>
           <CardDescription>
-            A list of all registered departments within your organization. Click a department to see its devices.
+            A list of all registered departments within your organization.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -84,7 +85,7 @@ export default function DepartmentsPage() {
               </TableHeader>
               <TableBody>
                 {departments.map((dept) => (
-                  <TableRow key={dept.id} className="cursor-pointer hover:bg-muted/20">
+                  <TableRow key={dept.id}>
                     <TableCell>
                       <div className="font-medium">{dept.departmentName}</div>
                       <div className="text-xs text-muted-foreground font-mono">{dept.organizationName}</div>
@@ -122,5 +123,3 @@ export default function DepartmentsPage() {
     </div>
   );
 }
-
-    

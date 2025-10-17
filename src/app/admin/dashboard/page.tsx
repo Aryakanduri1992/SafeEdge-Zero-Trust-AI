@@ -12,7 +12,7 @@ import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/
 import { Skeleton } from "@/components/ui/skeleton";
 import { PieChart, Pie, Cell } from "recharts";
 import { Star, RadioTower, ShieldAlert, HeartPulse, Bell, AlertCircle, AlertTriangle, Info, WifiOff, ServerCrash, Users } from "lucide-react";
-import { Organization, DeviceStatus, Device, AdminUser } from "@/lib/types";
+import { Organization, DeviceStatus, Device, Department } from "@/lib/types";
 
 const getSeverityBadge = (severity: string) => {
   switch (severity) {
@@ -56,7 +56,7 @@ export default function AdminDashboardPage() {
 
   const devicesQuery = useMemoFirebase(() => {
     if (!firestore || departmentIds.length === 0) return null;
-    return query(collection(firestore, "devices"), where("adminId", "in", departmentIds));
+    return query(collection(firestore, "devices"), where("departmentId", "in", departmentIds));
   }, [firestore, departmentIds]);
 
   const { data: devices, isLoading: areDevicesLoading } = useCollection<Device>(devicesQuery);
@@ -253,5 +253,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
-    

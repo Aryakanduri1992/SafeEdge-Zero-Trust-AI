@@ -1,11 +1,12 @@
 
+
 export type UserRole = 'admin' | 'superadmin';
 export type Plan = 'Free' | 'Pro' | 'Enterprise';
 export type DeviceStatus = 'online' | 'offline' | 'alerting';
 export type DeviceType = 'Sensor' | 'Gateway' | 'Actuator' | 'Camera';
 export type AlertStatus = 'new' | 'acknowledged' | 'resolved';
 export type AlertSeverity = 'critical' | 'high' | 'medium' | 'low';
-export type AdminStatus = 'active' | 'inactive';
+export type DepartmentStatus = 'active' | 'inactive';
 
 export interface BaseUser {
   id: string; // Firebase Auth UID
@@ -20,20 +21,19 @@ export interface Organization extends BaseUser {
     superAdminId: string;
 }
 
-export interface AdminUser {
+export interface Department {
   id: string; // Firestore Document ID
   departmentName: string;
   organizationName: string;
-  email: string; // This will be the organization's email
+  email: string; // This will be the organization's login email
   building: string;
   floor: string;
   location: string;
-  role: 'admin';
   createdAt: string; // ISO String
   devices: number; // quota for this department
   plan: Plan;
   superAdminId: string;
-  status: AdminStatus;
+  status: DepartmentStatus;
   organizationId: string; // Firebase Auth UID of the organization
 }
 
@@ -48,7 +48,7 @@ export interface Device {
     location: string;
     status: DeviceStatus;
     lastSeen: string; // ISO String
-    adminId: string; // This is the ID of the AdminUser (department) document
+    departmentId: string; // This is the ID of the Department document
     type: DeviceType;
     description?: string;
 }
@@ -57,7 +57,7 @@ export interface Alert {
   id: string;
   deviceId: string;
   deviceName: string;
-  adminId: string;
+  departmentId: string;
   type: string;
   severity: AlertSeverity;
   status: AlertStatus;
@@ -71,23 +71,21 @@ export interface LoginCredentials {
   password?: string;
 }
 
-export type DepartmentData = {
+export type DepartmentFormData = {
   departmentName: string;
   location: string;
   building: string;
   floor: string;
 }
 
-export type NewAdminData = { 
+export type NewOrgData = { 
   organizationName: string;
   email: string;
   password: string;
-  departments: DepartmentData[];
+  departments: DepartmentFormData[];
 };
 
-export type UpdateAdminData = {
+export type UpdateDepartmentData = {
   plan: Plan;
   devices: number;
 };
-
-    

@@ -12,22 +12,22 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { buttonVariants } from "@/components/ui/button";
-import { AdminUser } from "@/lib/types";
+import { Department } from "@/lib/types";
 
-type ActivateAdminDialogProps = {
+type ActivateDepartmentDialogProps = {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  admin: AdminUser | null;
+  department: Department | null;
   onConfirm: () => void;
 };
 
 export function ActivateAdminDialog({
   isOpen,
   onOpenChange,
-  admin,
+  department,
   onConfirm,
-}: ActivateAdminDialogProps) {
-  if (!admin) return null;
+}: ActivateDepartmentDialogProps) {
+  if (!department) return null;
 
   return (
     <AlertDialog open={isOpen} onOpenChange={onOpenChange}>
@@ -35,7 +35,7 @@ export function ActivateAdminDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>Activate Department?</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to reactivate the department "{admin.departmentName}"?
+            Are you sure you want to reactivate the department "{department.departmentName}"?
             They will immediately regain access.
           </AlertDialogDescription>
         </AlertDialogHeader>
@@ -52,5 +52,3 @@ export function ActivateAdminDialog({
     </AlertDialog>
   );
 }
-
-    
