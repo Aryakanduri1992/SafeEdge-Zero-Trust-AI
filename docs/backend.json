@@ -28,35 +28,126 @@
       ]
     },
     "Organization": {
-        "$schema": "http://json-schema.org/draft-07/schema#",
-        "title": "Organization",
-        "type": "object",
-        "description": "Represents a single organization with its own login credentials.",
-        "properties": {
-            "id": {
-                "type": "string",
-                "description": "Unique Firebase Auth UID for the organization's login."
-            },
-            "organizationName": {
-                "type": "string",
-                "description": "The name of the organization."
-            },
-            "email": {
-                "type": "string",
-                "description": "The primary login email for the organization.",
-                "format": "email"
-            },
-            "createdAt": {
-                "type": "string",
-                "format": "date-time",
-                "description": "The ISO timestamp of when the organization was created."
-            },
-            "superAdminId": {
-                "type": "string",
-                "description": "The ID of the SuperAdmin who created this organization."
-            }
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Organization",
+      "type": "object",
+      "description": "Represents a single organization with its own login credentials.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique Firebase Auth UID for the organization's login."
         },
-        "required": ["id", "organizationName", "email", "createdAt", "superAdminId"]
+        "organizationName": {
+          "type": "string",
+          "description": "The name of the organization."
+        },
+        "email": {
+          "type": "string",
+          "description": "The primary login email for the organization.",
+          "format": "email"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The ISO timestamp of when the organization was created."
+        },
+        "superAdminId": {
+          "type": "string",
+          "description": "The ID of the SuperAdmin who created this organization."
+        }
+      },
+      "required": [
+        "id",
+        "organizationName",
+        "email",
+        "createdAt",
+        "superAdminId"
+      ]
+    },
+    "Department": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Department",
+      "type": "object",
+      "description": "Represents a department within an organization, with its own device quotas and subscription plan.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the department."
+        },
+        "departmentName": {
+          "type": "string",
+          "description": "The name of the department."
+        },
+        "organizationName": {
+          "type": "string",
+          "description": "The name of the parent organization."
+        },
+        "email": {
+          "type": "string",
+          "description": "The login email of the parent organization."
+        },
+        "building": {
+          "type": "string",
+          "description": "The building where the department is located."
+        },
+        "floor": {
+          "type": "string",
+          "description": "The floor where the department is located."
+        },
+        "location": {
+          "type": "string",
+          "description": "A more general location description."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The ISO timestamp of when the department was created."
+        },
+        "devices": {
+          "type": "number",
+          "description": "The number of devices allocated to this department (quota)."
+        },
+        "plan": {
+          "type": "string",
+          "enum": [
+            "Free",
+            "Pro",
+            "Enterprise"
+          ],
+          "description": "The subscription plan for this department."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "active",
+            "inactive"
+          ],
+          "description": "The current status of the department."
+        },
+        "superAdminId": {
+          "type": "string",
+          "description": "The ID of the SuperAdmin who created the parent organization."
+        },
+        "organizationId": {
+          "type": "string",
+          "description": "The ID of the parent organization."
+        }
+      },
+      "required": [
+        "id",
+        "departmentName",
+        "organizationName",
+        "email",
+        "building",
+        "floor",
+        "location",
+        "createdAt",
+        "devices",
+        "plan",
+        "status",
+        "superAdminId",
+        "organizationId"
+      ]
     },
     "Device": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -78,7 +169,11 @@
         },
         "status": {
           "type": "string",
-          "enum": ["online", "offline", "alerting"],
+          "enum": [
+            "online",
+            "offline",
+            "alerting"
+          ],
           "description": "The current status of the device."
         },
         "lastSeen": {
@@ -92,31 +187,87 @@
         },
         "type": {
           "type": "string",
-          "enum": ["Sensor", "Gateway", "Actuator", "Camera"],
+          "enum": [
+            "Sensor",
+            "Gateway",
+            "Actuator",
+            "Camera"
+          ],
           "description": "The category or type of the device."
         },
         "description": {
-            "type": "string",
-            "description": "An optional description of the device's purpose."
+          "type": "string",
+          "description": "An optional description of the device's purpose."
         }
       },
-      "required": ["id", "name", "status", "departmentId", "type", "location"]
+      "required": [
+        "id",
+        "name",
+        "status",
+        "departmentId",
+        "type",
+        "location"
+      ]
     },
     "Alert": {
       "title": "Alert",
       "description": "Represents a system alert generated by an IoT device.",
       "type": "object",
       "properties": {
-        "deviceId": { "type": "string", "description": "The ID of the device that triggered the alert." },
-        "deviceName": { "type": "string", "description": "The name of the device for easy identification." },
-        "departmentId": { "type": "string", "description": "The ID of the department (Department document) this alert belongs to." },
-        "type": { "type": "string", "description": "The type of event that triggered the alert (e.g., 'Device Offline', 'Anomalous Behaviour')." },
-        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low"], "description": "The severity level of the alert." },
-        "status": { "type": "string", "enum": ["new", "acknowledged", "resolved"], "description": "The current lifecycle status of the alert." },
-        "createdAt": { "type": "string", "format": "date-time", "description": "The ISO timestamp when the alert was created." },
-        "details": { "type": "string", "description": "An optional detailed message about the alert." }
+        "deviceId": {
+          "type": "string",
+          "description": "The ID of the device that triggered the alert."
+        },
+        "deviceName": {
+          "type": "string",
+          "description": "The name of the device for easy identification."
+        },
+        "departmentId": {
+          "type": "string",
+          "description": "The ID of the department (Department document) this alert belongs to."
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of event that triggered the alert (e.g., 'Device Offline', 'Anomalous Behaviour')."
+        },
+        "severity": {
+          "type": "string",
+          "enum": [
+            "critical",
+            "high",
+            "medium",
+            "low"
+          ],
+          "description": "The severity level of the alert."
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "new",
+            "acknowledged",
+            "resolved"
+          ],
+          "description": "The current lifecycle status of the alert."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The ISO timestamp when the alert was created."
+        },
+        "details": {
+          "type": "string",
+          "description": "An optional detailed message about the alert."
+        }
       },
-      "required": ["deviceId", "deviceName", "departmentId", "type", "severity", "status", "createdAt"]
+      "required": [
+        "deviceId",
+        "deviceName",
+        "departmentId",
+        "type",
+        "severity",
+        "status",
+        "createdAt"
+      ]
     }
   },
   "auth": {
@@ -127,20 +278,34 @@
   },
   "firestore": {
     "/roles_super_admin/{superAdminId}": {
-        "schema": { "$ref": "#/entities/SuperAdmin" },
-        "description": "Stores documents that identify a user as a Super Admin by their UID."
+      "schema": {
+        "$ref": "#/entities/SuperAdmin"
+      },
+      "description": "Stores documents that identify a user as a Super Admin by their UID."
     },
     "/organizations/{organizationId}": {
-        "schema": { "$ref": "#/entities/Organization" },
-        "description": "Stores primary organization profiles, where the document ID is the Firebase Auth UID."
+      "schema": {
+        "$ref": "#/entities/Organization"
+      },
+      "description": "Stores primary organization profiles, where the document ID is the Firebase Auth UID."
+    },
+    "/departments/{departmentId}": {
+      "schema": {
+        "$ref": "#/entities/Department"
+      },
+      "description": "Stores department data, linked to an organization."
     },
     "/devices/{deviceId}": {
-        "schema": { "$ref": "#/entities/Device" },
-        "description": "Stores IoT device data, linked to a department."
+      "schema": {
+        "$ref": "#/entities/Device"
+      },
+      "description": "Stores IoT device data, linked to a department."
     },
     "/alerts/{alertId}": {
-        "schema": { "$ref": "#/entities/Alert" },
-        "description": "Stores system alerts generated from devices, linked to a department."
+      "schema": {
+        "$ref": "#/entities/Alert"
+      },
+      "description": "Stores system alerts generated from devices, linked to a department."
     }
   }
 }

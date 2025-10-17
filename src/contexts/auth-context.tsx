@@ -111,49 +111,61 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let departmentsUnsubscribe: Unsubscribe | undefined;
     let devicesUnsubscribe: Unsubscribe | undefined;
-    let orgsUnsubscribe: Unsubscribe | undefined;
 
     if (firestore && appUser) {
-      if (appUser.role === 'superadmin') {
-        const orgsQuery = query(collection(firestore, 'organizations'));
-        orgsUnsubscribe = onSnapshot(orgsQuery, (snapshot) => {
-            // We are fetching all organizations for the dashboard display
-            // This is just a placeholder to show how it could be done.
-        }, (serverError) => {
-             const permissionError = new FirestorePermissionError({
-              path: 'organizations',
-              operation: 'list',
-          });
-          errorEmitter.emit('permission-error', permissionError);
-        });
+        // Superadmin: Fetch all departments and all devices
+        if (appUser.role === 'superadmin') {
+            const deptsQuery = query(collection(firestore, 'departments'));
+            departmentsUnsubscribe = onSnapshot(deptsQuery, (snapshot) => {
+                const deptList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Department));
+                setDepartments(deptList);
+            }, (serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: 'departments',
+                    operation: 'list',
+                });
+                errorEmitter.emit('permission-error', permissionError);
+                setDepartments([]);
+            });
 
-        const devicesQuery = query(collection(firestore, 'devices'));
-        devicesUnsubscribe = onSnapshot(devicesQuery, (snapshot) => {
-          const deviceList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Device));
-          setAllDevices(deviceList);
-        }, (serverError) => {
-          const permissionError = new FirestorePermissionError({
-            path: 'devices',
-            operation: 'list',
-          });
-          errorEmitter.emit('permission-error', permissionError);
-          setAllDevices([]);
-        });
-
-      } else if (appUser.role === 'admin') {
-          // No department fetching for organization admin in this simplified version
-      }
+            const devicesQuery = query(collection(firestore, 'devices'));
+            devicesUnsubscribe = onSnapshot(devicesQuery, (snapshot) => {
+                const deviceList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Device));
+                setAllDevices(deviceList);
+            }, (serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: 'devices',
+                    operation: 'list',
+                });
+                errorEmitter.emit('permission-error', permissionError);
+                setAllDevices([]);
+            });
+        }
+        // Organization Admin: Fetch only their departments
+        else if (appUser.role === 'admin') {
+            const deptsQuery = query(collection(firestore, 'departments'), where("organizationId", "==", appUser.id));
+            departmentsUnsubscribe = onSnapshot(deptsQuery, (snapshot) => {
+                const deptList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Department));
+                setDepartments(deptList);
+            }, (serverError) => {
+                 const permissionError = new FirestorePermissionError({
+                    path: 'departments',
+                    operation: 'list',
+                });
+                errorEmitter.emit('permission-error', permissionError);
+                setDepartments([]);
+            });
+        }
     } else {
         setDepartments([]);
         setAllDevices([]);
     }
-    
+
     return () => {
         if (departmentsUnsubscribe) departmentsUnsubscribe();
         if (devicesUnsubscribe) devicesUnsubscribe();
-        if (orgsUnsubscribe) orgsUnsubscribe();
     }
-  }, [appUser, firestore]);
+}, [appUser, firestore]);
 
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
     setIsAuthLoading(true);
