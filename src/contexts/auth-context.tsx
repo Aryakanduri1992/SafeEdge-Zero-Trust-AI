@@ -111,20 +111,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let departmentsUnsubscribe: Unsubscribe | undefined;
     let devicesUnsubscribe: Unsubscribe | undefined;
+    let orgsUnsubscribe: Unsubscribe | undefined;
 
     if (firestore && appUser) {
       if (appUser.role === 'superadmin') {
-        const deptsQuery = query(collection(firestore, 'departments'));
-        departmentsUnsubscribe = onSnapshot(deptsQuery, (snapshot) => {
-          const deptList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Department));
-          setDepartments(deptList);
+        const orgsQuery = query(collection(firestore, 'organizations'));
+        orgsUnsubscribe = onSnapshot(orgsQuery, (snapshot) => {
+            // We are fetching all organizations for the dashboard display
+            // This is just a placeholder to show how it could be done.
         }, (serverError) => {
-          const permissionError = new FirestorePermissionError({
-              path: 'departments',
+             const permissionError = new FirestorePermissionError({
+              path: 'organizations',
               operation: 'list',
           });
           errorEmitter.emit('permission-error', permissionError);
-          setDepartments([]);
         });
 
         const devicesQuery = query(collection(firestore, 'devices'));
@@ -162,6 +162,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => {
         if (departmentsUnsubscribe) departmentsUnsubscribe();
         if (devicesUnsubscribe) devicesUnsubscribe();
+        if (orgsUnsubscribe) orgsUnsubscribe();
     }
   }, [appUser, firestore]);
 
