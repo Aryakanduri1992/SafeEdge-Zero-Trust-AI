@@ -1,106 +1,107 @@
 /**
- * @file Firebase Security Rules for AuthStation Prototyping
+ * @file Firestore Security Rules
+ * @description This ruleset enforces a role-based access control model with super-admin capabilities.
  *
- * @core_philosophy This ruleset enforces a strict owner-only model for SuperAdmins and Organizations.
- * Devices and Alerts are currently open for read/write. This is not safe.
+ * Data Structure:
+ * - /roles_super_admin/{superAdminId}: Documents identifying super admins.
+ * - /organizations/{organizationId}: Organization profiles.
+ * - /devices/{deviceId}: IoT device data.
+ * - /alerts/{alertId}: System alerts.
  *
- * @data_structure
- * - /roles_super_admin/{superAdminId}: Stores SuperAdmin profiles, secured by UID.
- * - /organizations/{organizationId}: Stores Organization profiles, secured by UID.
- * - /devices/{deviceId}: Stores Device data.
- * - /alerts/{alertId}: Stores Alert data.
- *
- * @key_security_decisions
- * - Listing of SuperAdmin roles and Organizations is denied.
- *
- * @denormalization_for_authorization
- * - Organizations store the `superAdminId` to avoid needing to query the `roles_super_admin` collection during authorization.
+ * Key Security Decisions:
+ * - Super admins have full read and write access to all organizations.
+ * - Only super admins can create organizations.
+ * - Devices and alerts are publicly accessible.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Secures SuperAdmin role documents, allowing only the SuperAdmin to read and write their own document.
-     * @path /roles_super_admin/{superAdminId}
-     * @allow (get, create, update, delete) if isSignedIn() && isOwner(superAdminId)
-     * @deny (get) if !isSignedIn()
-     * @deny (create) if !isSignedIn() || !isOwner(superAdminId)
-     * @deny (update) if !isSignedIn() || !isOwner(superAdminId)
-     * @deny (delete) if !isSignedIn() || !isOwner(superAdminId)
-     * @deny (list) Always deny listing of super admins.
-     * @principle Enforces document ownership and prevents unauthorized access to SuperAdmin roles.
+     * @description Checks if the user is signed in.
+     * @return {bool} True if the user is signed in, false otherwise.
      */
-    match /roles_super_admin/{superAdminId} {
-      allow get: if isSignedIn() && isOwner(superAdminId);
-      allow list: if false;
-      allow create: if isSignedIn() && isOwner(superAdminId);
-      allow update: if isSignedIn() && isExistingOwner(superAdminId);
-      allow delete: if isSignedIn() && isExistingOwner(superAdminId);
-    }
-
-    /**
-     * @description Secures Organization documents, allowing a SuperAdmin to create an organization with their ID, and only they can modify or delete it.
-     * @path /organizations/{organizationId}
-     * @allow (get) if true
-     * @allow (create) if isSignedIn() && request.resource.data.superAdminId == request.auth.uid && request.resource.data.id == organizationId
-     * @allow (update) if isSignedIn() && resource.data.superAdminId == request.auth.uid && resource.data.id == organizationId
-     * @allow (delete) if isSignedIn() && resource.data.superAdminId == request.auth.uid && resource != null
-     * @deny (list) Listing organizations is not permitted.
-     * @principle Enforces document ownership and prevents unauthorized creation, modification or deletion of organizations.
-     */
-    match /organizations/{organizationId} {
-      allow get: if true;
-      allow list: if false;
-      allow create: if isSignedIn() && request.resource.data.superAdminId == request.auth.uid && request.resource.data.id == organizationId;
-      allow update: if isSignedIn() && isExistingOrganizationOwner(organizationId);
-      allow delete: if isSignedIn() && isExistingOrganizationOwner(organizationId);
-    }
-
-    /**
-     * @description Stores IoT device data, linked to a department.
-     * @path /devices/{deviceId}
-     * @allow (get, list) if true
-     * @allow (create, update, delete) if true
-     * @principle: Open read and write to all devices. THIS IS INSECURE.
-     */
-    match /devices/{deviceId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if true;
-      allow update: if true;
-      allow delete: if true;
-    }
-
-    /**
-     * @description Stores system alerts generated from devices, linked to a department.
-     * @path /alerts/{alertId}
-     * @allow (get, list) if true
-     * @allow (create, update, delete) if true
-     * @principle: Open read and write to all alerts. THIS IS INSECURE.
-     */
-    match /alerts/{alertId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if true;
-      allow update: if true;
-      allow delete: if true;
-    }
-
     function isSignedIn() {
       return request.auth != null;
     }
 
+    /**
+     * @description Checks if the user is a super admin.
+     * @return {bool} True if the user is a super admin, false otherwise.
+     */
+    function isSuperAdmin() {
+      return exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
+    }
+
+    /**
+     * @description Checks if the user is the owner of the document.
+     * @param {string} userId - The user ID to check against.
+     * @return {bool} True if the user is the owner, false otherwise.
+     */
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
-    function isExistingOwner(userId) {
-      return isSignedIn() && isOwner(userId) && resource != null;
+    /**
+     * @description Checks if the user is the owner of the existing document.
+     * @param {string} userId - The user ID to check against.
+     * @param {string} superAdminId - The ID of the super admin.
+     * @return {bool} True if the user is the owner and the document exists, false otherwise.
+     */
+    function isExistingOwner(superAdminId) {
+      return request.auth.uid == resource.data.userId && resource != null;
     }
-    
-    function isExistingOrganizationOwner(organizationId) {
-        return isSignedIn() && resource.data.superAdminId == request.auth.uid && resource.data.id == organizationId && resource != null;
+
+    /**
+     * @description Rules for super admin roles.
+     * @path /roles_super_admin/{superAdminId}
+     */
+    match /roles_super_admin/{superAdminId} {
+      allow get: if isSignedIn() && request.auth.uid == superAdminId;
+      allow list: if false; // Do not allow listing of super admins
+
+      allow create: if isSignedIn() && request.auth.uid == superAdminId;
+      allow update: if isSignedIn() && request.auth.uid == superAdminId;
+      allow delete: if isSignedIn() && request.auth.uid == superAdminId;
+    }
+
+    /**
+     * @description Rules for organizations.
+     * @path /organizations/{organizationId}
+     */
+    match /organizations/{organizationId} {
+      allow get: if isSuperAdmin();
+      allow list: if isSuperAdmin();
+
+      allow create: if isSuperAdmin();
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
+    }
+
+    /**
+     * @description Rules for devices.
+     * @path /devices/{deviceId}
+     */
+    match /devices/{deviceId} {
+      allow get: if true;
+      allow list: if true;
+
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
+    }
+
+    /**
+     * @description Rules for alerts.
+     * @path /alerts/{alertId}
+     */
+    match /alerts/{alertId} {
+      allow get: if true;
+      allow list: if true;
+
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
   }
 }
