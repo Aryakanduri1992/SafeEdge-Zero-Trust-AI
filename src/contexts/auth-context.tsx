@@ -111,9 +111,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let departmentsUnsubscribe: Unsubscribe | undefined;
     let devicesUnsubscribe: Unsubscribe | undefined;
+    let orgsUnsubscribe: Unsubscribe | undefined;
 
     if (firestore && appUser) {
-        // Superadmin: Fetch all departments and all devices
         if (appUser.role === 'superadmin') {
             const deptsQuery = query(collection(firestore, 'departments'));
             departmentsUnsubscribe = onSnapshot(deptsQuery, (snapshot) => {
@@ -140,8 +140,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 errorEmitter.emit('permission-error', permissionError);
                 setAllDevices([]);
             });
+            
+             const orgsQuery = query(collection(firestore, 'organizations'));
+            orgsUnsubscribe = onSnapshot(orgsQuery, (snapshot) => {
+                 // This is just a placeholder to show how it could be done.
+            }, (serverError) => {
+                 const permissionError = new FirestorePermissionError({
+                  path: 'organizations',
+                  operation: 'list',
+              });
+              errorEmitter.emit('permission-error', permissionError);
+            });
+
         }
-        // Organization Admin: Fetch only their departments
         else if (appUser.role === 'admin') {
             const deptsQuery = query(collection(firestore, 'departments'), where("organizationId", "==", appUser.id));
             departmentsUnsubscribe = onSnapshot(deptsQuery, (snapshot) => {
@@ -164,6 +175,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => {
         if (departmentsUnsubscribe) departmentsUnsubscribe();
         if (devicesUnsubscribe) devicesUnsubscribe();
+        if (orgsUnsubscribe) orgsUnsubscribe();
     }
 }, [appUser, firestore]);
 
