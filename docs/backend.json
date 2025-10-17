@@ -182,86 +182,25 @@
     ]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/roles_super_admin/{superAdminId}",
-        "definition": {
-          "entityName": "SuperAdmin",
-          "schema": {
-            "$ref": "#/backend/entities/SuperAdmin"
-          },
-          "description": "Indicates a Firebase Auth user is a Super Admin, granting elevated privileges.",
-          "params": [
-            {
-              "name": "superAdminId",
-              "description": "The Firebase Auth UID of the Super Admin."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/organizations/{organizationId}",
-        "definition": {
-          "entityName": "Organization",
-          "schema": { "$ref": "#/backend/entities/Organization" },
-          "description": "Stores primary organization profiles, each linked to a Firebase Auth UID.",
-          "params": [
-            {
-              "name": "organizationId",
-              "description": "The Firebase Auth UID of the organization."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/departments/{departmentId}",
-        "definition": {
-          "entityName": "Department",
-          "schema": {
-            "$ref": "#/backend/entities/Department"
-          },
-          "description": "Stores department profiles. Each document includes an 'organizationId' to link it to the parent organization's auth account.",
-          "params": [
-            {
-              "name": "departmentId",
-              "description": "The unique identifier for the department document."
-            }
-          ]
-        }
-      },
-       {
-        "path": "/devices/{deviceId}",
-        "definition": {
-          "entityName": "Device",
-          "schema": {
-            "$ref": "#/backend/entities/Device"
-          },
-          "description": "Stores IoT device data, linked to a department (Department document).",
-          "params": [
-            {
-              "name": "deviceId",
-              "description": "The unique identifier for the device."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/alerts/{alertId}",
-        "definition": {
-          "entityName": "Alert",
-          "schema": {
-            "$ref": "#/backend/entities/Alert"
-          },
-          "description": "Stores system alerts generated from devices, linked to a department (Department document).",
-          "params": [
-            {
-              "name": "alertId",
-              "description": "The unique identifier for the alert."
-            }
-          ]
-        }
-      }
-    ],
-    "reasoning": "This Firestore data structure is designed to support the AuthStation application, focusing on secure authentication and access control for Super Admins and Organizations. The key change is the introduction of a single login per organization. The '/organizations/{orgId}' collection holds the primary record for each company, and its document ID is the Firebase Auth UID. The '/departments' collection now represents departments, with each document containing an 'organizationId' field that links it back to the parent organization's auth account. This avoids creating separate auth users for each department, simplifying user management while maintaining a clear, hierarchical data structure."
+    "/roles_super_admin/{superAdminId}": {
+        "schema": { "$ref": "#/entities/SuperAdmin" },
+        "description": "Stores documents that identify a user as a Super Admin by their UID."
+    },
+    "/organizations/{organizationId}": {
+        "schema": { "$ref": "#/entities/Organization" },
+        "description": "Stores primary organization profiles, where the document ID is the Firebase Auth UID."
+    },
+    "/departments/{departmentId}": {
+        "schema": { "$ref": "#/entities/Department" },
+        "description": "Stores department profiles. Each document includes an 'organizationId' to link it to the parent organization's auth account."
+    },
+    "/devices/{deviceId}": {
+        "schema": { "$ref": "#/entities/Device" },
+        "description": "Stores IoT device data, linked to a department."
+    },
+    "/alerts/{alertId}": {
+        "schema": { "$ref": "#/entities/Alert" },
+        "description": "Stores system alerts generated from devices, linked to a department."
+    }
   }
 }
