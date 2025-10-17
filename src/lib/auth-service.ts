@@ -76,22 +76,26 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
         throw new Error("At least one department must be specified.");
     }
 
-    const signInMethods = await fetchSignInMethodsForEmail(auth, orgData.email);
-    if (signInMethods.length > 0) {
-        throw new Error(`An account with the email ${orgData.email} already exists. Please use a different email.`);
-    }
-
-    const tempAppName = `temp-auth-${Date.now()}`;
+    // Use a temporary app to create user to not interfere with current session
+    const tempAppName = `temp-auth-creation-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
     let newUser: FirebaseUser | null = null;
     let newOrgUID = '';
 
     try {
+        // Step 1: Check if email exists in the main auth instance
+        const signInMethods = await fetchSignInMethodsForEmail(auth, orgData.email);
+        if (signInMethods.length > 0) {
+            throw new Error(`An account with the email ${orgData.email} already exists. Please use a different email.`);
+        }
+        
+        // Step 2: Create the user in the temporary auth instance
         const userCredential = await createUserWithEmailAndPassword(tempAuth, orgData.email, orgData.password);
         newUser = userCredential.user;
         newOrgUID = newUser.uid;
         
+        // Step 3: Write data to Firestore
         const batch = writeBatch(firestore);
 
         const newOrgProfile: Omit<Organization, 'id' | 'role'> = {
@@ -125,11 +129,21 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
         await batch.commit();
 
     } catch (error: any) {
+        // If Firestore write fails after user creation, this is a critical state.
         if (newUser) {
-            throw new Error(`Creation Failed: An authentication account for ${orgData.email} was created, but saving the organization data failed. This is likely due to a security rule violation. Please go to the Firebase Console, delete the user from the 'Authentication' tab, and try again after checking the rules. Original Error: ${error.message}`);
+            // This situation indicates a security rule failure.
+            const detailedError = `Creation Failed: An authentication account for ${orgData.email} was created, but saving the organization data to the database was blocked. This is almost certainly due to a security rule violation. Please go to the Firebase Console, delete the user from the 'Authentication' tab, check the security rules, and try again. Original Error: ${error.message}`;
+            errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: `organizations/${newOrgUID}`,
+                operation: 'create',
+                requestResourceData: { org: orgData, superAdminId }
+            }));
+             throw new Error(detailedError);
         }
+        // Rethrow original error if it's not a post-auth-creation failure.
         throw error;
     } finally {
+        // Clean up the temporary app regardless of outcome
         if (tempAuth.currentUser) {
             await signOut(tempAuth);
         }
@@ -225,3 +239,5 @@ if (typeof window !== 'undefined') {
         (window as any).__superAdminSeeded = true;
     }
 }
+
+    
