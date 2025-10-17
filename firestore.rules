@@ -1,141 +1,56 @@
-/**
- * @file Firebase Security Rules for AuthStation Firestore.
- *
- * @core_philosophy This ruleset enforces role-based access control, primarily using a SuperAdmin role.
- * Organizations, departments, devices, and alerts are secured based on their relationships and SuperAdmin's authorization.
- *
- * @data_structure The data is structured hierarchically, with organizations at the top level, followed by departments, devices, and alerts.
- * /roles_super_admin/{superAdminId}: SuperAdmin role assignments.
- * /organizations/{organizationId}: Organization profiles.
- * /departments/{departmentId}: Department data, linked to organizations.
- * /devices/{deviceId}: IoT device data, linked to departments.
- * /alerts/{alertId}: System alerts generated from devices, linked to departments.
- *
- * @key_security_decisions SuperAdmin role has broad access, Organizations are self-created and owned.
- * List operations for super-admin controlled entities are restricted to super-admins only.
- *
- * @denormalization_for_authorization SuperAdmin IDs are included on Organization and Department documents to simplify authorization checks.
- *
- * @structural_segregation No explicit private vs. public data segregation is implemented in this ruleset.
- */
+
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * @description Grants SuperAdmin role create, read, update, and delete access.
-     * @path /roles_super_admin/{superAdminId}
-     * @allow (create) User with matching UID creates a SuperAdmin role.
-     * @allow (get) User with SuperAdmin role reads their own role document.
-     * @allow (update) User with SuperAdmin role updates their own role document.
-     * @allow (delete) User with SuperAdmin role deletes their own role document.
-     * @deny (create) User without SuperAdmin role attempts to create a SuperAdmin role.
-     * @deny (get) User without SuperAdmin role attempts to read a SuperAdmin role.
-     * @deny (update) User without SuperAdmin role attempts to update a SuperAdmin role.
-     * @deny (delete) User without SuperAdmin role attempts to delete a SuperAdmin role.
-     * @principle Enforces role-based access control, restricting SuperAdmin role management to authorized users.
-     */
-    match /roles_super_admin/{superAdminId} {
-      allow get: if isSignedIn() && isOwner(superAdminId);
-      allow list: if false;
-      allow create: if isSignedIn() && isOwner(superAdminId);
-      allow update: if isSignedIn() && isOwner(superAdminId);
-      allow delete: if isSignedIn() && isOwner(superAdminId);
+    // Helper function to check if the user is a Super Admin
+    function isSuperAdmin() {
+      return exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
     }
 
-    /**
-     * @description Grants create access to any signed-in user. Grants read, update, and delete access only to SuperAdmins.
-     * @path /organizations/{organizationId}
-     * @allow (create) Any signed-in user can create a new organization.
-     * @allow (get) Any user can read an organization's profile.
-     * @allow (list) Any user can list organizations.
-     * @allow (update) Only a SuperAdmin can update an organization profile.
-     * @allow (delete) Only a SuperAdmin can delete an organization profile.
-     * @deny (update) A non-SuperAdmin attempts to update an organization profile.
-     * @deny (delete) A non-SuperAdmin attempts to delete an organization profile.
-     * @principle Grants public read access but restricts write access to SuperAdmins.
-     */
-    match /organizations/{organizationId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && isSuperAdmin();
-      allow delete: if isSignedIn() && isSuperAdmin();
+    // Helper function to check if the user is the owner of the organization
+    function isOwner(orgId) {
+      return request.auth.uid == orgId;
     }
 
-    /**
-     * @description Grants read access to any user. Grants create, update, and delete access only to SuperAdmins.
-     * @path /departments/{departmentId}
-     * @allow (create) Only a SuperAdmin can create a new department.
-     * @allow (get) Any user can read a department's data.
-     * @allow (list) Only super admin is allowed to list departments.
-     * @allow (update) Only a SuperAdmin can update a department's data.
-     * @allow (delete) Only a SuperAdmin can delete a department.
-     * @deny (update) A non-SuperAdmin attempts to update a department's data.
-     * @deny (delete) A non-SuperAdmin attempts to delete a department.
-     * @principle Grants public read access but restricts write access to SuperAdmins.
-     */
-    match /departments/{departmentId} {
-      allow get: if true;
-      allow list: if isSignedIn() && isSuperAdmin();
-      allow create: if isSignedIn() && isSuperAdmin();
-      allow update: if isSignedIn() && isSuperAdmin();
-      allow delete: if isSignedIn() && isSuperAdmin();
+    // Super Admins can read/write any data for administrative purposes
+    match /{path=**}/documents/{docId} {
+        allow read, write: if isSuperAdmin();
     }
 
-    /**
-     * @description Grants read access to any user. Grants create, update, and delete access only to SuperAdmins.
-     * @path /devices/{deviceId}
-     * @allow (create) Only a SuperAdmin can create a new device.
-     * @allow (get) Any user can read a device's data.
-     * @allow (list) Only super admin is allowed to list devices.
-     * @allow (update) Only a SuperAdmin can update a device's data.
-     * @allow (delete) Only a SuperAdmin can delete a device.
-     * @deny (update) A non-SuperAdmin attempts to update a device's data.
-     * @deny (delete) A non-SuperAdmin attempts to delete a device.
-     * @principle Grants public read access but restricts write access to SuperAdmins.
-     */
+    // Rules for the organizations collection
+    match /organizations/{orgId} {
+      // Allow create by Super Admins
+      allow create: if isSuperAdmin() && request.resource.data.superAdminId == request.auth.uid;
+      
+      // Allow organization admin to read their own data
+      allow read: if isOwner(orgId);
+    }
+
+    // Rules for the departments collection
+    match /departments/{deptId} {
+       // Organization admin can manage their own departments
+       allow read, create, update: if request.auth.uid == request.resource.data.organizationId;
+    }
+
+    // Rules for the devices collection
     match /devices/{deviceId} {
-      allow get: if true;
-      allow list: if isSignedIn() && isSuperAdmin();
-      allow create: if isSignedIn() && isSuperAdmin();
-      allow update: if isSignedIn() && isSuperAdmin();
-      allow delete: if isSignedIn() && isSuperAdmin();
+      // Allow read for the organization owner of the department the device belongs to
+      allow read: if exists(/databases/$(database)/documents/departments/$(request.resource.data.departmentId)) &&
+                   get(/databases/$(database)/documents/departments/$(request.resource.data.departmentId)).data.organizationId == request.auth.uid;
+      
+      // Allow device management for the organization owner
+      allow create, update, delete: if exists(/databases/$(database)/documents/departments/$(request.resource.data.departmentId)) &&
+                                    get(/databases/$(database)/documents/departments/$(request.resource.data.departmentId)).data.organizationId == request.auth.uid;
     }
-
-    /**
-     * @description Grants read access to any user. Grants create, update, and delete access only to SuperAdmins.
-     * @path /alerts/{alertId}
-     * @allow (create) Only a SuperAdmin can create a new alert.
-     * @allow (get) Any user can read an alert's data.
-     * @allow (list) Only super admin is allowed to list alerts.
-     * @allow (update) Only a SuperAdmin can update an alert's data.
-     * @allow (delete) Only a SuperAdmin can delete an alert.
-     * @deny (update) A non-SuperAdmin attempts to update an alert's data.
-     * @deny (delete) A non-SuperAdmin attempts to delete a device.
-     * @principle Grants public read access but restricts write access to SuperAdmins.
-     */
-    match /alerts/{alertId} {
-      allow get: if true;
-      allow list: if isSignedIn() && isSuperAdmin();
-      allow create: if isSignedIn() && isSuperAdmin();
-      allow update: if isSignedIn() && isSuperAdmin();
-      allow delete: if isSignedIn() && isSuperAdmin();
+    
+    // Rules for the roles_super_admin collection
+    match /roles_super_admin/{uid} {
+        // Only other super admins can read this collection
+        allow read: if isSuperAdmin();
+        // Disallow client-side writes for security
+        allow write: if false;
     }
-  }
-
-  // Helper function to determine if the user is signed in.
-  function isSignedIn() {
-    return request.auth != null;
-  }
-
-  // Helper function to determine if the user is the owner of the document.
-  function isOwner(userId) {
-    return request.auth.uid == userId;
-  }
-
-  // Helper function to determine if the user is a SuperAdmin.
-  function isSuperAdmin() {
-    return exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
   }
 }
