@@ -19,9 +19,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { CreateAdminForm } from '@/components/superadmin/create-admin-form';
-import { EditAdminForm } from '@/components/superadmin/edit-admin-form';
-import { DeactivateAdminDialog } from '@/components/superadmin/deactivate-admin-dialog';
+import { CreateOrganizationForm } from '@/components/superadmin/create-organization-form';
+import { EditDepartmentForm } from '@/components/superadmin/edit-department-form';
+import { DeactivateDepartmentDialog } from '@/components/superadmin/deactivate-department-dialog';
 import { PlusCircle, Users, Edit, Building, RadioTower, ShieldAlert, Power, CheckCircle, XCircle, MoreHorizontal, User, Server, Camera, HardDrive, Cpu, Radio, ShieldCheck, SignalHigh, Signal, SignalLow, Search, Filter, MapPin } from 'lucide-react';
 import { useState, useMemo, ReactNode } from 'react';
 import { useAuth } from '@/hooks/use-auth';
@@ -38,7 +38,7 @@ import {
   DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { ActivateAdminDialog } from '@/components/superadmin/activate-admin-dialog';
+import { ActivateDepartmentDialog } from '@/components/superadmin/activate-department-dialog';
 import { Input } from '@/components/ui/input';
 
 
@@ -388,7 +388,7 @@ export default function SuperAdminDashboardPage() {
                          Enter the details for the new organization and its departments.
                       </DialogDescription>
                     </DialogHeader>
-                    <CreateAdminForm 
+                    <CreateOrganizationForm 
                         onFinished={handleCreateFinished} 
                     />
                   </DialogContent>
@@ -514,17 +514,17 @@ export default function SuperAdminDashboardPage() {
               Update the plan and device allocation for this department.
             </DialogDescription>
           </DialogHeader>
-          {selectedDepartment && <EditAdminForm department={selectedDepartment} onFinished={() => setIsEditDialogOpen(false)} />}
+          {selectedDepartment && <EditDepartmentForm department={selectedDepartment} onFinished={() => setIsEditDialogOpen(false)} />}
         </DialogContent>
       </Dialog>
       
-      <DeactivateAdminDialog
+      <DeactivateDepartmentDialog
         isOpen={isDeactivateDialogOpen}
         onOpenChange={setIsDeactivateDialogOpen}
         department={selectedDepartment}
         onConfirm={handleDeactivateConfirm}
       />
-      <ActivateAdminDialog
+      <ActivateDepartmentDialog
         isOpen={isActivateDialogOpen}
         onOpenChange={setIsActivateDialogOpen}
         department={selectedDepartment}
