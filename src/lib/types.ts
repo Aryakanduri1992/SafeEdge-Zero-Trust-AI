@@ -71,18 +71,10 @@ export interface LoginCredentials {
   password?: string;
 }
 
-export type DepartmentFormData = {
-  departmentName: string;
-  location: string;
-  building: string;
-  floor: string;
-}
-
 export type NewOrgData = { 
   organizationName: string;
   email: string;
   password: string;
-  departments: DepartmentFormData[];
 };
 
 export type UpdateDepartmentData = {

@@ -58,62 +58,6 @@
         },
         "required": ["id", "organizationName", "email", "createdAt", "superAdminId"]
     },
-    "Department": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Department",
-      "type": "object",
-      "description": "Represents a department within an organization. It does not have its own login credentials.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Department entity."
-        },
-        "email": {
-          "type": "string",
-          "description": "The login email of the parent organization.",
-          "format": "email"
-        },
-        "departmentName": {
-          "type": "string",
-          "description": "The name of the department."
-        },
-         "organizationName": {
-          "type": "string",
-          "description": "The name of the parent organization."
-        },
-        "floor": {
-          "type": "string",
-          "description": "The floor the department is on."
-        },
-        "building": {
-          "type": "string",
-          "description": "The building the department is in."
-        },
-        "location": {
-            "type": "string",
-            "description": "The general location of the department."
-        },
-        "superAdminId": {
-          "type": "string",
-          "description": "Reference to the SuperAdmin who created this."
-        },
-        "organizationId": {
-            "type": "string",
-            "description": "The Firebase Auth UID of the parent organization this department belongs to."
-        }
-      },
-      "required": [
-        "id",
-        "email",
-        "departmentName",
-        "organizationName",
-        "floor",
-        "building",
-        "location",
-        "superAdminId",
-        "organizationId"
-      ]
-    },
     "Device": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Device",
@@ -189,10 +133,6 @@
     "/organizations/{organizationId}": {
         "schema": { "$ref": "#/entities/Organization" },
         "description": "Stores primary organization profiles, where the document ID is the Firebase Auth UID."
-    },
-    "/departments/{departmentId}": {
-        "schema": { "$ref": "#/entities/Department" },
-        "description": "Stores department profiles. Each document includes an 'organizationId' to link it to the parent organization's auth account."
     },
     "/devices/{deviceId}": {
         "schema": { "$ref": "#/entities/Device" },

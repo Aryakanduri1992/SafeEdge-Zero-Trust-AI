@@ -72,10 +72,7 @@ export const logout = async (): Promise<void> => {
 export const createOrganization = async (orgData: NewOrgData, superAdminId: string): Promise<void> => {
     if (!orgData.password) throw new Error("A password is required to create a new organization.");
     if (!orgData.email) throw new Error("An email is required to create a new organization.");
-    if (!orgData.departments || orgData.departments.length === 0) {
-        throw new Error("At least one department must be specified.");
-    }
-
+    
     // Use a temporary app to create user to not interfere with current session
     const tempAppName = `temp-auth-creation-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
@@ -96,8 +93,6 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
         newOrgUID = newUser.uid;
         
         // Step 3: Write data to Firestore
-        const batch = writeBatch(firestore);
-
         const newOrgProfile: Omit<Organization, 'id' | 'role'> = {
             organizationName: orgData.organizationName,
             email: orgData.email,
@@ -105,33 +100,9 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
             superAdminId: superAdminId,
         };
         const orgDocRef = doc(firestore, "organizations", newOrgUID);
-        batch.set(orgDocRef, newOrgProfile);
-        
-        for (const dept of orgData.departments) {
-            const deptDocRef = doc(collection(firestore, 'departments'));
-            const newDepartmentProfile: Omit<Department, 'id'> = {
-                departmentName: dept.departmentName,
-                organizationName: orgData.organizationName,
-                email: orgData.email,
-                building: dept.building,
-                floor: dept.floor,
-                location: dept.location,
-                createdAt: new Date().toISOString(),
-                devices: 10,
-                plan: 'Pro',
-                superAdminId: superAdminId,
-                status: 'active',
-                organizationId: newOrgUID,
-            };
-            batch.set(deptDocRef, newDepartmentProfile);
-        }
-
-        await batch.commit();
-
+        await setDoc(orgDocRef, newOrgProfile);
     } catch (error: any) {
-        // If Firestore write fails after user creation, this is a critical state.
         if (newUser) {
-            // This situation indicates a security rule failure.
             const detailedError = `Creation Failed: An authentication account for ${orgData.email} was created, but saving the organization data to the database was blocked. This is almost certainly due to a security rule violation. Please go to the Firebase Console, delete the user from the 'Authentication' tab, check the security rules, and try again. Original Error: ${error.message}`;
             errorEmitter.emit('permission-error', new FirestorePermissionError({
                 path: `organizations/${newOrgUID}`,
@@ -140,10 +111,8 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
             }));
              throw new Error(detailedError);
         }
-        // Rethrow original error if it's not a post-auth-creation failure.
         throw error;
     } finally {
-        // Clean up the temporary app regardless of outcome
         if (tempAuth.currentUser) {
             await signOut(tempAuth);
         }
