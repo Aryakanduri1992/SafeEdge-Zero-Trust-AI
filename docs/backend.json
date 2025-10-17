@@ -33,10 +33,6 @@
       "type": "object",
       "description": "Represents a single organization with its own login credentials.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique Firebase Auth UID for the organization's login."
-        },
         "organizationName": {
           "type": "string",
           "description": "The name of the organization."
@@ -57,7 +53,6 @@
         }
       },
       "required": [
-        "id",
         "organizationName",
         "email",
         "createdAt",
@@ -68,12 +63,8 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Department",
       "type": "object",
-      "description": "Represents a department within an organization, with its own device quotas and subscription plan.",
+      "description": "Represents a department within an organization.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the department."
-        },
         "departmentName": {
           "type": "string",
           "description": "The name of the department."
@@ -134,7 +125,6 @@
         }
       },
       "required": [
-        "id",
         "departmentName",
         "organizationName",
         "email",

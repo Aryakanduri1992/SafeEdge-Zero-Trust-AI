@@ -12,7 +12,7 @@ import {
   fetchSignInMethodsForEmail,
   type User as FirebaseUser
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, writeBatch } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, writeBatch, onSnapshot, query } from 'firebase/firestore';
 import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization } from './types';
 import { initializeFirebase } from '@/firebase';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -104,7 +104,6 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
     } catch (error: any) {
         if (newUser) {
             const detailedError = `Creation Failed: An authentication account for ${orgData.email} was created, but saving the organization data to the database was blocked. This is almost certainly due to a security rule violation. Please go to the Firebase Console, delete the user from the 'Authentication' tab, check the security rules, and try again. Original Error: ${error.message}`;
-             const orgDocRef = doc(firestore, "organizations", newOrgUID);
             const newOrgProfile: Omit<Organization, 'id' | 'role'> = {
                 organizationName: orgData.organizationName,
                 email: orgData.email,
@@ -215,5 +214,3 @@ if (typeof window !== 'undefined') {
         (window as any).__superAdminSeeded = true;
     }
 }
-
-    
