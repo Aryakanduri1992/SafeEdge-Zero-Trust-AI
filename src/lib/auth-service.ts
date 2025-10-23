@@ -72,14 +72,11 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
     if (!orgData.password) throw new Error("A password is required to create a new organization.");
     if (!orgData.email) throw new Error("An email is required to create a new organization.");
     
-    // Step 1: Use the main auth instance to check for existing email. This is reliable.
     const signInMethods = await fetchSignInMethodsForEmail(auth, orgData.email);
     if (signInMethods.length > 0) {
         throw new Error(`An account with the email ${orgData.email} already exists. Please use a different email.`);
     }
 
-    // Step 2: Use a temporary app to create the user. This isolates the action from the current
-    // Super Admin's session and is the correct pattern to avoid auth state conflicts.
     const tempAppName = `temp-user-creation-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
@@ -90,8 +87,6 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
         const userCredential = await createUserWithEmailAndPassword(tempAuth, orgData.email, orgData.password);
         newUserId = userCredential.user.uid;
 
-        // Step 3: Now that the user is created, write the organization data to Firestore using the main
-        // authenticated Super Admin's session.
         const newOrgProfile: Omit<Organization, 'id' | 'role'> = {
             organizationName: orgData.organizationName,
             email: orgData.email,
@@ -100,29 +95,24 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
         };
 
         const orgDocRef = doc(firestore, "organizations", newUserId);
-        // This 'setDoc' is the operation that requires the correct Firestore rules.
         await setDoc(orgDocRef, newOrgProfile);
 
     } catch (error: any) {
-        // If the Firestore write fails, we may have an orphan auth user.
-        // The error message guides the user to clean this up.
-        if (newUserId) { // This means auth user was created, but Firestore failed.
+        if (newUserId) {
              const detailedError = `Creation Failed: An authentication account for ${orgData.email} was created, but saving the organization data to the database was blocked. This is almost certainly due to a security rule violation. Please go to the Firebase Console, delete the user from the 'Authentication' tab, check the security rules, and try again. Original Error: ${error.message}`;
              errorEmitter.emit('permission-error', new FirestorePermissionError({
                  path: `organizations/${newUserId}`,
                  operation: 'create',
-                 requestResourceData: { organizationName: orgData.organizationName, email: orgData.email, superAdminId }
+                 requestResourceData: { org: orgData, superAdminId }
              }));
              throw new Error(detailedError);
         }
         
-        // Re-throw any other errors from the creation process itself.
         throw error;
 
     } finally {
-        // Step 4: Always clean up the temporary app.
-        await signOut(tempAuth).catch(() => {}); // Sign out from temp app
-        await deleteApp(tempApp); // Delete temp app instance
+        await signOut(tempAuth).catch(() => {});
+        await deleteApp(tempApp);
     }
 };
 
@@ -140,7 +130,7 @@ export const updateDepartment = async (departmentId: string, departmentData: Upd
     });
 };
 
-export const deactivateDepartment = async (departmentId: string): Promise<void> => {
+export const deactivateDepartment = async (departmentId: string) => {
     const departmentDocRef = doc(firestore, "departments", departmentId);
     const updateData = { status: 'inactive' };
     await updateDoc(departmentDocRef, updateData).catch(serverError => {
@@ -154,7 +144,7 @@ export const deactivateDepartment = async (departmentId: string): Promise<void> 
     });
 };
 
-export const activateDepartment = async (departmentId: string): Promise<void> => {
+export const activateDepartment = async (departmentId: string) => {
     const departmentDocRef = doc(firestore, "departments", departmentId);
     const updateData = { status: 'active' };
     await updateDoc(departmentDocRef, updateData).catch(serverError => {
@@ -181,7 +171,15 @@ const seedSuperAdmin = async () => {
 
     try {
         // Try to sign in to see if the user exists
-        await signInWithEmailAndPassword(tempAuth, superAdminEmail, superAdminPassword);
+        const userCredential = await signInWithEmailAndPassword(tempAuth, superAdminEmail, superAdminPassword);
+        const user = userCredential.user;
+
+        // DEV ONLY: This is where you would set a custom claim in a real backend.
+        // For example, using the Firebase Admin SDK:
+        // await getAuth().setCustomUserClaims(user.uid, { superadmin: true });
+        // Since we can't do that from the client, the security rules will be temporarily
+        // adjusted to allow creation, but this is the correct long-term pattern.
+
     } catch (error: any) {
         // If user does not exist, create them
         if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
