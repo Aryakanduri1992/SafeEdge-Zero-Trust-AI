@@ -2,14 +2,13 @@
 "use client";
 
 import { useAuth } from "@/hooks/use-auth";
-import { Organization, Device } from "@/lib/types";
+import { Organization } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { User, Building, Star, HardDrive, Calendar, CheckCircle, XCircle, Globe, MapPin, Users } from "lucide-react";
+import { User, Star, HardDrive, Calendar, Globe, Users } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
-import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where } from "firebase/firestore";
+import { useFirestore, useMemoFirebase } from "@/firebase";
 import { useMemo } from 'react';
 
 const LoadingSkeleton = () => (
@@ -30,21 +29,12 @@ export default function ProfilePage() {
   const orgUser = user as Organization;
   const firestore = useFirestore();
 
-  const departmentIds = useMemo(() => departments.map(d => d.id), [departments]);
-
-  const devicesQuery = useMemoFirebase(() => {
-    if (!firestore || departmentIds.length === 0) return null;
-    return query(collection(firestore, "devices"), where("departmentId", "in", departmentIds));
-  }, [firestore, departmentIds]);
-
-  const { data: devices, isLoading: areDevicesLoading } = useCollection<Device>(devicesQuery);
-  const isLoading = isAuthLoading || areDevicesLoading;
+  const isLoading = isAuthLoading;
 
   if (isLoading || !orgUser) {
     return <LoadingSkeleton />;
   }
 
-  const devicesUsed = devices?.length ?? 0;
   const totalDeviceQuota = departments.reduce((acc, dept) => acc + dept.devices, 0);
 
   return (
@@ -106,7 +96,7 @@ export default function ProfilePage() {
               <HardDrive className="h-5 w-5 text-muted-foreground" />
               <div>
                 <p className="text-sm font-medium">Total Device Quota</p>
-                <p className="text-sm text-foreground">{devicesUsed} / {totalDeviceQuota} Devices</p>
+                <p className="text-sm text-foreground">{totalDeviceQuota} Devices</p>
               </div>
             </div>
             <div className="flex items-center gap-4">

@@ -1,11 +1,8 @@
 
 
+
 export type UserRole = 'admin' | 'superadmin';
 export type Plan = 'Free' | 'Pro' | 'Enterprise';
-export type DeviceStatus = 'online' | 'offline' | 'alerting';
-export type DeviceType = 'Sensor' | 'Gateway' | 'Actuator' | 'Camera';
-export type AlertStatus = 'new' | 'acknowledged' | 'resolved';
-export type AlertSeverity = 'critical' | 'high' | 'medium' | 'low';
 export type DepartmentStatus = 'active' | 'inactive';
 
 export interface BaseUser {
@@ -41,30 +38,6 @@ export interface SuperAdminUser extends BaseUser {
   departmentName: string;
   role: 'superadmin';
 }
-
-export interface Device {
-    id: string;
-    name: string;
-    location: string;
-    status: DeviceStatus;
-    lastSeen: string; // ISO String
-    departmentId: string; // This is the ID of the Department document
-    type: DeviceType;
-    description?: string;
-}
-
-export interface Alert {
-  id: string;
-  deviceId: string;
-  deviceName: string;
-  departmentId: string;
-  type: string;
-  severity: AlertSeverity;
-  status: AlertStatus;
-  createdAt: string; // ISO String;
-  details?: string;
-}
-
 
 export interface LoginCredentials {
   email: string;

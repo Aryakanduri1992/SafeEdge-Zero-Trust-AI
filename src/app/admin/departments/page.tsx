@@ -2,7 +2,7 @@
 "use client";
 
 import { useAuth } from "@/hooks/use-auth";
-import { Organization, Device, Department } from "@/lib/types";
+import { Organization, Department } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -31,27 +31,8 @@ const LoadingSkeleton = () => (
 export default function DepartmentsPage() {
   const { user, departments, isLoading } = useAuth();
   const orgUser = user as Organization;
-  const firestore = useFirestore();
 
-  const departmentIds = useMemo(() => departments.map(d => d.id), [departments]);
-
-  const devicesQuery = useMemoFirebase(() => {
-    if (!firestore || departmentIds.length === 0) return null;
-    return query(collection(firestore, "devices"), where("departmentId", "in", departmentIds));
-  }, [firestore, departmentIds]);
-
-  const { data: allDevices, isLoading: areDevicesLoading } = useCollection<Device>(devicesQuery);
-
-  const devicesByDepartment = useMemo(() => {
-    if (!allDevices) return {};
-    return allDevices.reduce((acc, device) => {
-      const key = device.departmentId;
-      acc[key] = (acc[key] || 0) + 1;
-      return acc;
-    }, {} as Record<string, number>);
-  }, [allDevices]);
-
-  if (isLoading || areDevicesLoading || !orgUser) {
+  if (isLoading || !orgUser) {
     return <LoadingSkeleton />;
   }
   
@@ -79,7 +60,7 @@ export default function DepartmentsPage() {
                   <TableHead>Location</TableHead>
                   <TableHead>Building</TableHead>
                   <TableHead>Floor</TableHead>
-                  <TableHead className="text-center">Devices</TableHead>
+                  <TableHead className="text-center">Device Quota</TableHead>
                   <TableHead className="text-center">Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -96,7 +77,7 @@ export default function DepartmentsPage() {
                     <TableCell className="text-center">
                         <div className="flex items-center justify-center gap-2">
                            <HardDrive className="h-4 w-4 text-muted-foreground"/> 
-                           <span>{devicesByDepartment[dept.id] || 0} / {dept.devices}</span>
+                           <span>{dept.devices}</span>
                         </div>
                     </TableCell>
                     <TableCell className="text-center">

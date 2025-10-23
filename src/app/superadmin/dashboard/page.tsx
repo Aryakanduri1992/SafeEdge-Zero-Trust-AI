@@ -22,11 +22,11 @@ import { Badge } from "@/components/ui/badge";
 import { CreateOrganizationForm } from '@/components/superadmin/create-organization-form';
 import { EditDepartmentForm } from '@/components/superadmin/edit-department-form';
 import { DeactivateDepartmentDialog } from '@/components/superadmin/deactivate-department-dialog';
-import { PlusCircle, Users, Edit, Building, RadioTower, ShieldAlert, Power, CheckCircle, XCircle, MoreHorizontal, User, Server, Camera, HardDrive, Cpu, Radio, ShieldCheck, SignalHigh, Signal, SignalLow, Search, Filter, MapPin } from 'lucide-react';
+import { PlusCircle, Users, Edit, Building, RadioTower, Power, CheckCircle, XCircle, MoreHorizontal, Search, Filter } from 'lucide-react';
 import { useState, useMemo, ReactNode } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Department, Device, DeviceType, DeviceStatus, DepartmentStatus } from '@/lib/types';
+import { Department } from '@/lib/types';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -41,68 +41,19 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { ActivateDepartmentDialog } from '@/components/superadmin/activate-department-dialog';
 import { Input } from '@/components/ui/input';
 
-
-const getDeviceTypeIcon = (type: DeviceType): ReactNode => {
-    switch (type) {
-        case 'Sensor':
-            return <Cpu className="h-4 w-4 text-muted-foreground" />;
-        case 'Gateway':
-            return <Server className="h-4 w-4 text-muted-foreground" />;
-        case 'Actuator':
-            return <Radio className="h-4 w-4 text-muted-foreground" />;
-        case 'Camera':
-            return <Camera className="h-4 w-4 text-muted-foreground" />;
-        default:
-            return <HardDrive className="h-4 w-4 text-muted-foreground" />;
-    }
-}
-
-const getStatusInfo = (status: DeviceStatus) => {
-  switch (status) {
-    case "online":
-      return {
-        variant: "default",
-        className: "bg-green-500/20 text-green-400 border-green-500/30",
-        icon: <SignalHigh className="h-3.5 w-3.5" />,
-        label: "Online",
-      };
-    case "offline":
-      return {
-        variant: "secondary",
-        className: "bg-gray-500/20 text-gray-400 border-gray-500/30",
-        icon: <Signal className="h-3.5 w-3.5" />,
-        label: "Offline",
-      };
-    case "alerting":
-      return {
-        variant: "destructive",
-        className: "bg-red-500/20 text-red-400 border-red-500/30",
-        icon: <SignalLow className="h-3.5 w-3.5" />,
-        label: "Alerting",
-      };
-    default:
-      return {
-        variant: "outline",
-        icon: <Signal className="h-3.5 w-3.5" />,
-        label: "Unknown",
-      };
-  }
-};
-
-
 export default function SuperAdminDashboardPage() {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeactivateDialogOpen, setIsDeactivateDialogOpen] = useState(false);
   const [isActivateDialogOpen, setIsActivateDialogOpen] = useState(false);
   const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null);
-  const { user, departments, allDevices, deactivateDepartment, activateDepartment } = useAuth();
+  const { user, departments, deactivateDepartment, activateDepartment } = useAuth();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
 
 
-  const { totalOrgs, totalDepartments, totalDevices, totalAlerts, orgsWithDetails } = useMemo(() => {
+  const { totalOrgs, totalDepartments, orgsWithDetails } = useMemo(() => {
     const orgMap = new Map<string, { orgName: string; orgEmail: string, departments: Department[] }>();
 
     departments.forEach(dept => {
@@ -116,30 +67,23 @@ export default function SuperAdminDashboardPage() {
         }
         orgMap.get(dept.organizationId)!.departments.push(dept);
     });
-
-    const devices = allDevices.length;
-    const alerts = allDevices.filter(d => d.status === 'alerting').length;
     
     const orgDetails = Array.from(orgMap.entries()).map(([orgId, orgData]) => {
         const deptIdsInOrg = orgData.departments.map(d => d.id);
-        const devicesInOrg = allDevices.filter(d => deptIdsInOrg.includes(d.departmentId));
         return {
             id: orgId,
             name: orgData.orgName,
             email: orgData.orgEmail,
             departments: orgData.departments,
-            devices: devicesInOrg,
         };
     }).sort((a,b) => a.name.localeCompare(b.name));
 
     return { 
       totalOrgs: orgMap.size,
       totalDepartments: departments.length,
-      totalDevices: devices, 
-      totalAlerts: alerts,
       orgsWithDetails: orgDetails
     };
-  }, [departments, allDevices]);
+  }, [departments]);
 
   const filteredDepartments = useMemo(() => {
     return departments.filter(dept => {
@@ -204,7 +148,7 @@ export default function SuperAdminDashboardPage() {
   return (
     <div className="space-y-8">
       {/* Key Metrics Overview */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
         <Dialog>
           <DialogTrigger asChild>
             <Card className="cursor-pointer hover:border-primary/50 transition-colors">
@@ -336,32 +280,6 @@ export default function SuperAdminDashboardPage() {
             </div>
           </DialogContent>
         </Dialog>
-
-         <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Devices</CardTitle>
-                <RadioTower className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-                <div className="text-2xl font-bold">{totalDevices}</div>
-                <p className="text-xs text-muted-foreground">
-                Aggregate devices across all organizations
-                </p>
-            </CardContent>
-          </Card>
-        
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Active Alerts</CardTitle>
-              <ShieldAlert className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{totalAlerts}</div>
-              <p className="text-xs text-muted-foreground">
-                Critical/high alerts platform-wide
-              </p>
-            </CardContent>
-          </Card>
       </div>
 
       {/* Admin Management Section */}

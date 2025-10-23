@@ -4,7 +4,7 @@
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import * as authService from '@/lib/auth-service';
-import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Device, Organization } from '@/lib/types';
+import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { useUser, useFirestore, FirestorePermissionError, errorEmitter } from '@/firebase';
@@ -13,7 +13,6 @@ import { collection, onSnapshot, Unsubscribe, query, where } from 'firebase/fire
 type AuthContextType = {
   user: SuperAdminUser | Organization | null;
   departments: Department[]; // All departments for superadmin, or org-specific for admin
-  allDevices: Device[]; // Added to hold all devices for superadmin
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (credentials: LoginCredentials, role: 'admin' | 'superadmin') => Promise<void>;
@@ -29,7 +28,6 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [appUser, setAppUser] = useState<SuperAdminUser | Organization | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
-  const [allDevices, setAllDevices] = useState<Device[]>([]);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
@@ -110,8 +108,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let departmentsUnsubscribe: Unsubscribe | undefined;
-    let devicesUnsubscribe: Unsubscribe | undefined;
-    let orgsUnsubscribe: Unsubscribe | undefined;
 
     if (firestore && appUser) {
         if (appUser.role === 'superadmin') {
@@ -127,31 +123,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 errorEmitter.emit('permission-error', permissionError);
                 setDepartments([]);
             });
-
-            const devicesQuery = query(collection(firestore, 'devices'));
-            devicesUnsubscribe = onSnapshot(devicesQuery, (snapshot) => {
-                const deviceList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Device));
-                setAllDevices(deviceList);
-            }, (serverError) => {
-                const permissionError = new FirestorePermissionError({
-                    path: 'devices',
-                    operation: 'list',
-                });
-                errorEmitter.emit('permission-error', permissionError);
-                setAllDevices([]);
-            });
-            
-             const orgsQuery = query(collection(firestore, 'organizations'));
-            orgsUnsubscribe = onSnapshot(orgsQuery, (snapshot) => {
-                 // This is just a placeholder to show how it could be done.
-            }, (serverError) => {
-                 const permissionError = new FirestorePermissionError({
-                  path: 'organizations',
-                  operation: 'list',
-              });
-              errorEmitter.emit('permission-error', permissionError);
-            });
-
         }
         else if (appUser.role === 'admin') {
             const deptsQuery = query(collection(firestore, 'departments'), where("organizationId", "==", appUser.id));
@@ -169,13 +140,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
     } else {
         setDepartments([]);
-        setAllDevices([]);
     }
 
     return () => {
         if (departmentsUnsubscribe) departmentsUnsubscribe();
-        if (devicesUnsubscribe) devicesUnsubscribe();
-        if (orgsUnsubscribe) orgsUnsubscribe();
     }
 }, [appUser, firestore]);
 
@@ -198,7 +166,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await authService.logout();
     setAppUser(null);
     setDepartments([]);
-    setAllDevices([]);
     if (previousRole === 'superadmin') {
       router.push('/superadmin-login');
     } else {
@@ -247,7 +214,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const contextValue = { 
     user: appUser, 
     departments,
-    allDevices,
     isAuthenticated: !!appUser, 
     isLoading, 
     login, 
