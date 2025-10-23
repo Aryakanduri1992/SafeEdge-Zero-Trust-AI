@@ -75,12 +75,16 @@ export type UpdateDepartmentData = {
 };
 
 export interface Device {
-  id: string; // device ID (e.g., MAC address or serial number)
+  id: string;
   name: string;
   location: string;
   type: DeviceType;
   status: DeviceStatus;
   lastSeen: string; // ISO date string
   departmentId: string; // The ID of the department it belongs to
+  organizationId: string;
   description?: string;
 }
+
+export type NewDeviceData = Omit<Device, 'id' | 'lastSeen' | 'status'>;
+export type UpdateDeviceData = Partial<Omit<Device, 'id' | 'organizationId'>>;

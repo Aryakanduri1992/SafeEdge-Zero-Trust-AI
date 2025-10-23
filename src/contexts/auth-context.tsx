@@ -4,7 +4,7 @@
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import * as authService from '@/lib/auth-service';
-import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData } from '@/lib/types';
+import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData, NewDeviceData, UpdateDeviceData, Device } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { useUser, useFirestore, FirestorePermissionError, errorEmitter } from '@/firebase';
@@ -13,6 +13,7 @@ import { collection, onSnapshot, Unsubscribe, query, where } from 'firebase/fire
 type AuthContextType = {
   user: SuperAdminUser | Organization | null;
   departments: Department[]; // All departments for superadmin, or org-specific for admin
+  devices: Device[];
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (credentials: LoginCredentials, role: 'admin' | 'superadmin') => Promise<void>;
@@ -22,6 +23,9 @@ type AuthContextType = {
   updateDepartment: (departmentId: string, departmentData: UpdateDepartmentData) => Promise<void>;
   deactivateDepartment: (departmentId: string) => Promise<void>;
   activateDepartment: (departmentId: string) => Promise<void>;
+  createDevice: (deviceData: NewDeviceData) => Promise<void>;
+  updateDevice: (deviceId: string, deviceData: UpdateDeviceData) => Promise<void>;
+  deleteDevice: (deviceId: string) => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -29,6 +33,7 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [appUser, setAppUser] = useState<SuperAdminUser | Organization | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [devices, setDevices] = useState<Device[]>([]);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   const router = useRouter();
   const pathname = usePathname();
@@ -109,6 +114,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     let departmentsUnsubscribe: Unsubscribe | undefined;
+    let devicesUnsubscribe: Unsubscribe | undefined;
 
     if (firestore && appUser) {
         if (appUser.role === 'superadmin') {
@@ -138,13 +144,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 errorEmitter.emit('permission-error', permissionError);
                 setDepartments([]);
             });
+            
+            const devicesQuery = query(collection(firestore, 'devices'), where("organizationId", "==", appUser.id));
+            devicesUnsubscribe = onSnapshot(devicesQuery, (snapshot) => {
+                const deviceList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Device));
+                setDevices(deviceList);
+            }, (serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: 'devices',
+                    operation: 'list',
+                });
+                errorEmitter.emit('permission-error', permissionError);
+                setDevices([]);
+            });
         }
     } else {
         setDepartments([]);
+        setDevices([]);
     }
 
     return () => {
         if (departmentsUnsubscribe) departmentsUnsubscribe();
+        if (devicesUnsubscribe) devicesUnsubscribe();
     }
 }, [appUser, firestore]);
 
@@ -217,11 +238,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
+  const createDevice = async (deviceData: NewDeviceData) => {
+    if (!appUser || appUser.role !== 'admin') throw new Error("Unauthorized");
+    await authService.createDevice(deviceData);
+    toast({ title: "Device Created", description: `${deviceData.name} has been successfully registered.` });
+  };
+
+  const updateDevice = async (deviceId: string, deviceData: UpdateDeviceData) => {
+    if (!appUser || appUser.role !== 'admin') throw new Error("Unauthorized");
+    await authService.updateDevice(deviceId, deviceData);
+    toast({ title: "Device Updated", description: `The device details have been updated.` });
+  };
+
+  const deleteDevice = async (deviceId: string) => {
+    if (!appUser || appUser.role !== 'admin') throw new Error("Unauthorized");
+    await authService.deleteDevice(deviceId);
+    toast({ title: "Device Deleted", description: `The device has been removed from the system.` });
+  };
+
+
   const isLoading = isFirebaseUserLoading || isAuthLoading;
   
   const contextValue = { 
     user: appUser, 
     departments,
+    devices,
     isAuthenticated: !!appUser, 
     isLoading, 
     login, 
@@ -231,6 +272,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     updateDepartment, 
     deactivateDepartment,
     activateDepartment,
+    createDevice,
+    updateDevice,
+    deleteDevice
   };
 
   return (

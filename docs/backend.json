@@ -57,6 +57,22 @@
             "organizationId": { "type": "string" }
         },
         "required": ["departmentName", "organizationName", "email", "location", "building", "floor", "createdAt", "devices", "plan", "status", "superAdminId", "organizationId"]
+    },
+    "Device": {
+        "title": "Device",
+        "description": "Represents a single manageable device.",
+        "type": "object",
+        "properties": {
+            "name": { "type": "string" },
+            "location": { "type": "string" },
+            "type": { "type": "string", "enum": ["Sensor", "Gateway", "Actuator", "Camera"] },
+            "status": { "type": "string", "enum": ["online", "offline", "alerting"] },
+            "lastSeen": { "type": "string", "format": "date-time" },
+            "departmentId": { "type": "string" },
+            "organizationId": { "type": "string" },
+            "description": { "type": "string" }
+        },
+        "required": ["name", "location", "type", "status", "lastSeen", "departmentId", "organizationId"]
     }
   },
   "auth": {
@@ -83,6 +99,10 @@
         "$ref": "#/entities/Department"
       },
       "description": "Stores department information for all organizations."
+    },
+    "/devices/{deviceId}": {
+        "schema": { "$ref": "#/entities/Device" },
+        "description": "Stores information about individual devices."
     }
   }
 }

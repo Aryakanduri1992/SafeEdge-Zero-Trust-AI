@@ -10,8 +10,8 @@ import {
   signOut,
   type User as FirebaseUser
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, updateDoc, writeBatch, collection } from 'firebase/firestore';
-import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData } from './types';
+import { getFirestore, doc, setDoc, getDoc, updateDoc, writeBatch, collection, addDoc, deleteDoc } from 'firebase/firestore';
+import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData, NewDeviceData, UpdateDeviceData } from './types';
 import { initializeFirebase } from '@/firebase';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -190,6 +190,48 @@ export const activateDepartment = async (departmentId: string) => {
             path: departmentDocRef.path,
             operation: 'update',
             requestResourceData: updateData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        throw permissionError;
+    });
+};
+
+export const createDevice = async (deviceData: NewDeviceData): Promise<void> => {
+    const newDevice = {
+        ...deviceData,
+        status: 'offline',
+        lastSeen: new Date().toISOString(),
+    };
+    await addDoc(collection(firestore, 'devices'), newDevice).catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+            path: 'devices',
+            operation: 'create',
+            requestResourceData: newDevice,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        throw permissionError;
+    });
+};
+
+export const updateDevice = async (deviceId: string, deviceData: UpdateDeviceData): Promise<void> => {
+    const deviceRef = doc(firestore, 'devices', deviceId);
+    await updateDoc(deviceRef, deviceData).catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+            path: deviceRef.path,
+            operation: 'update',
+            requestResourceData: deviceData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        throw permissionError;
+    });
+};
+
+export const deleteDevice = async (deviceId: string): Promise<void> => {
+    const deviceRef = doc(firestore, 'devices', deviceId);
+    await deleteDoc(deviceRef).catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+            path: deviceRef.path,
+            operation: 'delete',
         });
         errorEmitter.emit('permission-error', permissionError);
         throw permissionError;

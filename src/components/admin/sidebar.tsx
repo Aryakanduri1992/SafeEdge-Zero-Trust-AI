@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, User, Users, ShieldAlert } from "lucide-react";
+import { LayoutDashboard, User, Users, ShieldAlert, HardDrive } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/logo";
 import { useAuth } from "@/hooks/use-auth";
@@ -13,6 +13,7 @@ import type { Organization } from "@/lib/types";
 export const navItems = [
   { href: "/admin/dashboard", icon: LayoutDashboard, label: "Organization" },
   { href: "/admin/departments", icon: Users, label: "Departments" },
+  { href: "/admin/devices", icon: HardDrive, label: "Devices" },
   { href: "/admin/alerts", icon: ShieldAlert, label: "Alerts" },
   { href: "/admin/profile", icon: User, label: "Profile" },
 ];
