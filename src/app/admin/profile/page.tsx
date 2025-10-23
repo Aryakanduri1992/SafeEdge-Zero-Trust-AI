@@ -13,6 +13,7 @@ import { Globe, User, ShieldCheck, Palette, Bell } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useToast } from "@/hooks/use-toast";
 
 const LoadingSkeleton = () => (
   <div className="space-y-8">
@@ -31,6 +32,7 @@ const LoadingSkeleton = () => (
 export default function ProfilePage() {
   const { user, isLoading: isAuthLoading } = useAuth();
   const orgUser = user as Organization;
+  const { toast } = useToast();
 
   const isLoading = isAuthLoading || !orgUser;
 
@@ -41,6 +43,13 @@ export default function ProfilePage() {
   const getInitials = (name: string) => {
     return name.split(' ').map(n => n[0]).join('').slice(0, 2);
   }
+
+  const handleSsoClick = () => {
+    toast({
+        title: "Premium Feature",
+        description: "SSO is a premium feature. Please contact support to enable it.",
+    });
+  };
 
   return (
     <div className="space-y-8">
@@ -120,7 +129,7 @@ export default function ProfilePage() {
                     Allow users to sign in with your identity provider.
                   </p>
                 </div>
-                <Button variant="outline" size="sm" disabled>Enable SSO</Button>
+                <Button variant="outline" size="sm" onClick={handleSsoClick}>Enable SSO</Button>
               </div>
             </CardContent>
           </Card>
