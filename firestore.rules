@@ -1,138 +1,59 @@
 /**
- * @file Firestore Security Rules
- * @description This ruleset enforces a role-based access control model with a SuperAdmin role.
+ * @file Firestore Security Rules for AuthStation application.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a role-based access control model for super administrators.
+ * Only authenticated super administrators can access and modify their own data.
  *
  * Data Structure:
- * - /roles_super_admin/{superAdminId}: SuperAdmin role assignments. Document ID is the user's UID.
- * - /organizations/{organizationId}: Organization profiles.
- * - /departments/{departmentId}: Department data, linked to an organization.
- * - /devices/{deviceId}: IoT device data, linked to a department.
- * - /alerts/{alertId}: System alerts generated from devices, linked to a department.
+ * Super admin roles are stored in the `/roles_super_admin/{superAdminId}` collection,
+ * where `{superAdminId}` is the UID of the user.
  *
  * Key Security Decisions:
- * - SuperAdmins are authorized to create organizations.
- * - Organizations and Departments are not scoped to any specific users, so the rules rely on explicit role checks.
+ * - Only authenticated super admins can create, update, or delete their own role document.
+ * - Listing of super admin role documents is not allowed.
  *
  * Denormalization for Authorization:
- * - The `organizations` and `departments` collections include the `superAdminId` to simplify authorization checks without requiring additional `get()` calls.
+ * The existence of a document in the `/roles_super_admin/{superAdminId}` collection
+ * is used to determine if a user has super administrator privileges. This avoids
+ * the need for separate authentication or authorization services.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the user is signed in.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the authenticated user is a SuperAdmin.
-     */
-    function isSuperAdmin() {
-      return exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
-    }
-
-    /**
-     * @description Checks if the superAdminId on the resource matches the request's auth UID.
-     */
-    function isCreatingOrganizationAsSuperAdmin() {
-      return request.resource.data.superAdminId == request.auth.uid && isSuperAdmin();
-    }
-
-    /**
-     * @description Checks if the document has a superAdminId that matches the request's auth UID and the user is a super admin.
-     */
-    function isSuperAdminForResource() {
-      return resource.data.superAdminId == request.auth.uid && isSuperAdmin();
-    }
-
-    /**
-     * @description Checks if the authenticated user is the owner of the document based on the provided userId.
-     */
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    /**
-     * @description Checks if the authenticated user is the existing owner of the document, ensuring the document exists.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
-    /**
-     * @description Defines the rules for the /roles_super_admin/{superAdminId} collection.
+     * @description Manages super admin roles. Only the super admin themselves can create, read, update, or delete their role.
      * @path /roles_super_admin/{superAdminId}
-     * @allow (create) User with UID 'user_abc' can create the super admin role if authenticated.
-     * @deny (create) User with UID 'user_xyz' cannot create the super admin role for 'user_abc'.
-     * @principle Enforces document ownership for writes.
+     * @allow (create) User with UID 'user_abc' can create their super admin role document at /roles_super_admin/user_abc if request.auth.uid == 'user_abc'.
+     * @allow (get) User with UID 'user_abc' can read their super admin role document at /roles_super_admin/user_abc if request.auth.uid == 'user_abc'.
+     * @allow (update) User with UID 'user_abc' can update their super admin role document at /roles_super_admin/user_abc if request.auth.uid == 'user_abc'.
+     * @allow (delete) User with UID 'user_abc' can delete their super admin role document at /roles_super_admin/user_abc if request.auth.uid == 'user_abc'.
+     * @deny (create) User with UID 'user_xyz' cannot create a super admin role document at /roles_super_admin/user_abc.
+     * @deny (get) User with UID 'user_xyz' cannot read the super admin role document at /roles_super_admin/user_abc.
+     * @deny (update) User with UID 'user_xyz' cannot update the super admin role document at /roles_super_admin/user_abc.
+     * @deny (delete) User with UID 'user_xyz' cannot delete the super admin role document at /roles_super_admin/user_abc.
+     * @principle Enforces strict user ownership for super admin role management.
      */
     match /roles_super_admin/{superAdminId} {
       allow get: if isSignedIn() && isOwner(superAdminId);
       allow list: if false;
-      allow create: if isSignedIn() && request.auth.uid == superAdminId;
-      allow update: if isSignedIn() && isOwner(superAdminId);
-      allow delete: if isSignedIn() && isOwner(superAdminId);
+      allow create: if isSignedIn() && isOwner(superAdminId);
+      allow update: if isSignedIn() && isExistingOwner(superAdminId);
+      allow delete: if isSignedIn() && isExistingOwner(superAdminId);
     }
 
-    /**
-     * @description Defines the rules for the /organizations/{organizationId} collection.
-     * @path /organizations/{organizationId}
-     * @allow (create) SuperAdmin 'super_admin_abc' can create an organization.
-     * @deny (create) Regular user cannot create an organization.
-     * @principle Only SuperAdmins can create organizations.
-     */
-    match /organizations/{organizationId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if isSignedIn() && isCreatingOrganizationAsSuperAdmin();
-      allow update: if isSignedIn() && isSuperAdmin() && resource.data.superAdminId == request.auth.uid;
-      allow delete: if isSignedIn() && isSuperAdmin() && resource.data.superAdminId == request.auth.uid;
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    /**
-     * @description Defines the rules for the /departments/{departmentId} collection.
-     * @path /departments/{departmentId}
-     * @allow (create) SuperAdmin can create a new department.
-     * @deny (create) Regular user cannot create a department.
-     * @principle Only SuperAdmins can create departments.
-     */
-    match /departments/{departmentId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if isSignedIn() && isSuperAdmin() && request.resource.data.superAdminId == request.auth.uid;
-      allow update: if isSignedIn() && isSuperAdmin() && resource.data.superAdminId == request.auth.uid;
-      allow delete: if isSignedIn() && isSuperAdmin() && resource.data.superAdminId == request.auth.uid;
+    function isOwner(userId) {
+      return request.auth.uid == userId;
     }
 
-    /**
-     * @description Defines the rules for the /devices/{deviceId} collection.
-     * @path /devices/{deviceId}
-     * @allow (create) Any authenticated user can create a device.
-     * @deny (create) Unauthenticated user cannot create a device.
-     */
-    match /devices/{deviceId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
-    }
-
-    /**
-     * @description Defines the rules for the /alerts/{alertId} collection.
-     * @path /alerts/{alertId}
-     * @allow (create) Any authenticated user can create an alert.
-     * @deny (create) Unauthenticated user cannot create an alert.
-     */
-    match /alerts/{alertId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if isSignedIn();
-      allow update: if isSignedIn();
-      allow delete: if isSignedIn();
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
     }
   }
 }

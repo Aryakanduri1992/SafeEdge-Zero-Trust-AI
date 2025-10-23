@@ -1,9 +1,9 @@
-
-
-
 export type UserRole = 'admin' | 'superadmin';
 export type Plan = 'Free' | 'Pro' | 'Enterprise';
 export type DepartmentStatus = 'active' | 'inactive';
+export type DeviceType = "Sensor" | "Gateway" | "Actuator" | "Camera";
+export type DeviceStatus = "online" | "offline" | "alerting";
+
 
 export interface BaseUser {
   id: string; // Firebase Auth UID
@@ -60,3 +60,14 @@ export type UpdateDepartmentData = {
   plan: Plan;
   devices: number;
 };
+
+export interface Device {
+  id: string; // device ID (e.g., MAC address or serial number)
+  name: string;
+  location: string;
+  type: DeviceType;
+  status: DeviceStatus;
+  lastSeen: string; // ISO date string
+  departmentId: string; // The ID of the department it belongs to
+  description?: string;
+}
