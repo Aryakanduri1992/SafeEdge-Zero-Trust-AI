@@ -55,6 +55,7 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
                     imageUrl: superAdminData?.imageUrl,
                 } as SuperAdminUser;
             } else {
+                // Document doesn't exist, so create it.
                 const newSuperAdminProfile: Omit<SuperAdminUser, 'id' | 'role'> = {
                     email: user.email || 'super@authstation.com',
                     departmentName: 'AuthStation HQ',
@@ -92,6 +93,7 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
         throw permissionError;
     }
 
+    // This should ideally not be reached if claims are set correctly and documents exist.
     console.error("User profile not found in either 'roles_super_admin' or 'organizations'. UID:", uid);
     return null;
 }
