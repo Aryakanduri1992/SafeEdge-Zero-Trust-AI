@@ -71,14 +71,15 @@ export const logout = async (): Promise<void> => {
 export const createOrganization = async (orgData: NewOrgData, superAdminId: string): Promise<void> => {
     if (!orgData.password) throw new Error("A password is required to create a new organization.");
     if (!orgData.email) throw new Error("An email is required to create a new organization.");
-
-    // Store current super admin user to re-authenticate later if needed.
-    const currentSuperAdmin = auth.currentUser;
-    if (!currentSuperAdmin || currentSuperAdmin.uid !== superAdminId) {
-        throw new Error("Super Admin not authenticated. Please log in again.");
-    }
     
-    // Use a temporary app to create the user, which avoids state conflicts with the current user.
+    // Step 1: Use the main auth instance to check for existing email. This is reliable.
+    const signInMethods = await fetchSignInMethodsForEmail(auth, orgData.email);
+    if (signInMethods.length > 0) {
+        throw new Error(`An account with the email ${orgData.email} already exists. Please use a different email.`);
+    }
+
+    // Step 2: Use a temporary app to create the user. This isolates the action from the current
+    // Super Admin's session and is the correct pattern to avoid auth state conflicts.
     const tempAppName = `temp-user-creation-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
@@ -86,17 +87,11 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
     let newUserId: string | null = null;
 
     try {
-        // Step 1: Check if email exists using the MAIN auth instance to be safe.
-        const signInMethods = await fetchSignInMethodsForEmail(auth, orgData.email);
-        if (signInMethods.length > 0) {
-            throw new Error(`auth/email-already-in-use`);
-        }
-
-        // Step 2: Create the new organization user in the temporary auth instance.
         const userCredential = await createUserWithEmailAndPassword(tempAuth, orgData.email, orgData.password);
         newUserId = userCredential.user.uid;
 
-        // Step 3: Write the organization data to Firestore using the main admin's authenticated session.
+        // Step 3: Now that the user is created, write the organization data to Firestore using the main
+        // authenticated Super Admin's session.
         const newOrgProfile: Omit<Organization, 'id' | 'role'> = {
             organizationName: orgData.organizationName,
             email: orgData.email,
@@ -105,11 +100,13 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
         };
 
         const orgDocRef = doc(firestore, "organizations", newUserId);
+        // This 'setDoc' is the operation that requires the correct Firestore rules.
         await setDoc(orgDocRef, newOrgProfile);
 
     } catch (error: any) {
-        // This is a critical failure point. If the Firestore write fails, we have an orphan auth user.
-        if (error.code && error.code.startsWith('permission-denied')) {
+        // If the Firestore write fails, we may have an orphan auth user.
+        // The error message guides the user to clean this up.
+        if (newUserId) { // This means auth user was created, but Firestore failed.
              const detailedError = `Creation Failed: An authentication account for ${orgData.email} was created, but saving the organization data to the database was blocked. This is almost certainly due to a security rule violation. Please go to the Firebase Console, delete the user from the 'Authentication' tab, check the security rules, and try again. Original Error: ${error.message}`;
              errorEmitter.emit('permission-error', new FirestorePermissionError({
                  path: `organizations/${newUserId}`,
@@ -118,13 +115,8 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
              }));
              throw new Error(detailedError);
         }
-
-        // Handle the specific "email already in use" error cleanly.
-        if (error.message === 'auth/email-already-in-use') {
-             throw new Error(`An account with the email ${orgData.email} already exists. Please use a different email.`);
-        }
         
-        // Re-throw any other errors.
+        // Re-throw any other errors from the creation process itself.
         throw error;
 
     } finally {
