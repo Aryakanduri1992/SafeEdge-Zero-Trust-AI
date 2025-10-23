@@ -33,9 +33,13 @@ export const fetchUserProfile = async (uid: string): Promise<SuperAdminUser | Or
             };
         }
     } catch (serverError: any) {
-        const permissionError = new FirestorePermissionError({ path: superAdminRef.path, operation: 'get' });
-        errorEmitter.emit('permission-error', permissionError);
-        throw permissionError;
+        // This is expected for non-superadmin users. We can ignore the permission error
+        // and proceed to check if they are a regular organization admin.
+        if (serverError.code !== 'permission-denied') {
+            const permissionError = new FirestorePermissionError({ path: superAdminRef.path, operation: 'get' });
+            errorEmitter.emit('permission-error', permissionError);
+            throw permissionError;
+        }
     }
 
     const orgRef = doc(firestore, "organizations", uid);
