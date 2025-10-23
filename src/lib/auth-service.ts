@@ -19,29 +19,43 @@ import { errorEmitter } from '@/firebase/error-emitter';
 
 const { firestore } = initializeFirebase();
 
-export const fetchUserProfile = async (uid: string, claims: any): Promise<SuperAdminUser | Organization | null> => {
+export async function getOrCreateUserProfile(user: FirebaseUser): Promise<SuperAdminUser | Organization | null> {
+    const idTokenResult = await getIdTokenResult(user, true);
+    const claims = idTokenResult.claims;
+    const uid = user.uid;
+
     if (claims.superadmin) {
         const superAdminRef = doc(firestore, "roles_super_admin", uid);
         try {
-            const superAdminSnap = await getDoc(superAdminRef);
-            if (superAdminSnap.exists()) {
-                const superAdminData = superAdminSnap.data();
-                return {
-                    id: uid,
-                    departmentName: superAdminData.departmentName,
-                    email: superAdminData.email,
-                    imageUrl: superAdminData.imageUrl,
-                    role: 'superadmin'
+            let superAdminSnap = await getDoc(superAdminRef);
+            if (!superAdminSnap.exists()) {
+                // Document doesn't exist, so create it.
+                const newSuperAdminProfile: Omit<SuperAdminUser, 'id' | 'role'> = {
+                    email: user.email || 'super@authstation.com',
+                    departmentName: "AuthStation HQ",
+                    imageUrl: `https://picsum.photos/seed/${uid}/200/200`
                 };
+                await setDoc(superAdminRef, newSuperAdminProfile);
+                // Re-fetch the document after creation
+                superAdminSnap = await getDoc(superAdminRef);
             }
+            const superAdminData = superAdminSnap.data();
+            return {
+                id: uid,
+                role: 'superadmin',
+                email: superAdminData?.email,
+                departmentName: superAdminData?.departmentName,
+                imageUrl: superAdminData?.imageUrl,
+            } as SuperAdminUser;
+
         } catch (serverError: any) {
-            const permissionError = new FirestorePermissionError({ path: superAdminRef.path, operation: 'get' });
+            const permissionError = new FirestorePermissionError({ path: superAdminRef.path, operation: 'write' });
             errorEmitter.emit('permission-error', permissionError);
             throw permissionError;
         }
-    } else { 
+    } else {
         const orgRef = doc(firestore, "organizations", uid);
-        try {
+         try {
             const orgSnap = await getDoc(orgRef);
             if (orgSnap.exists()) {
                 return { ...orgSnap.data(), id: uid, role: 'admin' } as Organization;
@@ -52,9 +66,11 @@ export const fetchUserProfile = async (uid: string, claims: any): Promise<SuperA
             throw permissionError;
         }
     }
-    console.error("User profile not found in either 'roles_super_admin' or 'organizations'. UID:", uid);
+
+    console.error("User profile not found or could not be created. UID:", uid);
     return null;
 }
+
 
 export const login = async (credentials: LoginCredentials): Promise<FirebaseUser> => {
   const { auth } = initializeFirebase();
@@ -63,7 +79,6 @@ export const login = async (credentials: LoginCredentials): Promise<FirebaseUser
       throw new Error("Password is required for login.");
   }
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
-  await getIdTokenResult(userCredential.user, true);
   return userCredential.user;
 };
 

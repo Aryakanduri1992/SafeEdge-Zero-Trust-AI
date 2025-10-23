@@ -8,7 +8,7 @@ import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDe
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, FirestorePermissionError, errorEmitter, useFirebase } from '@/firebase';
 import { collection, onSnapshot, Unsubscribe, query, where } from 'firebase/firestore';
-import { User, getIdTokenResult } from 'firebase/auth';
+import { User } from 'firebase/auth';
 
 type AuthContextType = {
   user: SuperAdminUser | Organization | null;
@@ -53,11 +53,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (firebaseUser) {
         setIsAuthLoading(true);
         try {
-          // Force a token refresh to ensure custom claims are present.
-          const idTokenResult = await getIdTokenResult(firebaseUser, true);
-          const claims = idTokenResult.claims;
-          
-          const userProfile = await authService.fetchUserProfile(firebaseUser.uid, claims);
+          // This function now gets or creates the profile, eliminating race conditions.
+          const userProfile = await authService.getOrCreateUserProfile(firebaseUser);
           
           if (userProfile) {
             setAppUser(userProfile);
@@ -67,6 +64,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
               router.replace('/admin/dashboard');
             }
           } else {
+             // This case should now be rare, but we keep it for safety.
+             toast({
+              variant: 'destructive',
+              title: 'Login Failed',
+              description: "Could not retrieve or create a user profile.",
+            });
              await authService.logout();
              setAppUser(null);
           }
@@ -196,19 +199,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
     setIsAuthLoading(true);
     try {
+        // The login function now only signs the user in.
+        // The handleAuthChange effect will then handle profile fetching/creation.
         await authService.login(credentials);
         toast({
             title: 'Login Successful',
             description: role === 'superadmin' ? 'Welcome, Super Admin!' : 'Welcome back!',
         });
-        // The useEffect hook that depends on firebaseUser will handle profile fetching and redirection
     } catch (error: any) {
         toast({
             variant: 'destructive',
             title: 'Login Failed',
             description: error.message || 'An unexpected error occurred.',
         });
-        setIsAuthLoading(false);
+        setIsAuthLoading(false); // Ensure loading is false on error
     }
   };
 
