@@ -11,6 +11,7 @@ import { collection, onSnapshot, Unsubscribe, query, where } from 'firebase/fire
 
 type AuthContextType = {
   user: SuperAdminUser | Organization | null;
+  organizations: Organization[];
   departments: Department[]; // All departments for superadmin, or org-specific for admin
   devices: Device[];
   isAuthenticated: boolean;
@@ -32,6 +33,7 @@ export const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [appUser, setAppUser] = useState<SuperAdminUser | Organization | null>(null);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -113,11 +115,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [firebaseUser, isFirebaseUserLoading, router, pathname, toast]);
 
   useEffect(() => {
+    let orgsUnsubscribe: Unsubscribe | undefined;
     let departmentsUnsubscribe: Unsubscribe | undefined;
     let devicesUnsubscribe: Unsubscribe | undefined;
 
     if (firestore && appUser) {
         if (appUser.role === 'superadmin') {
+            const orgsQuery = query(collection(firestore, 'organizations'));
+            orgsUnsubscribe = onSnapshot(orgsQuery, (snapshot) => {
+                const orgsList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, role: 'admin' } as Organization));
+                setOrganizations(orgsList);
+            }, (serverError) => {
+                const permissionError = new FirestorePermissionError({
+                    path: 'organizations',
+                    operation: 'list',
+                });
+                errorEmitter.emit('permission-error', permissionError);
+                setOrganizations([]);
+            });
+
             const deptsQuery = query(collection(firestore, 'departments'));
             departmentsUnsubscribe = onSnapshot(deptsQuery, (snapshot) => {
                 const deptList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Department));
@@ -132,6 +148,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             });
         }
         else if (appUser.role === 'admin') {
+            setOrganizations([appUser]); // Org admin only sees their own org
             const deptsQuery = query(collection(firestore, 'departments'), where("organizationId", "==", appUser.id));
             departmentsUnsubscribe = onSnapshot(deptsQuery, (snapshot) => {
                 const deptList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Department));
@@ -159,11 +176,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             });
         }
     } else {
+        setOrganizations([]);
         setDepartments([]);
         setDevices([]);
     }
 
     return () => {
+        if (orgsUnsubscribe) orgsUnsubscribe();
         if (departmentsUnsubscribe) departmentsUnsubscribe();
         if (devicesUnsubscribe) devicesUnsubscribe();
     }
@@ -266,6 +285,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   
   const contextValue = { 
     user: appUser, 
+    organizations,
     departments,
     devices,
     isAuthenticated: !!appUser, 
