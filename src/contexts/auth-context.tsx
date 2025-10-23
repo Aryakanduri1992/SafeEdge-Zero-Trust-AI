@@ -6,7 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import * as authService from '@/lib/auth-service';
 import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData, NewDeviceData, UpdateDeviceData, Device } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useFirestore, FirestorePermissionError, errorEmitter } from '@/firebase';
+import { useUser, useFirestore, FirestorePermissionError, errorEmitter, useFirebase } from '@/firebase';
 import { collection, onSnapshot, Unsubscribe, query, where } from 'firebase/firestore';
 import { getIdTokenResult, User } from 'firebase/auth';
 
@@ -44,22 +44,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const { toast } = useToast();
 
   const { user: firebaseUser, isUserLoading: isFirebaseUserLoading } = useUser();
-  const firestore = useFirestore();
+  const { firestore, auth } = useFirebase();
   const isLoading = isFirebaseUserLoading || isAuthLoading;
 
   useEffect(() => {
     const handleAuthChange = async () => {
+      setIsAuthLoading(true);
       if (firebaseUser) {
-        setIsAuthLoading(true);
         try {
-          // Force refresh the token to get custom claims
           const idTokenResult = await getIdTokenResult(firebaseUser, true); 
           const userProfile = await authService.fetchUserProfile(firebaseUser.uid, idTokenResult.claims);
           
           if (userProfile) {
             setAppUser(userProfile);
           } else {
-             // This case happens if the user exists in Auth but not in Firestore. Log them out.
              await authService.logout();
              setAppUser(null);
           }
@@ -75,13 +73,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
           await authService.logout();
           setAppUser(null);
-        } finally {
-            setIsAuthLoading(false);
         }
       } else {
         setAppUser(null);
-        setIsAuthLoading(false);
       }
+      setIsAuthLoading(false);
     };
 
     if (!isFirebaseUserLoading) {
@@ -189,19 +185,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
     setIsAuthLoading(true);
     try {
-        const userProfile = await authService.login(credentials, role);
-        setAppUser(userProfile);
-        
-        if (userProfile.role === 'superadmin') {
-            toast({ title: 'Login Successful', description: 'Welcome, Super Admin!' });
-            router.replace('/superadmin/dashboard');
-        } else if (userProfile.role === 'admin') {
-            toast({ title: 'Login Successful', description: 'Welcome back!' });
-            router.replace('/admin/dashboard');
+        const user = await authService.login(credentials);
+
+        const idTokenResult = await getIdTokenResult(user, true);
+        const userProfile = await authService.fetchUserProfile(user.uid, idTokenResult.claims);
+
+        if (userProfile) {
+            setAppUser(userProfile);
+            if (userProfile.role === 'superadmin') {
+                toast({ title: 'Login Successful', description: 'Welcome, Super Admin!' });
+                router.replace('/superadmin/dashboard');
+            } else if (userProfile.role === 'admin') {
+                toast({ title: 'Login Successful', description: 'Welcome back!' });
+                router.replace('/admin/dashboard');
+            }
+        } else {
+            throw new Error("Login failed: User profile not found after sign-in.");
         }
-    } catch (error) {
-        setIsAuthLoading(false); // Make sure loading is stopped on error
-        throw error; // Re-throw error to be caught by the form
+    } catch (error: any) {
+        toast({
+            variant: 'destructive',
+            title: 'Login Failed',
+            description: error.message || 'An unexpected error occurred.',
+        });
+    } finally {
+        setIsAuthLoading(false);
     }
   };
 
