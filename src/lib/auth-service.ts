@@ -9,7 +9,8 @@ import {
   signInWithEmailAndPassword, 
   signOut,
   type User as FirebaseUser,
-  getIdTokenResult
+  getIdTokenResult,
+  type ParsedToken
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, updateDoc, writeBatch, collection, addDoc, deleteDoc } from 'firebase/firestore';
 import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData, NewDeviceData, UpdateDeviceData } from './types';
@@ -17,9 +18,7 @@ import { initializeFirebase, FirestorePermissionError, errorEmitter } from '@/fi
 
 const { firestore } = initializeFirebase();
 
-export async function getOrCreateUserProfile(user: FirebaseUser): Promise<SuperAdminUser | Organization | null> {
-    const idTokenResult = await getIdTokenResult(user, true); // Force refresh to get latest claims
-    const claims = idTokenResult.claims;
+export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedToken): Promise<SuperAdminUser | Organization | null> {
     const uid = user.uid;
 
     if (claims.superadmin) {
@@ -27,6 +26,7 @@ export async function getOrCreateUserProfile(user: FirebaseUser): Promise<SuperA
         try {
             let superAdminSnap = await getDoc(superAdminRef);
             if (!superAdminSnap.exists()) {
+                // If it doesn't exist, create it. This is the "get or create" part.
                 const newSuperAdminProfile: Omit<SuperAdminUser, 'id' | 'role'> = {
                     email: user.email || 'super@authstation.com',
                     departmentName: "AuthStation HQ",
@@ -46,22 +46,18 @@ export async function getOrCreateUserProfile(user: FirebaseUser): Promise<SuperA
                 } as SuperAdminUser;
             }
         } catch (serverError: any) {
-             const permissionError = new FirestorePermissionError({
+            const permissionError = new FirestorePermissionError({
                 path: superAdminRef.path,
-                operation: 'write',
+                operation: 'write', // broader operation for get/set
                 requestResourceData: { uid, email: user.email },
             });
             errorEmitter.emit('permission-error', permissionError);
             throw permissionError;
         }
-        
-        // This path should ideally not be reached if get/set logic is correct
-        console.error("Super admin profile not found or could not be created. UID:", uid);
-        return null;
-
     } else {
+        // This logic is for regular organization users
         const orgRef = doc(firestore, "organizations", uid);
-         try {
+        try {
             const orgSnap = await getDoc(orgRef);
             if (orgSnap.exists()) {
                 return { ...orgSnap.data(), id: uid, role: 'admin' } as Organization;
@@ -73,6 +69,7 @@ export async function getOrCreateUserProfile(user: FirebaseUser): Promise<SuperA
         }
     }
 
+    // This should only be reached if a non-superadmin user logs in who doesn't have an org profile.
     console.error("User profile not found or could not be created. UID:", uid);
     return null;
 }

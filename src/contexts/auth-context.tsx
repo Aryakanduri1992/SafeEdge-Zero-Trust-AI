@@ -8,7 +8,7 @@ import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDe
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, FirestorePermissionError, errorEmitter, useFirebase } from '@/firebase';
 import { collection, onSnapshot, Unsubscribe, query, where } from 'firebase/firestore';
-import { User } from 'firebase/auth';
+import { User, getIdTokenResult } from 'firebase/auth';
 
 type AuthContextType = {
   user: SuperAdminUser | Organization | null;
@@ -53,30 +53,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (firebaseUser) {
         setIsAuthLoading(true);
         try {
-          // This function now gets or creates the profile, eliminating race conditions.
-          const userProfile = await authService.getOrCreateUserProfile(firebaseUser);
-          
+          // Force a token refresh to get the latest custom claims. This is CRITICAL.
+          const idTokenResult = await getIdTokenResult(firebaseUser, true);
+          const userProfile = await authService.getOrCreateUserProfile(firebaseUser, idTokenResult.claims);
+
           if (userProfile) {
             setAppUser(userProfile);
-             if (userProfile.role === 'superadmin' && !pathname.startsWith('/superadmin')) {
+            if (userProfile.role === 'superadmin' && !pathname.startsWith('/superadmin')) {
               router.replace('/superadmin/dashboard');
             } else if (userProfile.role === 'admin' && !pathname.startsWith('/admin')) {
               router.replace('/admin/dashboard');
             }
           } else {
-             // This case should now be rare, but we keep it for safety.
-             toast({
+            toast({
               variant: 'destructive',
               title: 'Login Failed',
               description: "Could not retrieve or create a user profile.",
             });
-             await authService.logout();
-             setAppUser(null);
+            await authService.logout();
+            setAppUser(null);
           }
         } catch (error) {
-           if (error instanceof FirestorePermissionError) {
-             errorEmitter.emit('permission-error', error);
-           } else if (error instanceof Error) {
+          if (error instanceof FirestorePermissionError) {
+            errorEmitter.emit('permission-error', error);
+          } else if (error instanceof Error) {
             toast({
               variant: 'destructive',
               title: 'Session Error',
@@ -86,7 +86,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           await authService.logout();
           setAppUser(null);
         } finally {
-            setIsAuthLoading(false);
+          setIsAuthLoading(false);
         }
       } else {
         setAppUser(null);
@@ -199,20 +199,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
     setIsAuthLoading(true);
     try {
-        // The login function now only signs the user in.
-        // The handleAuthChange effect will then handle profile fetching/creation.
         await authService.login(credentials);
-        toast({
-            title: 'Login Successful',
-            description: role === 'superadmin' ? 'Welcome, Super Admin!' : 'Welcome back!',
-        });
+        // The handleAuthChange effect will now handle profile fetching and navigation.
     } catch (error: any) {
         toast({
             variant: 'destructive',
             title: 'Login Failed',
             description: error.message || 'An unexpected error occurred.',
         });
-        setIsAuthLoading(false); // Ensure loading is false on error
+        setIsAuthLoading(false);
     }
   };
 
