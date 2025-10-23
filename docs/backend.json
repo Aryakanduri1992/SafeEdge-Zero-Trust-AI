@@ -34,7 +34,8 @@
         "organizationName": { "type": "string" },
         "email": { "type": "string", "format": "email" },
         "createdAt": { "type": "string", "format": "date-time" },
-        "superAdminId": { "type": "string" }
+        "superAdminId": { "type": "string" },
+        "imageUrl": { "type": "string", "format": "uri" }
       },
       "required": ["organizationName", "email", "createdAt", "superAdminId"]
     },

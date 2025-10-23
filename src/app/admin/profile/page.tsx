@@ -9,11 +9,12 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { Globe, User, ShieldCheck, Palette, Bell } from "lucide-react";
+import { Globe, User, ShieldCheck, Palette, Bell, Camera } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useToast } from "@/hooks/use-toast";
+import Image from 'next/image';
 
 const LoadingSkeleton = () => (
   <div className="space-y-8">
@@ -51,6 +52,13 @@ export default function ProfilePage() {
     });
   };
 
+  const handleUploadClick = () => {
+    toast({
+        title: "Feature Coming Soon",
+        description: "Image upload functionality will be available in a future update.",
+    });
+  };
+
   return (
     <div className="space-y-8">
       <div>
@@ -68,15 +76,24 @@ export default function ProfilePage() {
               <CardDescription>Primary contact and identity.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div className="flex items-center gap-4">
-                <Avatar className="h-16 w-16">
-                  {/* <AvatarImage src="/placeholder-avatar.jpg" /> */}
-                  <AvatarFallback className="text-2xl bg-primary/20 text-primary">
-                    {getInitials(orgUser.organizationName)}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <p className="text-lg font-semibold">{orgUser.organizationName}</p>
+              <div className="flex flex-col items-center gap-4">
+                 <div className="relative">
+                    <Avatar className="h-24 w-24 border-2 border-primary/20">
+                      {orgUser.imageUrl ? (
+                         <Image src={orgUser.imageUrl} alt={orgUser.organizationName} fill className="object-cover" />
+                      ) : (
+                        <AvatarFallback className="text-3xl bg-muted text-muted-foreground">
+                          {getInitials(orgUser.organizationName)}
+                        </AvatarFallback>
+                      )}
+                    </Avatar>
+                     <Button size="sm" variant="outline" className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full p-0" onClick={handleUploadClick}>
+                        <Camera className="h-4 w-4"/>
+                        <span className="sr-only">Upload Image</span>
+                     </Button>
+                </div>
+                <div className="text-center">
+                  <p className="text-xl font-semibold">{orgUser.organizationName}</p>
                   <p className="text-sm text-muted-foreground">{orgUser.email}</p>
                 </div>
               </div>

@@ -1,4 +1,5 @@
 
+
 export type UserRole = 'admin' | 'superadmin';
 export type Plan = 'Free' | 'Pro' | 'Enterprise';
 export type DepartmentStatus = 'active' | 'inactive';
@@ -17,6 +18,7 @@ export interface Organization extends BaseUser {
     organizationName: string;
     createdAt: string; // ISO String
     superAdminId: string;
+    imageUrl?: string;
 }
 
 export interface Department {
