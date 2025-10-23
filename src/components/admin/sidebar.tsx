@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -13,7 +12,6 @@ import type { Organization } from "@/lib/types";
 export const navItems = [
   { href: "/admin/dashboard", icon: LayoutDashboard, label: "Organization" },
   { href: "/admin/departments", icon: Users, label: "Departments" },
-  { href: "/admin/devices", icon: HardDrive, label: "Devices" },
   { href: "/admin/alerts", icon: ShieldAlert, label: "Alerts" },
   { href: "/admin/profile", icon: User, label: "Profile" },
 ];
