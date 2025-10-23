@@ -8,7 +8,7 @@ import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDe
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, FirestorePermissionError, errorEmitter, useFirebase } from '@/firebase';
 import { collection, onSnapshot, Unsubscribe, query, where } from 'firebase/firestore';
-import { getIdTokenResult, User } from 'firebase/auth';
+import { User, getIdTokenResult } from 'firebase/auth';
 
 type AuthContextType = {
   user: SuperAdminUser | Organization | null;
@@ -44,7 +44,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const { toast } = useToast();
 
   const { user: firebaseUser, isUserLoading: isFirebaseUserLoading } = useUser();
-  const { firestore, auth } = useFirebase();
+  const { firestore } = useFirebase();
+
   const isLoading = isFirebaseUserLoading || isAuthLoading;
 
   useEffect(() => {
@@ -52,14 +53,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsAuthLoading(true);
       if (firebaseUser) {
         try {
+          // Force refresh the token to get the latest custom claims.
           const idTokenResult = await getIdTokenResult(firebaseUser, true); 
           const userProfile = await authService.fetchUserProfile(firebaseUser.uid, idTokenResult.claims);
           
           if (userProfile) {
             setAppUser(userProfile);
           } else {
+             // This case should ideally not be hit if claims and DB are in sync
              await authService.logout();
              setAppUser(null);
+             toast({
+                variant: 'destructive',
+                title: 'Profile Inconsistency',
+                description: 'User profile could not be loaded. Please log in again.',
+             });
           }
         } catch (error) {
            if (error instanceof FirestorePermissionError) {
@@ -80,6 +88,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsAuthLoading(false);
     };
 
+    // Only run when the initial Firebase user check is complete
     if (!isFirebaseUserLoading) {
       handleAuthChange();
     }
@@ -90,6 +99,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!isLoading && !appUser) {
         const isAuthProtectedRoute = pathname.startsWith('/admin') || pathname.startsWith('/superadmin');
         if (isAuthProtectedRoute) {
+            // User is not authenticated and is on a protected route, redirect
             if (pathname.startsWith('/superadmin')) {
                  router.replace('/superadmin-login');
             } else {
@@ -186,29 +196,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsAuthLoading(true);
     try {
         const user = await authService.login(credentials);
-
-        const idTokenResult = await getIdTokenResult(user, true);
-        const userProfile = await authService.fetchUserProfile(user.uid, idTokenResult.claims);
-
-        if (userProfile) {
-            setAppUser(userProfile);
-            if (userProfile.role === 'superadmin') {
-                toast({ title: 'Login Successful', description: 'Welcome, Super Admin!' });
-                router.replace('/superadmin/dashboard');
-            } else if (userProfile.role === 'admin') {
-                toast({ title: 'Login Successful', description: 'Welcome back!' });
-                router.replace('/admin/dashboard');
-            }
-        } else {
-            throw new Error("Login failed: User profile not found after sign-in.");
-        }
+        // The useEffect hook will now handle profile fetching and redirection
     } catch (error: any) {
         toast({
             variant: 'destructive',
             title: 'Login Failed',
             description: error.message || 'An unexpected error occurred.',
         });
-    } finally {
         setIsAuthLoading(false);
     }
   };

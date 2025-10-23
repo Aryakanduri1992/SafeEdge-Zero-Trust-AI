@@ -64,6 +64,8 @@ export const login = async (credentials: LoginCredentials): Promise<FirebaseUser
       throw new Error("Password is required for login.");
   }
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
+  // Force token refresh to get custom claims immediately.
+  await getIdTokenResult(userCredential.user, true);
   return userCredential.user;
 };
 
@@ -76,6 +78,8 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
     if (!orgData.password) throw new Error("A password is required to create a new organization.");
     if (!orgData.email) throw new Error("An email is required to create a new organization.");
 
+    // The creation of the user and setting of claims should be handled by a backend function for security.
+    // For this prototype, we simulate the user creation to get a UID, but acknowledge this is not a secure production pattern.
     const tempAppName = `temp-user-creation-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
@@ -115,6 +119,8 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
         batch.set(deptDocRef, newDepartment);
 
         await batch.commit();
+        // In a real app, a Cloud Function would listen for the new user and set custom claims.
+        // e.g., admin.auth().setCustomUserClaims(newOrgUID, { admin: true });
 
     } catch (error: any) {
         let errorMessage = error.message;
@@ -130,6 +136,7 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
         }
         throw new Error(errorMessage);
     } finally {
+        // Clean up the temporary app instance
         if(tempAuth.currentUser) {
             await signOut(tempAuth).catch(() => {});
         }
@@ -268,48 +275,3 @@ export const updateSuperAdminImage = async (uid: string, imageUrl: string): Prom
         throw permissionError;
     });
 };
-
-const ensureSuperAdminExists = async () => {
-    const superAdminEmail = 'super@authstation.com';
-    const superAdminPassword = 'super-password';
-
-    const tempAppName = `temp-superadmin-check-${Date.now()}`;
-    const tempApp = initializeApp(firebaseConfig, tempAppName);
-    const tempAuth = getAuth(tempApp);
-
-    try {
-        await signInWithEmailAndPassword(tempAuth, superAdminEmail, superAdminPassword);
-    } catch (error: any) {
-        if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
-             try {
-                const userCredential = await createUserWithEmailAndPassword(tempAuth, superAdminEmail, superAdminPassword);
-                 const user = userCredential.user;
-                 if(user) {
-                    const superAdminProfile = {
-                        email: user.email,
-                        departmentName: "Super Admin",
-                        imageUrl: null,
-                    };
-                    const superAdminRoleRef = doc(firestore, 'roles_super_admin', user.uid);
-                    await setDoc(superAdminRoleRef, superAdminProfile);
-                 }
-             } catch (seedError: any) {
-                if (seedError.code !== 'auth/email-already-in-use') {
-                    console.error("Error ensuring Super Admin user exists:", seedError);
-                }
-             }
-        }
-    } finally {
-        if (tempAuth.currentUser) {
-           await signOut(tempAuth).catch(() => {});
-        }
-        await deleteApp(tempApp);
-    }
-};
-
-if (typeof window !== 'undefined') {
-    if (!(window as any).__superAdminEnsured) {
-        ensureSuperAdminExists();
-        (window as any).__superAdminEnsured = true;
-    }
-}
