@@ -13,9 +13,7 @@ import {
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, updateDoc, writeBatch, collection, addDoc, deleteDoc } from 'firebase/firestore';
 import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData, NewDeviceData, UpdateDeviceData } from './types';
-import { initializeFirebase } from '@/firebase';
-import { FirestorePermissionError } from '@/firebase/errors';
-import { errorEmitter } from '@/firebase/error-emitter';
+import { initializeFirebase, FirestorePermissionError, errorEmitter } from '@/firebase';
 
 const { firestore } = initializeFirebase();
 
@@ -29,27 +27,30 @@ export async function getOrCreateUserProfile(user: FirebaseUser): Promise<SuperA
         try {
             let superAdminSnap = await getDoc(superAdminRef);
             if (!superAdminSnap.exists()) {
-                // Document doesn't exist, so create it.
                 const newSuperAdminProfile: Omit<SuperAdminUser, 'id' | 'role'> = {
                     email: user.email || 'super@authstation.com',
                     departmentName: "AuthStation HQ",
                     imageUrl: `https://picsum.photos/seed/${uid}/200/200`
                 };
                 await setDoc(superAdminRef, newSuperAdminProfile);
-                // Re-fetch the document after creation
                 superAdminSnap = await getDoc(superAdminRef);
             }
-            const superAdminData = superAdminSnap.data();
-            return {
-                id: uid,
-                role: 'superadmin',
-                email: superAdminData?.email,
-                departmentName: superAdminData?.departmentName,
-                imageUrl: superAdminData?.imageUrl,
-            } as SuperAdminUser;
-
+            if (superAdminSnap.exists()) {
+                const superAdminData = superAdminSnap.data();
+                return {
+                    id: uid,
+                    role: 'superadmin',
+                    email: superAdminData?.email,
+                    departmentName: superAdminData?.departmentName,
+                    imageUrl: superAdminData?.imageUrl,
+                } as SuperAdminUser;
+            }
         } catch (serverError: any) {
-            const permissionError = new FirestorePermissionError({ path: superAdminRef.path, operation: 'write' });
+            const permissionError = new FirestorePermissionError({
+                path: superAdminRef.path,
+                operation: 'write',
+                requestResourceData: { uid, email: user.email },
+            });
             errorEmitter.emit('permission-error', permissionError);
             throw permissionError;
         }
