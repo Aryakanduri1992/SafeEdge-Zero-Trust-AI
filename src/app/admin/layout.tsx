@@ -19,13 +19,13 @@ export default function AdminLayout({
 
   useEffect(() => {
     if (!isLoading && (!isAuthenticated || user?.role !== 'admin')) {
-      router.replace('/admin-login');
+      router.replace('/organisation-login');
     }
   }, [isLoading, isAuthenticated, user, router]);
 
   if (isLoading || !isAuthenticated || user?.role !== 'admin') {
     return (
-      <div className="flex h-screen w-full items-center justify-center">
+      <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );

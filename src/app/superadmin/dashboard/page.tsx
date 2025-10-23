@@ -22,8 +22,8 @@ import { Badge } from "@/components/ui/badge";
 import { CreateOrganizationForm } from '@/components/superadmin/create-organization-form';
 import { EditDepartmentForm } from '@/components/superadmin/edit-department-form';
 import { DeactivateDepartmentDialog } from '@/components/superadmin/deactivate-department-dialog';
-import { PlusCircle, Users, Edit, Building, RadioTower, Power, CheckCircle, XCircle, MoreHorizontal, Search, Filter, ShieldCheck, UserPlus } from 'lucide-react';
-import { useState, useMemo, ReactNode } from 'react';
+import { PlusCircle, Users, Edit, Building, Power, CheckCircle, XCircle, MoreHorizontal, Search, Filter, ShieldCheck, UserPlus } from 'lucide-react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Department } from '@/lib/types';
@@ -41,6 +41,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { ActivateDepartmentDialog } from '@/components/superadmin/activate-department-dialog';
 import { Input } from '@/components/ui/input';
 import { CreateDepartmentForm } from '@/components/superadmin/create-department-form';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function SuperAdminDashboardPage() {
   const [isCreateOrgDialogOpen, setIsCreateOrgDialogOpen] = useState(false);
@@ -156,7 +157,7 @@ export default function SuperAdminDashboardPage() {
   return (
     <div className="space-y-8">
       {/* Key Metrics Overview */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-2">
+      <div className="grid gap-6 md:grid-cols-2">
         <Dialog>
           <DialogTrigger asChild>
             <Card className="cursor-pointer hover:border-primary/50 transition-colors">
@@ -179,8 +180,8 @@ export default function SuperAdminDashboardPage() {
                 Click an organization to see its registered departments.
               </DialogDescription>
             </DialogHeader>
-            <div className="max-h-[60vh] overflow-y-auto pr-4">
-              <Accordion type="single" collapsible>
+            <ScrollArea className="max-h-[60vh]">
+              <Accordion type="single" collapsible className="pr-4">
                 {orgsWithDetails.map((org) => (
                   <AccordionItem value={org.name} key={org.name}>
                     <AccordionTrigger className="text-lg font-semibold">{org.name} ({org.departments.length} departments)</AccordionTrigger>
@@ -190,9 +191,9 @@ export default function SuperAdminDashboardPage() {
                           <TableHeader>
                             <TableRow>
                               <TableHead>Department</TableHead>
-                              <TableHead>Location</TableHead>
-                              <TableHead>Building</TableHead>
-                              <TableHead>Floor</TableHead>
+                              <TableHead className="hidden sm:table-cell">Location</TableHead>
+                              <TableHead className="hidden md:table-cell">Building</TableHead>
+                              <TableHead className="hidden md:table-cell">Floor</TableHead>
                               <TableHead className="text-center">Status</TableHead>
                             </TableRow>
                           </TableHeader>
@@ -201,11 +202,11 @@ export default function SuperAdminDashboardPage() {
                               <TableRow key={dept.id}>
                                 <TableCell>
                                   <div className="font-medium">{dept.departmentName}</div>
-                                  <div className="text-xs text-muted-foreground font-mono">{dept.organizationName}</div>
+                                  <div className="text-xs text-muted-foreground font-mono sm:hidden">{dept.location}</div>
                                 </TableCell>
-                                <TableCell>{dept.location}</TableCell>
-                                <TableCell>{dept.building}</TableCell>
-                                <TableCell>{dept.floor}</TableCell>
+                                <TableCell className="hidden sm:table-cell">{dept.location}</TableCell>
+                                <TableCell className="hidden md:table-cell">{dept.building}</TableCell>
+                                <TableCell className="hidden md:table-cell">{dept.floor}</TableCell>
                                 <TableCell className="text-center">
                                   {dept.status === 'active' ? (
                                     <Badge variant="outline" className="text-green-400 border-green-400/50"><CheckCircle className="mr-1 h-3 w-3"/>Active</Badge>
@@ -229,7 +230,7 @@ export default function SuperAdminDashboardPage() {
                   </AccordionItem>
                 ))}
               </Accordion>
-            </div>
+            </ScrollArea>
           </DialogContent>
         </Dialog>
           
@@ -255,13 +256,13 @@ export default function SuperAdminDashboardPage() {
                 A complete list of all department accounts across all organizations.
               </DialogDescription>
             </DialogHeader>
-            <div className="max-h-[400px] overflow-y-auto pr-4">
+            <ScrollArea className="max-h-[60vh]">
                <Table>
                 <TableHeader>
                     <TableRow>
                         <TableHead>Organization</TableHead>
                         <TableHead>Department</TableHead>
-                        <TableHead>Location</TableHead>
+                        <TableHead className="hidden sm:table-cell">Location</TableHead>
                         <TableHead className="text-center">Status</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -273,7 +274,7 @@ export default function SuperAdminDashboardPage() {
                                <div className="text-xs text-muted-foreground font-mono">{dept.email}</div>
                             </TableCell>
                              <TableCell>{dept.departmentName}</TableCell>
-                            <TableCell>{dept.building}, Fl {dept.floor}</TableCell>
+                            <TableCell className="hidden sm:table-cell">{dept.building}, Fl {dept.floor}</TableCell>
                             <TableCell className="text-center">
                                {dept.status === 'active' ? (
                                 <Badge variant="outline" className="text-green-400 border-green-400/50"><CheckCircle className="mr-1 h-3 w-3"/>Active</Badge>
@@ -285,7 +286,7 @@ export default function SuperAdminDashboardPage() {
                     ))}
                 </TableBody>
                </Table>
-            </div>
+            </ScrollArea>
           </DialogContent>
         </Dialog>
       </div>
@@ -320,19 +321,19 @@ export default function SuperAdminDashboardPage() {
                   </DialogContent>
                 </Dialog>
           </div>
-           <div className="mt-4 flex items-center gap-2">
-            <div className="relative flex-1">
+           <div className="mt-4 flex flex-col sm:flex-row items-center gap-2">
+            <div className="relative flex-1 w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Search by organization, department, location, etc..."
+                placeholder="Search by organization, department, etc..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-10 w-full"
               />
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline">
+                <Button variant="outline" className="w-full sm:w-auto">
                   <Filter className="mr-2 h-4 w-4" />
                   Filter
                 </Button>
@@ -354,11 +355,10 @@ export default function SuperAdminDashboardPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Organization</TableHead>
-                <TableHead>Department</TableHead>
-                <TableHead>Organization Email</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Building/Floor</TableHead>
-                <TableHead className="text-center">Subscription Plan</TableHead>
+                <TableHead className="hidden md:table-cell">Department</TableHead>
+                <TableHead className="hidden lg:table-cell">Email</TableHead>
+                <TableHead className="hidden sm:table-cell">Location</TableHead>
+                <TableHead className="text-center hidden lg:table-cell">Plan</TableHead>
                 <TableHead className="text-center">Status</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -366,16 +366,16 @@ export default function SuperAdminDashboardPage() {
             <TableBody>
               {filteredDepartments.map((dept) => (
                 <TableRow key={dept.id}>
-                  <TableCell className="font-medium">{dept.organizationName}</TableCell>
-                  <TableCell>{dept.departmentName}</TableCell>
-                  <TableCell className="text-muted-foreground text-xs font-mono">{dept.email}</TableCell>
-                  <TableCell className="text-muted-foreground">
+                  <TableCell>
+                    <div className="font-medium">{dept.organizationName}</div>
+                    <div className="text-xs text-muted-foreground md:hidden">{dept.departmentName}</div>
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">{dept.departmentName}</TableCell>
+                  <TableCell className="text-muted-foreground text-xs font-mono hidden lg:table-cell">{dept.email}</TableCell>
+                  <TableCell className="text-muted-foreground hidden sm:table-cell">
                     {dept.location}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {dept.building}, Fl {dept.floor}
-                  </TableCell>
-                   <TableCell className="text-center">
+                   <TableCell className="text-center hidden lg:table-cell">
                     <Badge variant={planVariant(dept.plan)}>{dept.plan}</Badge>
                   </TableCell>
                    <TableCell className="text-center">
@@ -452,7 +452,7 @@ export default function SuperAdminDashboardPage() {
       </Dialog>
       
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Department: {selectedDepartment?.departmentName}</DialogTitle>
             <DialogDescription>

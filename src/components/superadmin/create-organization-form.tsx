@@ -75,7 +75,7 @@ export function CreateOrganizationForm({ onFinished }: CreateOrgFormProps) {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 pt-4">
-        <ScrollArea className="h-[60vh] pr-6">
+        <ScrollArea className="h-[65vh] sm:h-[60vh] pr-6">
           <div className="space-y-6">
             <div>
               <h3 className="text-lg font-medium text-primary">Organization Credentials</h3>

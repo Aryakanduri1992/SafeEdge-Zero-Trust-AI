@@ -32,11 +32,11 @@ export function Header() {
       <div className="flex items-center gap-3">
         <Logo className="h-8 w-8" />
         <div className="flex items-baseline gap-2">
-            <span className="font-headline text-xl font-bold text-primary">SafeEdge Cyber System</span>
+            <span className="font-headline text-lg sm:text-xl font-bold text-primary">SafeEdge Cyber System</span>
         </div>
       </div>
-       <div className='flex items-center gap-4'>
-         <div className="flex flex-col items-end">
+       <div className='flex items-center gap-2 sm:gap-4'>
+         <div className="hidden sm:flex flex-col items-end">
             <span className="text-sm font-semibold">{user?.departmentName}</span>
             <span className="text-xs text-muted-foreground">Super Admin</span>
          </div>

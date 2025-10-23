@@ -20,7 +20,7 @@ export function Header() {
   const mobileNavItems = navItems;
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 shadow-sm backdrop-blur-sm sm:px-6 md:justify-end">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b bg-background/95 px-4 shadow-sm backdrop-blur-sm sm:px-6 md:justify-end">
        <div className="flex items-center gap-4 md:hidden">
          <Sheet>
           <SheetTrigger asChild>
@@ -54,11 +54,11 @@ export function Header() {
             </nav>
           </SheetContent>
         </Sheet>
-        <span className="font-headline text-2xl font-bold text-primary">
+        <span className="font-headline text-lg font-bold text-primary sm:text-xl">
           {orgUser?.organizationName || ''}
         </span>
       </div>
-      <div className='flex items-center gap-4'>
+      <div className='flex items-center gap-2 sm:gap-4'>
         <Button variant="ghost" size="icon">
             <Bell className="h-5 w-5" />
             <span className="sr-only">Notifications</span>
@@ -67,7 +67,7 @@ export function Header() {
             {orgUser?.organizationName}
         </span>
         <Button variant="ghost" size="sm" onClick={logout}>
-          <LogOut className="mr-2 h-4 w-4" />
+          <LogOut className="mr-0 sm:mr-2 h-4 w-4" />
           <span className="hidden sm:inline">Logout</span>
         </Button>
       </div>
