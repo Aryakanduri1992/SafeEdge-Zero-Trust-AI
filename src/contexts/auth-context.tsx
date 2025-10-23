@@ -53,34 +53,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         return;
       }
       
-      setIsAuthLoading(true);
-
       if (firebaseUser) {
         try {
           // Get the full token result to access custom claims
-          const idTokenResult = await getIdTokenResult(firebaseUser);
+          const idTokenResult = await getIdTokenResult(firebaseUser, true);
           const userProfile = await authService.fetchUserProfile(firebaseUser.uid, idTokenResult.claims);
           
-          if (!userProfile) {
+          if (userProfile) {
+              setAppUser(userProfile);
+              const onAdminLoginPage = pathname.includes('organisation-login');
+              const onSuperAdminLoginPage = pathname.includes('superadmin-login');
+
+              if (userProfile.role === 'superadmin' && (onSuperAdminLoginPage || onAdminLoginPage)) {
+                  router.replace('/superadmin/dashboard');
+              } else if (userProfile.role === 'admin' && (onAdminLoginPage || onSuperAdminLoginPage)) {
+                  router.replace('/admin/dashboard');
+              }
+          } else {
              // This can happen briefly during login before claims are set.
              // We will let the next auth state change handle it.
-             // Only show error if it persists.
              console.warn("User profile not found, may be transient state.");
-             setIsAuthLoading(false); // Stop loading, wait for next auth change.
-             return;
+             setAppUser(null); // Explicitly set to null if profile fetch fails
           }
-
-          setAppUser(userProfile);
-          
-          const onAdminLoginPage = pathname.includes('organisation-login');
-          const onSuperAdminLoginPage = pathname.includes('superadmin-login');
-
-          if (userProfile.role === 'superadmin' && (onSuperAdminLoginPage || onAdminLoginPage)) {
-            router.replace('/superadmin/dashboard');
-          } else if (userProfile.role === 'admin' && (onAdminLoginPage || onSuperAdminLoginPage)) {
-            router.replace('/admin/dashboard');
-          }
-
         } catch (error) {
            if (error instanceof FirestorePermissionError) {
              errorEmitter.emit('permission-error', error);
@@ -198,15 +192,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 }, [appUser, firestore]);
 
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
-    const user = await authService.login(credentials, role);
-    // After login, the useEffect hook for auth changes will handle fetching the profile
+    // Set loading true at the beginning of login attempt
+    setIsAuthLoading(true);
+    try {
+        const user = await authService.login(credentials, role);
+        // After login, the useEffect hook for auth changes will handle fetching the profile and setting loading to false.
+    } catch (error) {
+        setIsAuthLoading(false); // Ensure loading is false on login failure
+        throw error; // Re-throw error to be caught by the form
+    }
   };
 
   const logout = async (): Promise<void> => {
     const previousRole = appUser?.role;
+    setIsAuthLoading(true);
     await authService.logout();
     setAppUser(null);
     setDepartments([]);
+    setOrganizations([]);
+    setDevices([]);
+    setIsAuthLoading(false);
     if (previousRole === 'superadmin') {
       router.push('/superadmin-login');
     } else {
@@ -342,3 +347,5 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     </AuthContext.Provider>
   );
 };
+
+    
