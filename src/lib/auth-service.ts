@@ -72,22 +72,26 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
     if (!orgData.password) throw new Error("A password is required to create a new organization.");
     if (!orgData.email) throw new Error("An email is required to create a new organization.");
 
+    // Step 1: Check if email is already in use with the main auth instance
+    const signInMethods = await fetchSignInMethodsForEmail(auth, orgData.email);
+    if (signInMethods.length > 0) {
+        throw new Error(`Email already in use: ${orgData.email}`);
+    }
+
+    // Step 2: Use a temporary app to create the user without signing out the admin
     const tempAppName = `temp-user-creation-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
     let userCredential;
 
     try {
-        const signInMethods = await fetchSignInMethodsForEmail(auth, orgData.email);
-        if (signInMethods.length > 0) {
-            throw new Error(`Email already in use: ${orgData.email}`);
-        }
-
         userCredential = await createUserWithEmailAndPassword(tempAuth, orgData.email, orgData.password);
         const newOrgUID = userCredential.user.uid;
 
+        // Step 3: Use a batch write to Firestore for atomic operation
         const batch = writeBatch(firestore);
 
+        // Organization Document
         const newOrgProfile: Omit<Organization, 'id' | 'role'> = {
             organizationName: orgData.organizationName,
             email: orgData.email,
@@ -97,6 +101,7 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
         const orgDocRef = doc(firestore, "organizations", newOrgUID);
         batch.set(orgDocRef, newOrgProfile);
         
+        // Department Document
         const newDepartment: Omit<Department, 'id'> = {
             departmentName: orgData.departmentName,
             organizationName: orgData.organizationName,
@@ -117,16 +122,19 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
         await batch.commit();
 
     } catch (error: any) {
-        if (error.code && error.code.startsWith('permission-denied')) {
+        let errorMessage = error.message;
+        if (error.code?.includes('permission-denied')) {
              errorEmitter.emit('permission-error', new FirestorePermissionError({
                  path: `organizations`,
                  operation: 'create',
                  requestResourceData: orgData
              }));
-             throw new Error(`A security rule violation occurred. Please check your Firestore rules.`);
+             errorMessage = 'A security rule violation occurred. Please check your Firestore rules.';
         }
-        throw error;
+        // Ensure we throw to stop execution and inform the user
+        throw new Error(errorMessage);
     } finally {
+        // Step 4: Clean up the temporary app
         await signOut(tempAuth).catch(() => {});
         await deleteApp(tempApp);
     }
