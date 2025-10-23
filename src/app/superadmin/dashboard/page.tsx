@@ -22,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { CreateOrganizationForm } from '@/components/superadmin/create-organization-form';
 import { EditDepartmentForm } from '@/components/superadmin/edit-department-form';
 import { DeactivateDepartmentDialog } from '@/components/superadmin/deactivate-department-dialog';
-import { PlusCircle, Users, Edit, Building, RadioTower, Power, CheckCircle, XCircle, MoreHorizontal, Search, Filter } from 'lucide-react';
+import { PlusCircle, Users, Edit, Building, RadioTower, Power, CheckCircle, XCircle, MoreHorizontal, Search, Filter, ShieldCheck } from 'lucide-react';
 import { useState, useMemo, ReactNode } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';

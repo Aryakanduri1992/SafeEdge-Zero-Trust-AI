@@ -72,23 +72,19 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
     if (!orgData.password) throw new Error("A password is required to create a new organization.");
     if (!orgData.email) throw new Error("An email is required to create a new organization.");
 
-    // Step 1: Check if email is already in use with the main auth instance
-    const signInMethods = await fetchSignInMethodsForEmail(auth, orgData.email);
-    if (signInMethods.length > 0) {
-        throw new Error(`Email already in use: ${orgData.email}`);
-    }
-
-    // Step 2: Use a temporary app to create the user without signing out the admin
+    // Use a temporary app to create the user without signing out the admin
     const tempAppName = `temp-user-creation-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
     let userCredential;
 
     try {
+        // Directly attempt to create the user. If the email exists, this will throw
+        // an 'auth/email-already-in-use' error, which is caught below.
         userCredential = await createUserWithEmailAndPassword(tempAuth, orgData.email, orgData.password);
         const newOrgUID = userCredential.user.uid;
 
-        // Step 3: Use a batch write to Firestore for atomic operation
+        // Use a batch write to Firestore for atomic operation
         const batch = writeBatch(firestore);
 
         // Organization Document
@@ -123,9 +119,11 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
 
     } catch (error: any) {
         let errorMessage = error.message;
-        if (error.code?.includes('permission-denied')) {
+        if (error.code === 'auth/email-already-in-use') {
+            errorMessage = `Email already in use: ${orgData.email}. Please choose a different email.`;
+        } else if (error.code?.includes('permission-denied')) {
              errorEmitter.emit('permission-error', new FirestorePermissionError({
-                 path: `organizations`,
+                 path: `organizations`, // Approximate path for error context
                  operation: 'create',
                  requestResourceData: orgData
              }));
@@ -134,7 +132,7 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
         // Ensure we throw to stop execution and inform the user
         throw new Error(errorMessage);
     } finally {
-        // Step 4: Clean up the temporary app
+        // Clean up the temporary app
         await signOut(tempAuth).catch(() => {});
         await deleteApp(tempApp);
     }
