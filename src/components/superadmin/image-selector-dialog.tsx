@@ -15,7 +15,7 @@ import {
   DialogTitle,
   DialogFooter
 } from "@/components/ui/dialog";
-import { PlaceHolderImages } from '@/lib/placeholder-images';
+import { PlaceHolderImages, type ImagePlaceholder } from '@/lib/placeholder-images';
 import { Organization } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -31,22 +31,20 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
     const { updateOrganizationImage } = useAuth();
     const { toast } = useToast();
     
-    // State for the image URL to be displayed in the preview and potentially saved (if from gallery)
-    const [previewUrl, setPreviewUrl] = useState('');
-    // State to specifically hold the base64 data of a newly uploaded file
-    const [uploadedImageDataUri, setUploadedImageDataUri] = useState<string | null>(null);
-
     const [isLoading, setIsLoading] = useState(false);
+    const [selectedImageUrl, setSelectedImageUrl] = useState('');
+    const [sessionImages, setSessionImages] = useState<ImagePlaceholder[]>(PlaceHolderImages);
+    const [activeTab, setActiveTab] = useState('gallery');
+    
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Reset state when the dialog opens or the organization changes
     useEffect(() => {
         if (isOpen) {
-            setPreviewUrl(organization.imageUrl || '');
-            setUploadedImageDataUri(null);
+            setSelectedImageUrl(organization.imageUrl || '');
+            setSessionImages(PlaceHolderImages); // Reset to original gallery on open
+            setActiveTab('gallery');
         }
     }, [isOpen, organization]);
-
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -54,27 +52,28 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
             const reader = new FileReader();
             reader.onloadend = () => {
                 const result = reader.result as string;
-                // An image was uploaded, store its data URI and update the preview
-                setUploadedImageDataUri(result);
-                setPreviewUrl(result);
+                const newImage: ImagePlaceholder = {
+                    id: `upload-${Date.now()}`,
+                    description: file.name,
+                    imageUrl: result,
+                    imageHint: 'custom upload'
+                };
+                
+                // Add the new image to the start of the session gallery
+                setSessionImages(prev => [newImage, ...prev]);
+                // Select the newly uploaded image
+                setSelectedImageUrl(newImage.imageUrl);
+                // Switch to the gallery tab to show the user
+                setActiveTab('gallery');
             };
             reader.readAsDataURL(file);
         }
     };
 
-    const handleGallerySelect = (imageUrl: string) => {
-        // A gallery image was selected, clear any uploaded file data
-        setUploadedImageDataUri(null);
-        setPreviewUrl(imageUrl);
-    };
-
     const handleSave = async () => {
         if (!organization) return;
         
-        // Determine which image URL to save. Prioritize the newly uploaded image.
-        const finalImageUrl = uploadedImageDataUri || previewUrl;
-
-        if (!finalImageUrl) {
+        if (!selectedImageUrl) {
             toast({
                 variant: 'destructive',
                 title: 'No Image Selected',
@@ -85,17 +84,17 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
 
         setIsLoading(true);
         try {
-            await updateOrganizationImage(organization.id, finalImageUrl);
+            await updateOrganizationImage(organization.id, selectedImageUrl);
             toast({
                 title: "Image Updated",
                 description: `The logo for ${organization.organizationName} has been changed.`,
             });
             onOpenChange(false);
         } catch (error: any) {
-            toast({
-                variant: 'destructive',
-                title: 'Update Failed',
-                description: error.message || "Could not update the profile image. Check permissions.",
+             toast({
+                variant: "destructive",
+                title: "Uh oh! Something went wrong.",
+                description: error.message || "Could not save image.",
             });
         } finally {
             setIsLoading(false);
@@ -108,11 +107,11 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
                 <DialogHeader>
                     <DialogTitle>Change Logo for {organization.organizationName}</DialogTitle>
                     <DialogDescription>
-                        Select an image from the gallery or upload your own.
+                        Select an image from the gallery or upload your own to add it to the gallery.
                     </DialogDescription>
                 </DialogHeader>
                 
-                <Tabs defaultValue="gallery">
+                <Tabs value={activeTab} onValueChange={setActiveTab}>
                     <TabsList className="grid w-full grid-cols-2">
                         <TabsTrigger value="gallery">Gallery</TabsTrigger>
                         <TabsTrigger value="upload">Upload</TabsTrigger>
@@ -120,11 +119,11 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
                     <TabsContent value="gallery">
                          <ScrollArea className="h-[55vh] -mx-6 px-6">
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4 py-4">
-                                {PlaceHolderImages.map((image) => (
+                                {sessionImages.map((image) => (
                                     <div
                                         key={image.id}
                                         className="relative aspect-square cursor-pointer group rounded-lg overflow-hidden border-2 border-transparent transition-all"
-                                        onClick={() => handleGallerySelect(image.imageUrl)}
+                                        onClick={() => setSelectedImageUrl(image.imageUrl)}
                                     >
                                         <Image
                                             src={image.imageUrl}
@@ -134,7 +133,7 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
                                             className="object-cover transition-transform group-hover:scale-105"
                                             data-ai-hint={image.imageHint}
                                         />
-                                        {previewUrl === image.imageUrl && !uploadedImageDataUri && (
+                                        {selectedImageUrl === image.imageUrl && (
                                             <div className="absolute inset-0 bg-primary/70 flex items-center justify-center">
                                                 <CheckCircle2 className="h-10 w-10 text-primary-foreground" />
                                             </div>
@@ -149,15 +148,9 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
                     </TabsContent>
                     <TabsContent value="upload">
                         <div className="h-[55vh] flex flex-col items-center justify-center gap-6 py-4">
-                           {previewUrl && uploadedImageDataUri ? (
-                                <div className="w-48 h-48 relative">
-                                    <Image src={previewUrl} alt="Logo preview" layout="fill" className="rounded-full object-cover border-4 border-primary" />
-                                </div>
-                           ) : (
-                                <div className="w-48 h-48 rounded-full bg-muted flex items-center justify-center">
-                                    <Upload className="h-16 w-16 text-muted-foreground" />
-                                </div>
-                            )}
+                           <div className="w-48 h-48 rounded-full bg-muted flex items-center justify-center border-4 border-dashed">
+                                <Upload className="h-16 w-16 text-muted-foreground" />
+                            </div>
 
                             <Input 
                                 type="file" 
@@ -170,16 +163,16 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
                                 <Upload className="mr-2 h-4 w-4" />
                                 Browse Computer
                             </Button>
-                             <p className="text-xs text-muted-foreground">Recommended: Square image, PNG or JPG format.</p>
+                             <p className="text-xs text-muted-foreground text-center">Your image will be added to the gallery tab for selection.</p>
                         </div>
                     </TabsContent>
                 </Tabs>
                
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-                    <Button onClick={handleSave} disabled={isLoading || !previewUrl}>
+                    <Button onClick={handleSave} disabled={isLoading || !selectedImageUrl}>
                         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Save Image
+                        Save Selected Image
                     </Button>
                 </DialogFooter>
             </DialogContent>
