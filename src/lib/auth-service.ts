@@ -43,6 +43,7 @@ export const fetchUserProfile = async (uid: string): Promise<SuperAdminUser | Or
                 id: uid,
                 departmentName: superAdminData.departmentName,
                 email: superAdminData.email,
+                imageUrl: superAdminData.imageUrl,
                 role: 'superadmin'
             };
         }
@@ -260,6 +261,20 @@ export const updateOrganizationImage = async (orgId: string, imageUrl: string): 
   });
 };
 
+export const updateSuperAdminImage = async (uid: string, imageUrl: string): Promise<void> => {
+    const userRef = doc(firestore, 'roles_super_admin', uid);
+    const updateData = { imageUrl };
+    await updateDoc(userRef, updateData).catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+            path: userRef.path,
+            operation: 'update',
+            requestResourceData: updateData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        throw permissionError;
+    });
+};
+
 
 // This function ensures the Super Admin user exists in Auth and Firestore.
 const seedSuperAdmin = async () => {
@@ -282,6 +297,7 @@ const seedSuperAdmin = async () => {
                         id: user.uid,
                         email: user.email,
                         departmentName: "Super Admin",
+                        imageUrl: null,
                     };
                     const superAdminRoleRef = doc(firestore, 'roles_super_admin', user.uid);
                     await setDoc(superAdminRoleRef, superAdminProfile);

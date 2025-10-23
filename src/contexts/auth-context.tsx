@@ -27,6 +27,7 @@ type AuthContextType = {
   updateDevice: (deviceId: string, deviceData: UpdateDeviceData) => Promise<void>;
   deleteDevice: (deviceId: string) => Promise<void>;
   updateOrganizationImage: (orgId: string, imageUrl: string) => Promise<void>;
+  updateSuperAdminImage: (uid: string, imageUrl: string) => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -298,6 +299,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         ));
     }
   };
+  
+  const updateSuperAdminImage = async (uid: string, imageUrl: string) => {
+        if (!appUser || appUser.role !== 'superadmin' || appUser.id !== uid) {
+            throw new Error("Unauthorized to update this profile image.");
+        }
+        await authService.updateSuperAdminImage(uid, imageUrl);
+        // Optimistically update the local user state
+        setAppUser(prevUser => {
+            if (prevUser && prevUser.role === 'superadmin') {
+                return { ...prevUser, imageUrl };
+            }
+            return prevUser;
+        });
+    };
 
 
   const isLoading = isFirebaseUserLoading || isAuthLoading;
@@ -319,7 +334,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     createDevice,
     updateDevice,
     deleteDevice,
-    updateOrganizationImage
+    updateOrganizationImage,
+    updateSuperAdminImage
   };
 
   return (
