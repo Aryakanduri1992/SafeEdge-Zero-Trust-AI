@@ -19,8 +19,24 @@ import { errorEmitter } from '@/firebase/error-emitter';
 const { auth, firestore } = initializeFirebase();
 
 export const fetchUserProfile = async (uid: string): Promise<SuperAdminUser | Organization | null> => {
+    // First, try to fetch the user as a regular organization admin.
+    // This is the most common case and avoids trying to access a collection (super_admins)
+    // that most users do not have access to.
+    const orgRef = doc(firestore, "organizations", uid);
+    try {
+        const orgSnap = await getDoc(orgRef);
+        if (orgSnap.exists()) {
+            return { ...orgSnap.data(), id: uid, role: 'admin' } as Organization;
+        }
+    } catch (serverError: any) {
+        // If we get a permission error here, something is wrong with the rules for organizations.
+        const permissionError = new FirestorePermissionError({ path: orgRef.path, operation: 'get' });
+        errorEmitter.emit('permission-error', permissionError);
+        throw permissionError;
+    }
+
+    // If the user is not found in organizations, then check if they are a super admin.
     const superAdminRef = doc(firestore, "roles_super_admin", uid);
-    
     try {
         const superAdminSnap = await getDoc(superAdminRef);
         if (superAdminSnap.exists()) {
@@ -33,8 +49,8 @@ export const fetchUserProfile = async (uid: string): Promise<SuperAdminUser | Or
             };
         }
     } catch (serverError: any) {
-        // This is expected for non-superadmin users. We can ignore the permission error
-        // and proceed to check if they are a regular organization admin.
+        // If this fails with permission denied, it's expected for a non-superadmin.
+        // If it's another error, we throw it.
         if (serverError.code !== 'permission-denied') {
             const permissionError = new FirestorePermissionError({ path: superAdminRef.path, operation: 'get' });
             errorEmitter.emit('permission-error', permissionError);
@@ -42,18 +58,7 @@ export const fetchUserProfile = async (uid: string): Promise<SuperAdminUser | Or
         }
     }
 
-    const orgRef = doc(firestore, "organizations", uid);
-    try {
-        const orgSnap = await getDoc(orgRef);
-        if (orgSnap.exists()) {
-            return { ...orgSnap.data(), id: uid, role: 'admin' } as Organization;
-        }
-    } catch (serverError: any) {
-         const permissionError = new FirestorePermissionError({ path: orgRef.path, operation: 'get' });
-        errorEmitter.emit('permission-error', permissionError);
-        throw permissionError;
-    }
-
+    // If user is not found in either collection, return null.
     return null;
 }
 
