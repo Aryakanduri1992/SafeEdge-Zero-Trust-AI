@@ -16,7 +16,6 @@ import { format } from "date-fns";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useToast } from "@/hooks/use-toast";
 import Image from 'next/image';
-import { ImageSelectorDialog } from "@/components/admin/image-selector-dialog";
 
 const LoadingSkeleton = () => (
   <div className="space-y-8">
@@ -36,7 +35,6 @@ export default function ProfilePage() {
   const { user, isLoading: isAuthLoading } = useAuth();
   const orgUser = user as Organization;
   const { toast } = useToast();
-  const [isImageSelectorOpen, setIsImageSelectorOpen] = useState(false);
 
   const isLoading = isAuthLoading || !orgUser;
 
@@ -83,10 +81,6 @@ export default function ProfilePage() {
                         </AvatarFallback>
                       )}
                     </Avatar>
-                     <Button size="sm" variant="outline" className="absolute -bottom-2 -right-2 h-8 w-8 rounded-full p-0" onClick={() => setIsImageSelectorOpen(true)}>
-                        <Edit className="h-4 w-4"/>
-                        <span className="sr-only">Change Image</span>
-                     </Button>
                 </div>
                 <div className="text-center">
                   <p className="text-xl font-semibold">{orgUser.organizationName}</p>
@@ -169,11 +163,6 @@ export default function ProfilePage() {
           </Card>
         </div>
       </div>
-      <ImageSelectorDialog 
-        isOpen={isImageSelectorOpen}
-        onOpenChange={setIsImageSelectorOpen}
-        currentImageUrl={orgUser.imageUrl}
-      />
     </div>
   );
 }
