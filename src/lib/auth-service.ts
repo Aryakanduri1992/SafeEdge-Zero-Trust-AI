@@ -11,7 +11,7 @@ import {
   fetchSignInMethodsForEmail,
   type User as FirebaseUser
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc, updateDoc, writeBatch, collection } from 'firebase/firestore';
 import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization } from './types';
 import { initializeFirebase } from '@/firebase';
 import { FirestorePermissionError } from '@/firebase/errors';
