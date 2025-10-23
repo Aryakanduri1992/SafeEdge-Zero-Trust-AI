@@ -48,45 +48,27 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const isLoading = isFirebaseUserLoading || isAuthLoading;
 
+  // This effect handles session restoration on page refresh
   useEffect(() => {
     const handleAuthChange = async () => {
       if (firebaseUser) {
-        setIsAuthLoading(true);
-        try {
-          // Force a token refresh to get the latest custom claims. This is CRITICAL.
-          const idTokenResult = await getIdTokenResult(firebaseUser, true);
-          const userProfile = await authService.getOrCreateUserProfile(firebaseUser, idTokenResult.claims);
+        if (!appUser) { // Only run if we don't have an app user yet
+          setIsAuthLoading(true);
+          try {
+            const idTokenResult = await getIdTokenResult(firebaseUser, true); // Force refresh
+            const userProfile = await authService.getOrCreateUserProfile(firebaseUser, idTokenResult.claims);
 
-          if (userProfile) {
-            setAppUser(userProfile);
-            if (userProfile.role === 'superadmin' && !pathname.startsWith('/superadmin')) {
-              router.replace('/superadmin/dashboard');
-            } else if (userProfile.role === 'admin' && !pathname.startsWith('/admin')) {
-              router.replace('/admin/dashboard');
+            if (userProfile) {
+              setAppUser(userProfile);
+            } else {
+               await authService.logout();
             }
-          } else {
-            toast({
-              variant: 'destructive',
-              title: 'Login Failed',
-              description: "Could not retrieve or create a user profile.",
-            });
+          } catch (error) {
+            console.error("Auth session restoration error:", error);
             await authService.logout();
-            setAppUser(null);
+          } finally {
+            setIsAuthLoading(false);
           }
-        } catch (error) {
-          if (error instanceof FirestorePermissionError) {
-            errorEmitter.emit('permission-error', error);
-          } else if (error instanceof Error) {
-            toast({
-              variant: 'destructive',
-              title: 'Session Error',
-              description: error.message || 'Could not retrieve user session.',
-            });
-          }
-          await authService.logout();
-          setAppUser(null);
-        } finally {
-          setIsAuthLoading(false);
         }
       } else {
         setAppUser(null);
@@ -97,9 +79,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!isFirebaseUserLoading) {
       handleAuthChange();
     }
-  }, [firebaseUser, isFirebaseUserLoading, router, toast, pathname]);
+  }, [firebaseUser, isFirebaseUserLoading, appUser]);
 
 
+  // This effect handles redirecting unauthenticated users
   useEffect(() => {
     if (!isLoading && !appUser) {
         const isAuthProtectedRoute = pathname.startsWith('/admin') || pathname.startsWith('/superadmin');
@@ -113,6 +96,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [appUser, isLoading, pathname, router]);
 
+  // This effect subscribes to data based on user role
   useEffect(() => {
     let orgsUnsubscribe: Unsubscribe | undefined;
     let departmentsUnsubscribe: Unsubscribe | undefined;
@@ -125,10 +109,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 const orgsList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, role: 'admin' } as Organization));
                 setOrganizations(orgsList);
             }, (serverError) => {
-                const permissionError = new FirestorePermissionError({
-                    path: 'organizations',
-                    operation: 'list',
-                });
+                const permissionError = new FirestorePermissionError({ path: 'organizations', operation: 'list' });
                 errorEmitter.emit('permission-error', permissionError);
                 setOrganizations([]);
             });
@@ -138,19 +119,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 const deptList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Department));
                 setDepartments(deptList);
             }, (serverError) => {
-                const permissionError = new FirestorePermissionError({
-                    path: 'departments',
-                    operation: 'list',
-                });
+                const permissionError = new FirestorePermissionError({ path: 'departments', operation: 'list' });
                 errorEmitter.emit('permission-error', permissionError);
                 setDepartments([]);
             });
         }
         else if (appUser.role === 'admin') {
             setOrganizations(prevOrgs => {
-                if (!prevOrgs.some(o => o.id === appUser.id)) {
-                    return [appUser];
-                }
+                if (!prevOrgs.some(o => o.id === appUser.id)) return [appUser];
                 const existing = prevOrgs.find(o => o.id === appUser.id);
                 if (JSON.stringify(existing) !== JSON.stringify(appUser)) {
                    return prevOrgs.map(o => o.id === appUser.id ? appUser : o);
@@ -162,10 +138,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 const deptList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Department));
                 setDepartments(deptList);
             }, (serverError) => {
-                 const permissionError = new FirestorePermissionError({
-                    path: `departments where organizationId == ${appUser.id}`,
-                    operation: 'list',
-                });
+                 const permissionError = new FirestorePermissionError({ path: `departments where organizationId == ${appUser.id}`, operation: 'list' });
                 errorEmitter.emit('permission-error', permissionError);
                 setDepartments([]);
             });
@@ -175,10 +148,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 const deviceList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Device));
                 setDevices(deviceList);
             }, (serverError) => {
-                const permissionError = new FirestorePermissionError({
-                    path: `devices where organizationId == ${appUser.id}`,
-                    operation: 'list',
-                });
+                const permissionError = new FirestorePermissionError({ path: `devices where organizationId == ${appUser.id}`, operation: 'list' });
                 errorEmitter.emit('permission-error', permissionError);
                 setDevices([]);
             });
@@ -194,19 +164,29 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (departmentsUnsubscribe) departmentsUnsubscribe();
         if (devicesUnsubscribe) devicesUnsubscribe();
     }
-}, [appUser, firestore]);
+  }, [appUser, firestore]);
 
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
     setIsAuthLoading(true);
     try {
-        await authService.login(credentials);
-        // The handleAuthChange effect will now handle profile fetching and navigation.
+        const userProfile = await authService.loginAndFetchProfile(credentials);
+        if (userProfile) {
+            setAppUser(userProfile);
+            if (userProfile.role === 'superadmin') {
+              router.replace('/superadmin/dashboard');
+            } else if (userProfile.role === 'admin') {
+              router.replace('/admin/dashboard');
+            }
+        } else {
+            throw new Error("Login failed: User profile could not be retrieved.");
+        }
     } catch (error: any) {
         toast({
             variant: 'destructive',
             title: 'Login Failed',
             description: error.message || 'An unexpected error occurred.',
         });
+    } finally {
         setIsAuthLoading(false);
     }
   };
@@ -228,30 +208,22 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const createOrganization = async (orgData: NewOrgData) => {
-    if (!appUser || appUser.role !== 'superadmin') {
-      throw new Error("Unauthorized");
-    }
+    if (!appUser || appUser.role !== 'superadmin') throw new Error("Unauthorized");
     await authService.createOrganization(orgData, appUser.id);
   };
   
   const createDepartment = async (deptData: NewDepartmentData) => {
-    if (!appUser || appUser.role !== 'superadmin') {
-      throw new Error("Unauthorized");
-    }
+    if (!appUser || appUser.role !== 'superadmin') throw new Error("Unauthorized");
     await authService.createDepartment(deptData, appUser.id);
   };
 
   const updateDepartment = async (departmentId: string, departmentData: UpdateDepartmentData) => {
-     if (!appUser || appUser.role !== 'superadmin') {
-      throw new Error("Unauthorized");
-    }
+     if (!appUser || appUser.role !== 'superadmin') throw new Error("Unauthorized");
     await authService.updateDepartment(departmentId, departmentData);
   };
 
   const deactivateDepartment = async (departmentId: string) => {
-    if (!appUser || appUser.role !== 'superadmin') {
-      throw new Error("Unauthorized");
-    }
+    if (!appUser || appUser.role !== 'superadmin') throw new Error("Unauthorized");
     await authService.deactivateDepartment(departmentId);
     toast({
       title: "Department Deactivated",
@@ -260,9 +232,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const activateDepartment = async (departmentId: string) => {
-    if (!appUser || appUser.role !== 'superadmin') {
-      throw new Error("Unauthorized");
-    }
+    if (!appUser || appUser.role !== 'superadmin') throw new Error("Unauthorized");
     await authService.activateDepartment(departmentId);
     toast({
       title: "Department Activated",
@@ -348,3 +318,5 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     </AuthContext.Provider>
   );
 };
+
+    
