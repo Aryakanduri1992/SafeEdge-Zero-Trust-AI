@@ -45,54 +45,43 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const { user: firebaseUser, isUserLoading: isFirebaseUserLoading } = useUser();
   const firestore = useFirestore();
+  const isLoading = isFirebaseUserLoading || isAuthLoading;
 
   useEffect(() => {
     const handleAuthChange = async () => {
-      if (isFirebaseUserLoading) {
-        setIsAuthLoading(true);
-        return;
-      }
-      
+      setIsAuthLoading(true);
       if (firebaseUser) {
         try {
-          // Get the full token result to access custom claims
-          const idTokenResult = await getIdTokenResult(firebaseUser, true);
+          const idTokenResult = await getIdTokenResult(firebaseUser, true); // Force refresh
           const userProfile = await authService.fetchUserProfile(firebaseUser.uid, idTokenResult.claims);
-          
-          if (userProfile) {
-              setAppUser(userProfile);
-              const onAdminLoginPage = pathname.includes('organisation-login');
-              const onSuperAdminLoginPage = pathname.includes('superadmin-login');
-
-              if (userProfile.role === 'superadmin' && (onSuperAdminLoginPage || onAdminLoginPage)) {
-                  router.replace('/superadmin/dashboard');
-              } else if (userProfile.role === 'admin' && (onAdminLoginPage || onSuperAdminLoginPage)) {
-                  router.replace('/admin/dashboard');
-              }
-          } else {
-             // This can happen briefly during login before claims are set.
-             // We will let the next auth state change handle it.
-             console.warn("User profile not found, may be transient state.");
-             setAppUser(null); // Explicitly set to null if profile fetch fails
-          }
+          setAppUser(userProfile);
         } catch (error) {
            if (error instanceof FirestorePermissionError) {
              errorEmitter.emit('permission-error', error);
            } else if (error instanceof Error) {
             toast({
               variant: 'destructive',
-              title: 'Login Error',
-              description: error.message || 'Could not retrieve user profile.',
+              title: 'Session Error',
+              description: error.message || 'Could not retrieve user session.',
             });
           }
           await authService.logout();
           setAppUser(null);
-        } finally {
-            setIsAuthLoading(false);
         }
       } else {
         setAppUser(null);
-        setIsAuthLoading(false);
+      }
+      setIsAuthLoading(false);
+    };
+
+    if (!isFirebaseUserLoading) {
+      handleAuthChange();
+    }
+  }, [firebaseUser, isFirebaseUserLoading, toast]);
+
+
+  useEffect(() => {
+    if (!isLoading && !appUser) {
         const isAuthProtectedRoute = pathname.startsWith('/admin') || pathname.startsWith('/superadmin');
         if (isAuthProtectedRoute) {
             if (pathname.startsWith('/superadmin')) {
@@ -101,10 +90,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                  router.replace('/organisation-login');
             }
         }
-      }
-    };
-    handleAuthChange();
-  }, [firebaseUser, isFirebaseUserLoading, router, pathname, toast]);
+    }
+  }, [appUser, isLoading, pathname, router]);
 
   useEffect(() => {
     let orgsUnsubscribe: Unsubscribe | undefined;
@@ -141,11 +128,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
         else if (appUser.role === 'admin') {
             setOrganizations(prevOrgs => {
-                // To avoid flashing, only update if the new user is different from what might be in the list
                 if (!prevOrgs.some(o => o.id === appUser.id)) {
                     return [appUser];
                 }
-                // Or if the user details changed
                 const existing = prevOrgs.find(o => o.id === appUser.id);
                 if (JSON.stringify(existing) !== JSON.stringify(appUser)) {
                    return prevOrgs.map(o => o.id === appUser.id ? appUser : o);
@@ -192,13 +177,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 }, [appUser, firestore]);
 
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
-    // Set loading true at the beginning of login attempt
     setIsAuthLoading(true);
     try {
-        const user = await authService.login(credentials, role);
-        // After login, the useEffect hook for auth changes will handle fetching the profile and setting loading to false.
+        const userProfile = await authService.login(credentials, role);
+        setAppUser(userProfile);
+        
+        if (userProfile.role === 'superadmin') {
+            toast({ title: 'Login Successful', description: 'Welcome, Super Admin!' });
+            router.replace('/superadmin/dashboard');
+        } else if (userProfile.role === 'admin') {
+            toast({ title: 'Login Successful', description: 'Welcome back!' });
+            router.replace('/admin/dashboard');
+        }
     } catch (error) {
-        setIsAuthLoading(false); // Ensure loading is false on login failure
+        setIsAuthLoading(false);
         throw error; // Re-throw error to be caught by the form
     }
   };
@@ -281,14 +273,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
   
   const updateOrganizationImage = async (orgId: string, imageUrl: string) => {
-    // Super admin can update any org, admin can only update their own.
-    if (!appUser || (appUser.role === 'admin' && appUser.id !== orgId)) {
+    if (!appUser || (appUser.role === 'admin' && appUser.id !== orgId) && appUser.role !== 'superadmin') {
       throw new Error("Unauthorized to update this organization's image.");
     }
     await authService.updateOrganizationImage(orgId, imageUrl);
 
     if (appUser.role === 'admin' && appUser.id === orgId) {
-        // Optimistically update the local user state for the admin
         setAppUser(prevUser => {
             if (prevUser && prevUser.role === 'admin') {
                 return { ...prevUser, imageUrl };
@@ -296,7 +286,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             return prevUser;
         });
     } else if (appUser.role === 'superadmin') {
-        // Optimistically update the organizations list for the superadmin
         setOrganizations(prevOrgs => prevOrgs.map(org => 
             org.id === orgId ? { ...org, imageUrl } : org
         ));
@@ -308,7 +297,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             throw new Error("Unauthorized to update this profile image.");
         }
         await authService.updateSuperAdminImage(uid, imageUrl);
-        // Optimistically update the local user state
         setAppUser(prevUser => {
             if (prevUser && prevUser.role === 'superadmin') {
                 return { ...prevUser, imageUrl };
@@ -316,9 +304,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             return prevUser;
         });
     };
-
-
-  const isLoading = isFirebaseUserLoading || isAuthLoading;
   
   const contextValue = { 
     user: appUser, 
@@ -347,5 +332,3 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     </AuthContext.Provider>
   );
 };
-
-    

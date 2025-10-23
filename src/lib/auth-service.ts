@@ -8,6 +8,7 @@ import {
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   signOut,
+  getIdTokenResult,
   type User as FirebaseUser
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, updateDoc, writeBatch, collection, addDoc, deleteDoc } from 'firebase/firestore';
@@ -18,7 +19,6 @@ import { errorEmitter } from '@/firebase/error-emitter';
 
 const { auth, firestore } = initializeFirebase();
 
-// This function now primarily fetches profile data, role is determined by token claims.
 export const fetchUserProfile = async (uid: string, claims: any): Promise<SuperAdminUser | Organization | null> => {
     if (claims.superadmin) {
         const superAdminRef = doc(firestore, "roles_super_admin", uid);
@@ -39,7 +39,7 @@ export const fetchUserProfile = async (uid: string, claims: any): Promise<SuperA
             errorEmitter.emit('permission-error', permissionError);
             throw permissionError;
         }
-    } else { // Assumes regular admin if not superadmin
+    } else { 
         const orgRef = doc(firestore, "organizations", uid);
         try {
             const orgSnap = await getDoc(orgRef);
@@ -52,24 +52,26 @@ export const fetchUserProfile = async (uid: string, claims: any): Promise<SuperA
             throw permissionError;
         }
     }
-
-    // If user is not found in the appropriate collection, return null.
     return null;
 }
 
 
-export const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin'): Promise<FirebaseUser> => {
+export const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin'): Promise<SuperAdminUser | Organization> => {
   const { email, password } = credentials;
   if (!password) {
       throw new Error("Password is required for login.");
   }
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
   
-  // After successful login, force refresh the token to get custom claims.
-  // This is critical for the security rules to work immediately.
-  await userCredential.user.getIdToken(true);
+  const idTokenResult = await userCredential.user.getIdTokenResult(true);
   
-  return userCredential.user;
+  const userProfile = await fetchUserProfile(userCredential.user.uid, idTokenResult.claims);
+
+  if (!userProfile) {
+    throw new Error("Login failed: User profile not found after sign-in.");
+  }
+  
+  return userProfile;
 };
 
 
@@ -81,7 +83,6 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
     if (!orgData.password) throw new Error("A password is required to create a new organization.");
     if (!orgData.email) throw new Error("An email is required to create a new organization.");
 
-    // Use a temporary app to create the user without signing out the admin
     const tempAppName = `temp-user-creation-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
@@ -127,7 +128,6 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
         if (error.code === 'auth/email-already-in-use') {
             errorMessage = `Creation failed: Email already in use. Please choose a different email.`;
         } else if (error.code?.includes('permission-denied') || error.name === 'FirebaseError') {
-             // This branch now catches the Firestore permission error from batch.commit()
              errorEmitter.emit('permission-error', new FirestorePermissionError({
                  path: `organizations and/or departments`,
                  operation: 'create',
@@ -137,7 +137,6 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
         }
         throw new Error(errorMessage);
     } finally {
-        // Clean up the temporary app instance
         if(tempAuth.currentUser) {
             await signOut(tempAuth).catch(() => {});
         }
@@ -277,48 +276,31 @@ export const updateSuperAdminImage = async (uid: string, imageUrl: string): Prom
     });
 };
 
-
-// This function ensures the Super Admin user exists in Auth and Firestore.
 const ensureSuperAdminExists = async () => {
     const superAdminEmail = 'super@authstation.com';
     const superAdminPassword = 'super-password';
-
-    // We need a separate admin-privileged environment to set custom claims.
-    // In a real app, this would be a backend server with the Admin SDK.
-    // For this environment, we'll simulate this by assuming a 'setup' phase
-    // where we could have theoretically set the claim.
-    // The login function will now be responsible for refreshing the token.
 
     const tempAppName = `temp-superadmin-check-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
 
     try {
-        // Check if user exists by trying to sign in
         await signInWithEmailAndPassword(tempAuth, superAdminEmail, superAdminPassword);
     } catch (error: any) {
         if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
              try {
-                // If user doesn't exist, create them
                 const userCredential = await createUserWithEmailAndPassword(tempAuth, superAdminEmail, superAdminPassword);
                  const user = userCredential.user;
                  if(user) {
-                    // Create the corresponding Firestore document for the super admin
                     const superAdminProfile = {
-                        id: user.uid,
                         email: user.email,
                         departmentName: "Super Admin",
                         imageUrl: null,
                     };
                     const superAdminRoleRef = doc(firestore, 'roles_super_admin', user.uid);
                     await setDoc(superAdminRoleRef, superAdminProfile);
-
-                    // IMPORTANT: In a real-world scenario, you would now call a Cloud Function
-                    // to set the custom claim for this new user. We are skipping that here
-                    // and will handle claims via a backend function that is not part of this codebase.
                  }
              } catch (seedError: any) {
-                // Ignore 'already-in-use' as it means another process created it.
                 if (seedError.code !== 'auth/email-already-in-use') {
                     console.error("Error ensuring Super Admin user exists:", seedError);
                 }
@@ -332,8 +314,6 @@ const ensureSuperAdminExists = async () => {
     }
 };
 
-
-// This logic runs once when the app loads on the client.
 if (typeof window !== 'undefined') {
     if (!(window as any).__superAdminEnsured) {
         ensureSuperAdminExists();
