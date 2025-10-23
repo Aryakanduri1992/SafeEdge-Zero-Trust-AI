@@ -19,33 +19,6 @@ import { errorEmitter } from '@/firebase/error-emitter';
 
 const { firestore } = initializeFirebase();
 
-/**
- * Ensures a profile document exists for the Super Admin in Firestore.
- * If it doesn't, it creates one with default values.
- * This is a critical one-time setup for the Super Admin user.
- */
-export const ensureSuperAdminExists = async (user: FirebaseUser): Promise<void> => {
-    const superAdminRef = doc(firestore, "roles_super_admin", user.uid);
-    try {
-        const docSnap = await getDoc(superAdminRef);
-        if (!docSnap.exists()) {
-            const superAdminProfile = {
-                email: user.email,
-                departmentName: "AuthStation HQ",
-                imageUrl: `https://picsum.photos/seed/${user.uid}/200/200`,
-            };
-            await setDoc(superAdminRef, superAdminProfile);
-        }
-    } catch (serverError: any) {
-        const permissionError = new FirestorePermissionError({
-            path: superAdminRef.path,
-            operation: 'write',
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        throw permissionError;
-    }
-};
-
 export const fetchUserProfile = async (uid: string, claims: any): Promise<SuperAdminUser | Organization | null> => {
     if (claims.superadmin) {
         const superAdminRef = doc(firestore, "roles_super_admin", uid);
@@ -90,7 +63,7 @@ export const login = async (credentials: LoginCredentials): Promise<FirebaseUser
       throw new Error("Password is required for login.");
   }
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
-  await getIdTokenResult(userCredential.user, true); // Force token refresh
+  await getIdTokenResult(userCredential.user, true);
   return userCredential.user;
 };
 

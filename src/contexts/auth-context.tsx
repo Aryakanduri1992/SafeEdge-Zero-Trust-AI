@@ -50,15 +50,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const handleAuthChange = async () => {
-      setIsAuthLoading(true);
       if (firebaseUser) {
+        setIsAuthLoading(true);
         try {
+          // Force a token refresh to ensure custom claims are present.
           const idTokenResult = await getIdTokenResult(firebaseUser, true);
           const claims = idTokenResult.claims;
-
-          if (claims.superadmin) {
-            await authService.ensureSuperAdminExists(firebaseUser);
-          }
           
           const userProfile = await authService.fetchUserProfile(firebaseUser.uid, claims);
           
@@ -72,11 +69,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           } else {
              await authService.logout();
              setAppUser(null);
-             toast({
-                variant: 'destructive',
-                title: 'Profile Inconsistency',
-                description: 'User profile could not be loaded. Please log in again.',
-             });
           }
         } catch (error) {
            if (error instanceof FirestorePermissionError) {
@@ -90,11 +82,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
           await authService.logout();
           setAppUser(null);
+        } finally {
+            setIsAuthLoading(false);
         }
       } else {
         setAppUser(null);
+        setIsAuthLoading(false);
       }
-      setIsAuthLoading(false);
     };
 
     if (!isFirebaseUserLoading) {
@@ -203,6 +197,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsAuthLoading(true);
     try {
         await authService.login(credentials);
+        toast({
+            title: 'Login Successful',
+            description: role === 'superadmin' ? 'Welcome, Super Admin!' : 'Welcome back!',
+        });
         // The useEffect hook that depends on firebaseUser will handle profile fetching and redirection
     } catch (error: any) {
         toast({
@@ -210,7 +208,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             title: 'Login Failed',
             description: error.message || 'An unexpected error occurred.',
         });
-    } finally {
         setIsAuthLoading(false);
     }
   };
