@@ -49,12 +49,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     const handleAuthChange = async () => {
-      setIsAuthLoading(true);
       if (firebaseUser) {
+        setIsAuthLoading(true);
         try {
-          const idTokenResult = await getIdTokenResult(firebaseUser, true); // Force refresh
+          // Force refresh the token to get custom claims
+          const idTokenResult = await getIdTokenResult(firebaseUser, true); 
           const userProfile = await authService.fetchUserProfile(firebaseUser.uid, idTokenResult.claims);
-          setAppUser(userProfile);
+          
+          if (userProfile) {
+            setAppUser(userProfile);
+          } else {
+             // This case happens if the user exists in Auth but not in Firestore. Log them out.
+             await authService.logout();
+             setAppUser(null);
+          }
         } catch (error) {
            if (error instanceof FirestorePermissionError) {
              errorEmitter.emit('permission-error', error);
@@ -67,11 +75,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           }
           await authService.logout();
           setAppUser(null);
+        } finally {
+            setIsAuthLoading(false);
         }
       } else {
         setAppUser(null);
+        setIsAuthLoading(false);
       }
-      setIsAuthLoading(false);
     };
 
     if (!isFirebaseUserLoading) {
@@ -190,7 +200,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             router.replace('/admin/dashboard');
         }
     } catch (error) {
-        setIsAuthLoading(false);
+        setIsAuthLoading(false); // Make sure loading is stopped on error
         throw error; // Re-throw error to be caught by the form
     }
   };

@@ -8,7 +8,6 @@ import {
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   signOut,
-  getIdTokenResult,
   type User as FirebaseUser
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, updateDoc, writeBatch, collection, addDoc, deleteDoc } from 'firebase/firestore';
@@ -63,11 +62,13 @@ export const login = async (credentials: LoginCredentials, role: 'admin' | 'supe
   }
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
   
+  // Force a token refresh to get the latest custom claims. This is crucial.
   const idTokenResult = await userCredential.user.getIdTokenResult(true);
   
   const userProfile = await fetchUserProfile(userCredential.user.uid, idTokenResult.claims);
 
   if (!userProfile) {
+    await signOut(auth); // Sign out if profile is not found to prevent being in a broken state
     throw new Error("Login failed: User profile not found after sign-in.");
   }
   
@@ -83,6 +84,7 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
     if (!orgData.password) throw new Error("A password is required to create a new organization.");
     if (!orgData.email) throw new Error("An email is required to create a new organization.");
 
+    // This temporary app is necessary to create a user without signing in the current user.
     const tempAppName = `temp-user-creation-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
@@ -276,22 +278,27 @@ export const updateSuperAdminImage = async (uid: string, imageUrl: string): Prom
     });
 };
 
+// This function ensures the super admin user exists in Firebase Auth.
 const ensureSuperAdminExists = async () => {
     const superAdminEmail = 'super@authstation.com';
     const superAdminPassword = 'super-password';
 
+    // We use a temporary app to check/create the user to avoid interfering with the main app's auth state.
     const tempAppName = `temp-superadmin-check-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
 
     try {
+        // Try to sign in to see if the user exists.
         await signInWithEmailAndPassword(tempAuth, superAdminEmail, superAdminPassword);
     } catch (error: any) {
+        // If the user does not exist, create them.
         if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
              try {
                 const userCredential = await createUserWithEmailAndPassword(tempAuth, superAdminEmail, superAdminPassword);
                  const user = userCredential.user;
                  if(user) {
+                    // This is a placeholder profile. The custom claim is what truly matters for role.
                     const superAdminProfile = {
                         email: user.email,
                         departmentName: "Super Admin",
@@ -301,12 +308,14 @@ const ensureSuperAdminExists = async () => {
                     await setDoc(superAdminRoleRef, superAdminProfile);
                  }
              } catch (seedError: any) {
+                // If it fails for a reason other than 'already exists', log it.
                 if (seedError.code !== 'auth/email-already-in-use') {
                     console.error("Error ensuring Super Admin user exists:", seedError);
                 }
              }
         }
     } finally {
+        // Always clean up the temporary app.
         if (tempAuth.currentUser) {
            await signOut(tempAuth).catch(() => {});
         }
@@ -314,6 +323,7 @@ const ensureSuperAdminExists = async () => {
     }
 };
 
+// This block ensures that the super admin user check runs once per client session.
 if (typeof window !== 'undefined') {
     if (!(window as any).__superAdminEnsured) {
         ensureSuperAdminExists();
