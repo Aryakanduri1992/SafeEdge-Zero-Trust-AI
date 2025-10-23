@@ -170,17 +170,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 }, [appUser, firestore]);
 
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
-    setIsAuthLoading(true);
-    try {
-        await authService.login(credentials, role);
-    } catch (error: any) {
-        toast({
-            variant: 'destructive',
-            title: 'Login Failed',
-            description: error.message || "Invalid credentials. Please try again."
-        });
-        setIsAuthLoading(false);
-    }
+    await authService.login(credentials, role);
   };
 
   const logout = async (): Promise<void> => {
@@ -279,11 +269,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   return (
     <AuthContext.Provider value={contextValue}>
-      {isLoading && !pathname.includes('login') ? (
-        <div className="flex h-screen w-full items-center justify-center bg-background">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        </div>
-      ) : children}
+      {children}
     </AuthContext.Provider>
   );
 };
