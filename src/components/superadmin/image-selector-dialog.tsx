@@ -31,19 +31,22 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
     const { updateOrganizationImage } = useAuth();
     const { toast } = useToast();
     
-    // State for the currently displayed/selected image URL (from gallery or existing)
-    const [selectedImageUrl, setSelectedImageUrl] = useState(organization.imageUrl || '');
-    // State specifically for a new image uploaded from local disk (as a Data URI)
-    const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+    // This state holds the URL for the image to be displayed in the preview.
+    // It can be a regular URL from the gallery or a data URI from an upload.
+    const [previewUrl, setPreviewUrl] = useState(organization.imageUrl || '');
     
+    // This state specifically holds the data URI of a newly uploaded file.
+    // It is null if the user has selected from the gallery.
+    const [uploadedImageDataUri, setUploadedImageDataUri] = useState<string | null>(null);
+
     const [isLoading, setIsLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // When the dialog opens, reset states to match the current organization
+    // Reset component state when the dialog opens or the organization changes.
     useEffect(() => {
         if (isOpen) {
-            setSelectedImageUrl(organization.imageUrl || '');
-            setUploadedImage(null);
+            setPreviewUrl(organization.imageUrl || '');
+            setUploadedImageDataUri(null);
         }
     }, [isOpen, organization.imageUrl]);
 
@@ -54,23 +57,25 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
             const reader = new FileReader();
             reader.onloadend = () => {
                 const result = reader.result as string;
-                setUploadedImage(result); // Set the new upload
-                setSelectedImageUrl(result); // Also update the preview
+                // A new file has been uploaded. Set both the specific data URI state and the general preview URL.
+                setUploadedImageDataUri(result);
+                setPreviewUrl(result);
             };
             reader.readAsDataURL(file);
         }
     };
 
     const handleGallerySelect = (imageUrl: string) => {
-        setUploadedImage(null); // Clear any pending upload
-        setSelectedImageUrl(imageUrl); // Set selection from gallery
+        // A gallery image was selected. Clear any pending upload and set the preview URL.
+        setUploadedImageDataUri(null);
+        setPreviewUrl(imageUrl);
     };
 
     const handleSave = async () => {
         if (!organization) return;
         
-        // Determine which image to save: the new upload or the gallery selection
-        const finalImageUrl = uploadedImage || selectedImageUrl;
+        // The image to save is either the newly uploaded one or the one selected from the gallery (or pre-existing).
+        const finalImageUrl = uploadedImageDataUri || previewUrl;
 
         if (!finalImageUrl) {
             toast({
@@ -132,7 +137,8 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
                                             className="object-cover transition-transform group-hover:scale-105"
                                             data-ai-hint={image.imageHint}
                                         />
-                                        {selectedImageUrl === image.imageUrl && !uploadedImage && (
+                                        {/* Show checkmark if this gallery image is the current preview AND no new file has been uploaded */}
+                                        {previewUrl === image.imageUrl && !uploadedImageDataUri && (
                                             <div className="absolute inset-0 bg-primary/70 flex items-center justify-center">
                                                 <CheckCircle2 className="h-10 w-10 text-primary-foreground" />
                                             </div>
@@ -147,9 +153,9 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
                     </TabsContent>
                     <TabsContent value="upload">
                         <div className="h-[55vh] flex flex-col items-center justify-center gap-6 py-4">
-                           {selectedImageUrl && (selectedImageUrl.startsWith('data:image') || uploadedImage) ? (
+                           {previewUrl ? (
                                 <div className="w-48 h-48 relative">
-                                    <Image src={selectedImageUrl} alt="Uploaded preview" layout="fill" className="rounded-full object-cover border-4 border-primary" />
+                                    <Image src={previewUrl} alt="Logo preview" layout="fill" className="rounded-full object-cover border-4 border-primary" />
                                 </div>
                             ) : (
                                 <div className="w-48 h-48 rounded-full bg-muted flex items-center justify-center">
@@ -175,7 +181,7 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
                
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-                    <Button onClick={handleSave} disabled={isLoading || !selectedImageUrl}>
+                    <Button onClick={handleSave} disabled={isLoading || !previewUrl}>
                         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Save Image
                     </Button>
