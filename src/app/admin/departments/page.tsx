@@ -72,6 +72,14 @@ export default function DepartmentsPage() {
   
   const activeFilterCount = [locationFilter, buildingFilter, floorFilter, statusFilter].filter(f => f !== 'all').length;
 
+  const handleResetFilters = () => {
+    setSearchTerm('');
+    setLocationFilter('all');
+    setBuildingFilter('all');
+    setFloorFilter('all');
+    setStatusFilter('all');
+  };
+
   if (isLoading || !orgUser) {
     return <LoadingSkeleton />;
   }
@@ -172,6 +180,15 @@ export default function DepartmentsPage() {
                        </Select>
                     </div>
                   </div>
+                  <Separator />
+                  <Button
+                    variant="ghost"
+                    className="w-full justify-center"
+                    onClick={handleResetFilters}
+                    disabled={activeFilterCount === 0 && !searchTerm}
+                  >
+                    Reset Filters
+                  </Button>
                 </div>
               </PopoverContent>
             </Popover>
