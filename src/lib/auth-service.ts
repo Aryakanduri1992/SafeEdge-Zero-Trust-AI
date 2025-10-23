@@ -18,10 +18,32 @@ import { initializeFirebase, FirestorePermissionError, errorEmitter } from '@/fi
 
 const { firestore, auth } = initializeFirebase();
 
+
+export async function loginAndFetchProfile(credentials: LoginCredentials): Promise<SuperAdminUser | Organization> {
+  const { email, password } = credentials;
+  if (!password) {
+    throw new Error("Password is required for login.");
+  }
+  const userCredential = await signInWithEmailAndPassword(auth, email, password);
+  
+  // This is the critical step: force a token refresh to get custom claims
+  const idTokenResult = await getIdTokenResult(userCredential.user, true);
+
+  // Now, fetch the profile with the guaranteed-fresh claims
+  const userProfile = await getOrCreateUserProfile(userCredential.user, idTokenResult.claims);
+
+  if (!userProfile) {
+    throw new Error("User profile could not be found or created after login.");
+  }
+
+  return userProfile;
+};
+
+
 export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedToken): Promise<SuperAdminUser | Organization | null> {
     const uid = user.uid;
 
-    if (claims.superadmin) {
+    if (claims.superadmin === true) {
         const superAdminRef = doc(firestore, "roles_super_admin", uid);
         try {
             let superAdminSnap = await getDoc(superAdminRef);
@@ -47,15 +69,17 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
         } catch (serverError: any) {
             const permissionError = new FirestorePermissionError({
                 path: superAdminRef.path,
-                operation: 'write', 
+                operation: serverError.code === 'permission-denied' ? 'get' : 'write', 
                 requestResourceData: { uid, email: user.email },
             });
             errorEmitter.emit('permission-error', permissionError);
             throw permissionError;
         }
+        // If we get here for a superadmin, something went wrong.
         return null;
     } 
     
+    // This part is for regular organization admins
     const orgRef = doc(firestore, "organizations", uid);
     try {
         const orgSnap = await getDoc(orgRef);
@@ -71,26 +95,6 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
     console.error("User profile not found or could not be created. UID:", uid);
     return null;
 }
-
-export const loginAndFetchProfile = async (credentials: LoginCredentials): Promise<SuperAdminUser | Organization | null> => {
-  const { email, password } = credentials;
-  if (!password) {
-      throw new Error("Password is required for login.");
-  }
-  const userCredential = await signInWithEmailAndPassword(auth, email, password);
-  
-  // This is the critical step: force a token refresh to get custom claims
-  const idTokenResult = await getIdTokenResult(userCredential.user, true);
-
-  // Now, fetch the profile with the guaranteed-fresh claims
-  const userProfile = await getOrCreateUserProfile(userCredential.user, idTokenResult.claims);
-
-  if (!userProfile) {
-    throw new Error("User profile could not be found or created after login.");
-  }
-
-  return userProfile;
-};
 
 export const logout = async (): Promise<void> => {
   await signOut(auth);
@@ -292,5 +296,3 @@ export const updateSuperAdminImage = async (uid: string, imageUrl: string): Prom
         throw permissionError;
     });
 };
-
-    
