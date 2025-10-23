@@ -53,14 +53,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsAuthLoading(true);
       if (firebaseUser) {
         try {
-          // Force refresh the token to get the latest custom claims.
-          const idTokenResult = await getIdTokenResult(firebaseUser, true); 
-          const userProfile = await authService.fetchUserProfile(firebaseUser.uid, idTokenResult.claims);
+          const idTokenResult = await getIdTokenResult(firebaseUser, true);
+          const claims = idTokenResult.claims;
+
+          if (claims.superadmin) {
+            await authService.ensureSuperAdminExists(firebaseUser);
+          }
+          
+          const userProfile = await authService.fetchUserProfile(firebaseUser.uid, claims);
           
           if (userProfile) {
             setAppUser(userProfile);
+             if (userProfile.role === 'superadmin' && !pathname.startsWith('/superadmin')) {
+              router.replace('/superadmin/dashboard');
+            } else if (userProfile.role === 'admin' && !pathname.startsWith('/admin')) {
+              router.replace('/admin/dashboard');
+            }
           } else {
-             // This case should ideally not be hit if claims and DB are in sync
              await authService.logout();
              setAppUser(null);
              toast({
@@ -88,18 +97,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setIsAuthLoading(false);
     };
 
-    // Only run when the initial Firebase user check is complete
     if (!isFirebaseUserLoading) {
       handleAuthChange();
     }
-  }, [firebaseUser, isFirebaseUserLoading, toast]);
+  }, [firebaseUser, isFirebaseUserLoading, router, toast, pathname]);
 
 
   useEffect(() => {
     if (!isLoading && !appUser) {
         const isAuthProtectedRoute = pathname.startsWith('/admin') || pathname.startsWith('/superadmin');
         if (isAuthProtectedRoute) {
-            // User is not authenticated and is on a protected route, redirect
             if (pathname.startsWith('/superadmin')) {
                  router.replace('/superadmin-login');
             } else {
@@ -195,14 +202,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
     setIsAuthLoading(true);
     try {
-        const user = await authService.login(credentials);
-        // The useEffect hook will now handle profile fetching and redirection
+        await authService.login(credentials);
+        // The useEffect hook that depends on firebaseUser will handle profile fetching and redirection
     } catch (error: any) {
         toast({
             variant: 'destructive',
             title: 'Login Failed',
             description: error.message || 'An unexpected error occurred.',
         });
+    } finally {
         setIsAuthLoading(false);
     }
   };

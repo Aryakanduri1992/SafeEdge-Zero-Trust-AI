@@ -19,8 +19,34 @@ import { errorEmitter } from '@/firebase/error-emitter';
 
 const { firestore } = initializeFirebase();
 
+/**
+ * Ensures a profile document exists for the Super Admin in Firestore.
+ * If it doesn't, it creates one with default values.
+ * This is a critical one-time setup for the Super Admin user.
+ */
+export const ensureSuperAdminExists = async (user: FirebaseUser): Promise<void> => {
+    const superAdminRef = doc(firestore, "roles_super_admin", user.uid);
+    try {
+        const docSnap = await getDoc(superAdminRef);
+        if (!docSnap.exists()) {
+            const superAdminProfile = {
+                email: user.email,
+                departmentName: "AuthStation HQ",
+                imageUrl: `https://picsum.photos/seed/${user.uid}/200/200`,
+            };
+            await setDoc(superAdminRef, superAdminProfile);
+        }
+    } catch (serverError: any) {
+        const permissionError = new FirestorePermissionError({
+            path: superAdminRef.path,
+            operation: 'write',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        throw permissionError;
+    }
+};
+
 export const fetchUserProfile = async (uid: string, claims: any): Promise<SuperAdminUser | Organization | null> => {
-    // This function now robustly checks claims to decide where to fetch the profile from.
     if (claims.superadmin) {
         const superAdminRef = doc(firestore, "roles_super_admin", uid);
         try {
@@ -64,8 +90,7 @@ export const login = async (credentials: LoginCredentials): Promise<FirebaseUser
       throw new Error("Password is required for login.");
   }
   const userCredential = await signInWithEmailAndPassword(auth, email, password);
-  // Force token refresh to get custom claims immediately.
-  await getIdTokenResult(userCredential.user, true);
+  await getIdTokenResult(userCredential.user, true); // Force token refresh
   return userCredential.user;
 };
 
@@ -78,8 +103,6 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
     if (!orgData.password) throw new Error("A password is required to create a new organization.");
     if (!orgData.email) throw new Error("An email is required to create a new organization.");
 
-    // The creation of the user and setting of claims should be handled by a backend function for security.
-    // For this prototype, we simulate the user creation to get a UID, but acknowledge this is not a secure production pattern.
     const tempAppName = `temp-user-creation-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
@@ -119,8 +142,6 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
         batch.set(deptDocRef, newDepartment);
 
         await batch.commit();
-        // In a real app, a Cloud Function would listen for the new user and set custom claims.
-        // e.g., admin.auth().setCustomUserClaims(newOrgUID, { admin: true });
 
     } catch (error: any) {
         let errorMessage = error.message;
@@ -136,7 +157,6 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
         }
         throw new Error(errorMessage);
     } finally {
-        // Clean up the temporary app instance
         if(tempAuth.currentUser) {
             await signOut(tempAuth).catch(() => {});
         }
