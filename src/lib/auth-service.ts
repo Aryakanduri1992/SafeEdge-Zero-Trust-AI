@@ -72,26 +72,27 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
     if (!orgData.password) throw new Error("A password is required to create a new organization.");
     if (!orgData.email) throw new Error("An email is required to create a new organization.");
 
-    // Step 1: Use a temporary, secondary Firebase app to create the user.
-    // This prevents the current superadmin from being logged out.
+    // Use a temporary app to create the user to avoid logging out the super admin
     const tempAppName = `temp-user-creation-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
 
     let newOrgUID: string | null = null;
+    let userCredential;
 
     try {
-        // First, check if email is already in use with the *main* auth instance to be sure.
+        // Step 1: Check if email is already in use using the MAIN auth instance
         const signInMethods = await fetchSignInMethodsForEmail(auth, orgData.email);
         if (signInMethods.length > 0) {
-            throw new Error(`An account with the email ${orgData.email} already exists.`);
+            await deleteApp(tempApp);
+            throw new Error(`Email already in use: ${orgData.email}`);
         }
 
-        // Create the user in the temporary auth instance.
-        const userCredential = await createUserWithEmailAndPassword(tempAuth, orgData.email, orgData.password);
+        // Step 2: Create the new user in the temporary auth instance
+        userCredential = await createUserWithEmailAndPassword(tempAuth, orgData.email, orgData.password);
         newOrgUID = userCredential.user.uid;
 
-        // Step 2: If user creation is successful, create the organization document in Firestore.
+        // Step 3: Create the organization document in Firestore using the MAIN Firestore instance
         const newOrgProfile: Omit<Organization, 'id' | 'role'> = {
             organizationName: orgData.organizationName,
             email: orgData.email,
@@ -103,25 +104,23 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
         await setDoc(orgDocRef, newOrgProfile);
 
     } catch (error: any) {
-         // This will catch auth errors (like email-already-in-use from a race condition)
-         // and Firestore errors (from security rules).
-        if (newOrgUID) {
-             const detailedError = `Creation Failed: An authentication account for ${orgData.email} was created, but saving the organization data to the database was blocked. This is almost certainly due to a security rule violation. Please go to the Firebase Console, delete the user from the 'Authentication' tab, check the security rules, and try again. Original Error: ${error.message}`;
+        // This will now properly catch Firestore permission errors if they occur
+        if (error.code && error.code.startsWith('permission-denied')) {
              errorEmitter.emit('permission-error', new FirestorePermissionError({
                  path: `organizations/${newOrgUID}`,
                  operation: 'create',
-                 requestResourceData: { org: orgData, superAdminId }
+                 requestResourceData: orgData
              }));
-             throw new Error(detailedError);
+             throw new Error(`A security rule violation occurred while creating the organization data. Please check your Firestore rules.`);
         }
         
-        // Re-throw other errors (e.g., auth/email-already-in-use)
+        // Re-throw other errors (e.g., auth errors from createUserWithEmailAndPassword)
         throw error;
 
     } finally {
-        // Step 3: Clean up the temporary app regardless of success or failure.
-        await signOut(tempAuth).catch(() => {});
-        await deleteApp(tempApp);
+        // Step 4: Clean up the temporary app and sign out its user
+        await signOut(tempAuth).catch(() => {}); // Sign out from temp app
+        await deleteApp(tempApp); // Delete the temp app
     }
 };
 
