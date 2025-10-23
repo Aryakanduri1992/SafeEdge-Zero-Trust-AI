@@ -4,7 +4,7 @@
 import { useAuth } from "@/hooks/use-auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Users, Building, CheckCircle, XCircle, HardDrive } from "lucide-react";
+import { Users, Building, CheckCircle, XCircle, HardDrive, HardDrives } from "lucide-react";
 import { Organization } from "@/lib/types";
 import {
   Dialog,
@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 
 const LoadingSkeleton = () => (
   <div className="flex flex-col gap-8">
@@ -32,7 +33,7 @@ const LoadingSkeleton = () => (
 
 
 export default function AdminDashboardPage() {
-  const { user, departments } = useAuth();
+  const { user, departments, devices } = useAuth();
   const orgUser = user as Organization;
   
   const isLoading = departments.length === 0 && !user;
@@ -47,6 +48,9 @@ export default function AdminDashboardPage() {
 
   const totalDepartments = departments.length;
   const totalDeviceQuota = departments.reduce((acc, dept) => acc + dept.devices, 0);
+  const usedDevices = devices.length;
+  const remainingDevices = totalDeviceQuota - usedDevices;
+  const usagePercentage = totalDeviceQuota > 0 ? (usedDevices / totalDeviceQuota) * 100 : 0;
 
 
   return (
@@ -128,16 +132,51 @@ export default function AdminDashboardPage() {
           </DialogContent>
         </Dialog>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Device License Quota</CardTitle>
-            <Building className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalDeviceQuota}</div>
-            <p className="text-xs text-muted-foreground">Total devices licensed</p>
-          </CardContent>
-        </Card>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Card className="cursor-pointer transition-colors hover:border-primary/50">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Device License Quota</CardTitle>
+                <HardDrives className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{totalDeviceQuota}</div>
+                <p className="text-xs text-muted-foreground">Total devices licensed</p>
+              </CardContent>
+            </Card>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-md">
+             <DialogHeader>
+                <DialogTitle>Device License Status</DialogTitle>
+                <DialogDescription>
+                    Your organization's current device license usage.
+                </DialogDescription>
+             </DialogHeader>
+             <div className="space-y-6 pt-4">
+                <div className="space-y-2">
+                    <div className="flex justify-between items-baseline">
+                        <span className="text-sm text-muted-foreground">Used Licenses</span>
+                        <span className="text-sm font-semibold">{usedDevices} / {totalDeviceQuota}</span>
+                    </div>
+                    <Progress value={usagePercentage} />
+                </div>
+                <div className="grid grid-cols-3 gap-4 text-center">
+                    <div>
+                        <p className="text-xs text-muted-foreground">Total</p>
+                        <p className="text-2xl font-bold">{totalDeviceQuota}</p>
+                    </div>
+                     <div>
+                        <p className="text-xs text-muted-foreground">Used</p>
+                        <p className="text-2xl font-bold text-primary">{usedDevices}</p>
+                    </div>
+                     <div>
+                        <p className="text-xs text-muted-foreground">Remaining</p>
+                        <p className="text-2xl font-bold text-green-400">{remainingDevices}</p>
+                    </div>
+                </div>
+             </div>
+          </DialogContent>
+        </Dialog>
       </div>
 
        <Card>
