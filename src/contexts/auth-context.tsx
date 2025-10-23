@@ -185,9 +185,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             title: 'Login Failed',
             description: error.message || 'An unexpected error occurred.',
         });
-        setIsAuthLoading(false); // Ensure loading is stopped on error
+    } finally {
+        setIsAuthLoading(false);
     }
-    // On success, isAuthLoading will be set to false by the user state change effect
   };
 
   const logout = async (): Promise<void> => {
