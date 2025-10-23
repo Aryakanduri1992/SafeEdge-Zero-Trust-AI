@@ -29,7 +29,7 @@ export function Sidebar() {
         <div className="flex h-16 items-center border-b px-6">
           <Link href="/admin/dashboard" className="flex items-center gap-2 font-semibold">
             <Logo className="h-8 w-8" />
-            <span className="font-headline text-xl text-primary">{orgUser?.organizationName || "SafeEdge"}</span>
+            <span className="font-headline text-xl text-primary">{orgUser?.organizationName || "Dashboard"}</span>
           </Link>
         </div>
         <div className="flex-1 overflow-auto py-2">

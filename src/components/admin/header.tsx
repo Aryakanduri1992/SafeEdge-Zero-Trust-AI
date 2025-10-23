@@ -22,11 +22,11 @@ export function Header() {
   const mobileNavItems = navItems;
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b bg-background/95 px-4 shadow-sm backdrop-blur-sm sm:px-6 md:justify-end">
-       <div className="flex items-center gap-4 md:hidden">
+    <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b bg-background/95 px-4 shadow-sm backdrop-blur-sm sm:px-6">
+       <div className="flex items-center gap-2">
          <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
           <SheetTrigger asChild>
-            <Button variant="outline" size="icon">
+            <Button variant="outline" size="icon" className="md:hidden">
               <Menu className="h-5 w-5" />
               <span className="sr-only">Toggle navigation menu</span>
             </Button>
@@ -39,7 +39,7 @@ export function Header() {
                 className="flex items-center gap-2 text-lg font-semibold mb-4"
                 >
                 <Logo className="h-8 w-8" />
-                <span className="sr-only">{orgUser?.organizationName}</span>
+                <span>{orgUser?.organizationName}</span>
                 </Link>
                 {mobileNavItems.map((item) => (
                     <Link
@@ -58,9 +58,10 @@ export function Header() {
             </nav>
           </SheetContent>
         </Sheet>
-        <span className="font-headline text-lg font-bold text-primary sm:text-xl">
-          {orgUser?.organizationName || ''}
-        </span>
+        <Link href="/admin/dashboard" className="flex items-center gap-2 font-semibold">
+            <Logo className="h-6 w-6" />
+            <span className="font-headline text-lg sm:text-xl text-primary hidden sm:inline">SafeEdge Cyber System</span>
+        </Link>
       </div>
       <div className='flex items-center gap-2 sm:gap-4'>
         <Button variant="ghost" size="icon">
