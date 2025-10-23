@@ -102,7 +102,7 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
                                 className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
                                 onClick={() => setSearchTerm('')}
                             >
-                                <X className="h-4 w-4" />
+                                <X className="h-4 w-4 text-muted-foreground transition-colors hover:text-primary" />
                             </Button>
                         )}
                         </div>
