@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Device, Department } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Trash2, HardDrive, AlertTriangle } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, HardDrive, AlertTriangle, Search } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { DeviceForm } from './device-form';
 import { DeleteDeviceDialog } from './delete-device-dialog';
@@ -20,6 +20,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Input } from '../ui/input';
 
 type DeviceListProps = {
     devices: Device[];
@@ -31,6 +32,15 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+    const [searchTerm, setSearchTerm] = useState('');
+
+    const filteredDevices = useMemo(() => {
+        return devices.filter(device => {
+            const department = departments.find(d => d.id === device.departmentId);
+            const searchCorpus = `${device.name} ${device.location} ${device.type} ${department?.departmentName || ''}`.toLowerCase();
+            return searchCorpus.includes(searchTerm.toLowerCase());
+        });
+    }, [devices, departments, searchTerm]);
 
     const handleEditClick = (device: Device) => {
         setSelectedDevice(device);
@@ -76,6 +86,17 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
                 <CardHeader>
                     <CardTitle>Registered Devices</CardTitle>
                     <CardDescription>A list of all devices registered to your organization.</CardDescription>
+                     <div className="mt-4 flex items-center gap-2">
+                        <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Search devices..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-10"
+                        />
+                        </div>
+                    </div>
                 </CardHeader>
                 <CardContent>
                     {devices.length > 0 ? (
@@ -92,7 +113,7 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {devices.map((device) => (
+                                {filteredDevices.map((device) => (
                                     <TableRow key={device.id}>
                                         <TableCell className="font-medium">{device.name}</TableCell>
                                         <TableCell>{getDepartmentName(device.departmentId)}</TableCell>
@@ -126,6 +147,13 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
                                         </TableCell>
                                     </TableRow>
                                 ))}
+                                {filteredDevices.length === 0 && (
+                                    <TableRow>
+                                        <TableCell colSpan={7} className="h-24 text-center">
+                                            No devices found matching your criteria.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
                             </TableBody>
                         </Table>
                     ) : (
