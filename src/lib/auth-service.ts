@@ -68,10 +68,11 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
                 } as SuperAdminUser;
             }
         } catch (serverError: any) {
+            const isCreationError = serverError.code === 'permission-denied';
             const permissionError = new FirestorePermissionError({
                 path: superAdminRef.path,
-                operation: serverError.code === 'permission-denied' ? 'create' : 'get',
-                requestResourceData: serverError.code === 'permission-denied' ? { email: user.email } : undefined,
+                operation: isCreationError ? 'create' : 'get',
+                requestResourceData: isCreationError ? { email: user.email } : undefined,
             });
             errorEmitter.emit('permission-error', permissionError);
             throw permissionError;

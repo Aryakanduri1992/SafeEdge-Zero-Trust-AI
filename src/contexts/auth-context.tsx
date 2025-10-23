@@ -6,7 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import * as authService from '@/lib/auth-service';
 import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData, NewDeviceData, UpdateDeviceData, Device } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, useFirestore, FirestorePermissionError, errorEmitter } from '@/firebase';
+import { useFirebase, FirestorePermissionError, errorEmitter } from '@/firebase';
 import { collection, onSnapshot, Unsubscribe, query, where } from 'firebase/firestore';
 import { User, getIdTokenResult } from 'firebase/auth';
 
@@ -170,6 +170,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsAuthLoading(true);
     try {
         const userProfile = await authService.loginAndFetchProfile(credentials);
+        if (!userProfile) {
+          throw new Error(`Login failed: Could not retrieve a user profile for ${credentials.email}.`);
+        }
         setAppUser(userProfile);
         if (userProfile.role === 'superadmin') {
             router.replace('/superadmin/dashboard');
@@ -182,11 +185,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             title: 'Login Failed',
             description: error.message || 'An unexpected error occurred.',
         });
-        // We do not set isAuthLoading to false here on error, 
-        // because the auth state listener will trigger and do it.
-    } finally {
-        setIsAuthLoading(false);
+        setIsAuthLoading(false); // Ensure loading is stopped on error
     }
+    // On success, isAuthLoading will be set to false by the user state change effect
   };
 
   const logout = async (): Promise<void> => {
