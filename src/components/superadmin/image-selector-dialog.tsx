@@ -31,18 +31,12 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
     const { updateOrganizationImage } = useAuth();
     const { toast } = useToast();
     
-    // This state holds the URL for the image to be displayed in the preview.
-    // It can be a regular URL from the gallery or a data URI from an upload.
     const [previewUrl, setPreviewUrl] = useState(organization.imageUrl || '');
-    
-    // This state specifically holds the data URI of a newly uploaded file.
-    // It is null if the user has selected from the gallery.
     const [uploadedImageDataUri, setUploadedImageDataUri] = useState<string | null>(null);
 
     const [isLoading, setIsLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Reset component state when the dialog opens or the organization changes.
     useEffect(() => {
         if (isOpen) {
             setPreviewUrl(organization.imageUrl || '');
@@ -57,7 +51,6 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
             const reader = new FileReader();
             reader.onloadend = () => {
                 const result = reader.result as string;
-                // A new file has been uploaded. Set both the specific data URI state and the general preview URL.
                 setUploadedImageDataUri(result);
                 setPreviewUrl(result);
             };
@@ -66,7 +59,6 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
     };
 
     const handleGallerySelect = (imageUrl: string) => {
-        // A gallery image was selected. Clear any pending upload and set the preview URL.
         setUploadedImageDataUri(null);
         setPreviewUrl(imageUrl);
     };
@@ -74,7 +66,6 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
     const handleSave = async () => {
         if (!organization) return;
         
-        // The image to save is either the newly uploaded one or the one selected from the gallery (or pre-existing).
         const finalImageUrl = uploadedImageDataUri || previewUrl;
 
         if (!finalImageUrl) {
@@ -137,7 +128,6 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
                                             className="object-cover transition-transform group-hover:scale-105"
                                             data-ai-hint={image.imageHint}
                                         />
-                                        {/* Show checkmark if this gallery image is the current preview AND no new file has been uploaded */}
                                         {previewUrl === image.imageUrl && !uploadedImageDataUri && (
                                             <div className="absolute inset-0 bg-primary/70 flex items-center justify-center">
                                                 <CheckCircle2 className="h-10 w-10 text-primary-foreground" />
@@ -153,9 +143,13 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
                     </TabsContent>
                     <TabsContent value="upload">
                         <div className="h-[55vh] flex flex-col items-center justify-center gap-6 py-4">
-                           {previewUrl ? (
+                           {previewUrl && uploadedImageDataUri ? (
                                 <div className="w-48 h-48 relative">
                                     <Image src={previewUrl} alt="Logo preview" layout="fill" className="rounded-full object-cover border-4 border-primary" />
+                                </div>
+                           ) : previewUrl && !uploadedImageDataUri ? (
+                                <div className="w-48 h-48 relative">
+                                    <Image src={previewUrl} alt="Logo preview" layout="fill" className="rounded-full object-cover border-4 border-muted" />
                                 </div>
                             ) : (
                                 <div className="w-48 h-48 rounded-full bg-muted flex items-center justify-center">
