@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
@@ -30,27 +30,60 @@ type ImageSelectorDialogProps = {
 export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: ImageSelectorDialogProps) {
     const { updateOrganizationImage } = useAuth();
     const { toast } = useToast();
-    const [selectedImage, setSelectedImage] = useState(organization.imageUrl || '');
+    
+    // State for the currently displayed/selected image URL (from gallery or existing)
+    const [selectedImageUrl, setSelectedImageUrl] = useState(organization.imageUrl || '');
+    // State specifically for a new image uploaded from local disk (as a Data URI)
+    const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+    
     const [isLoading, setIsLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    // When the dialog opens, reset states to match the current organization
+    useEffect(() => {
+        if (isOpen) {
+            setSelectedImageUrl(organization.imageUrl || '');
+            setUploadedImage(null);
+        }
+    }, [isOpen, organization.imageUrl]);
+
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
         if (file) {
             const reader = new FileReader();
             reader.onloadend = () => {
-                setSelectedImage(reader.result as string);
+                const result = reader.result as string;
+                setUploadedImage(result); // Set the new upload
+                setSelectedImageUrl(result); // Also update the preview
             };
             reader.readAsDataURL(file);
         }
     };
 
+    const handleGallerySelect = (imageUrl: string) => {
+        setUploadedImage(null); // Clear any pending upload
+        setSelectedImageUrl(imageUrl); // Set selection from gallery
+    };
+
     const handleSave = async () => {
-        if (!organization || !selectedImage) return;
+        if (!organization) return;
+        
+        // Determine which image to save: the new upload or the gallery selection
+        const finalImageUrl = uploadedImage || selectedImageUrl;
+
+        if (!finalImageUrl) {
+            toast({
+                variant: 'destructive',
+                title: 'No Image Selected',
+                description: 'Please select an image from the gallery or upload one.',
+            });
+            return;
+        }
 
         setIsLoading(true);
         try {
-            await updateOrganizationImage(organization.id, selectedImage);
+            await updateOrganizationImage(organization.id, finalImageUrl);
             toast({
                 title: "Image Updated",
                 description: `The logo for ${organization.organizationName} has been changed.`,
@@ -89,7 +122,7 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
                                     <div
                                         key={image.id}
                                         className="relative aspect-square cursor-pointer group rounded-lg overflow-hidden border-2 border-transparent transition-all"
-                                        onClick={() => setSelectedImage(image.imageUrl)}
+                                        onClick={() => handleGallerySelect(image.imageUrl)}
                                     >
                                         <Image
                                             src={image.imageUrl}
@@ -99,7 +132,7 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
                                             className="object-cover transition-transform group-hover:scale-105"
                                             data-ai-hint={image.imageHint}
                                         />
-                                        {selectedImage === image.imageUrl && (
+                                        {selectedImageUrl === image.imageUrl && !uploadedImage && (
                                             <div className="absolute inset-0 bg-primary/70 flex items-center justify-center">
                                                 <CheckCircle2 className="h-10 w-10 text-primary-foreground" />
                                             </div>
@@ -114,9 +147,9 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
                     </TabsContent>
                     <TabsContent value="upload">
                         <div className="h-[55vh] flex flex-col items-center justify-center gap-6 py-4">
-                           {selectedImage && selectedImage.startsWith('data:image') ? (
+                           {selectedImageUrl && (selectedImageUrl.startsWith('data:image') || uploadedImage) ? (
                                 <div className="w-48 h-48 relative">
-                                    <Image src={selectedImage} alt="Uploaded preview" layout="fill" className="rounded-full object-cover border-4 border-primary" />
+                                    <Image src={selectedImageUrl} alt="Uploaded preview" layout="fill" className="rounded-full object-cover border-4 border-primary" />
                                 </div>
                             ) : (
                                 <div className="w-48 h-48 rounded-full bg-muted flex items-center justify-center">
@@ -142,7 +175,7 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
                
                 <DialogFooter>
                     <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-                    <Button onClick={handleSave} disabled={isLoading || !selectedImage}>
+                    <Button onClick={handleSave} disabled={isLoading || !selectedImageUrl}>
                         {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Save Image
                     </Button>
