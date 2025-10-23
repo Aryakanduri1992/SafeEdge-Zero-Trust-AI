@@ -31,12 +31,15 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
     const { updateOrganizationImage } = useAuth();
     const { toast } = useToast();
     
-    const [previewUrl, setPreviewUrl] = useState(organization.imageUrl || '');
+    // State for the image URL to be displayed in the preview
+    const [previewUrl, setPreviewUrl] = useState('');
+    // State to specifically hold the base64 data of a newly uploaded file
     const [uploadedImageDataUri, setUploadedImageDataUri] = useState<string | null>(null);
 
     const [isLoading, setIsLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    // Reset state when the dialog opens
     useEffect(() => {
         if (isOpen) {
             setPreviewUrl(organization.imageUrl || '');
@@ -51,6 +54,7 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
             const reader = new FileReader();
             reader.onloadend = () => {
                 const result = reader.result as string;
+                // An image was uploaded, store its data URI and update the preview
                 setUploadedImageDataUri(result);
                 setPreviewUrl(result);
             };
@@ -59,6 +63,7 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
     };
 
     const handleGallerySelect = (imageUrl: string) => {
+        // A gallery image was selected, clear any uploaded file data
         setUploadedImageDataUri(null);
         setPreviewUrl(imageUrl);
     };
@@ -66,6 +71,7 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
     const handleSave = async () => {
         if (!organization) return;
         
+        // Determine which image URL to save. Prioritize the newly uploaded image.
         const finalImageUrl = uploadedImageDataUri || previewUrl;
 
         if (!finalImageUrl) {
@@ -86,10 +92,11 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
             });
             onOpenChange(false);
         } catch (error: any) {
+            console.error("Image update failed:", error);
             toast({
                 variant: 'destructive',
                 title: 'Update Failed',
-                description: error.message || "Could not update the profile image.",
+                description: error.message || "Could not update the profile image. Check permissions.",
             });
         } finally {
             setIsLoading(false);
@@ -143,15 +150,11 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
                     </TabsContent>
                     <TabsContent value="upload">
                         <div className="h-[55vh] flex flex-col items-center justify-center gap-6 py-4">
-                           {previewUrl && uploadedImageDataUri ? (
+                           {previewUrl ? (
                                 <div className="w-48 h-48 relative">
                                     <Image src={previewUrl} alt="Logo preview" layout="fill" className="rounded-full object-cover border-4 border-primary" />
                                 </div>
-                           ) : previewUrl && !uploadedImageDataUri ? (
-                                <div className="w-48 h-48 relative">
-                                    <Image src={previewUrl} alt="Logo preview" layout="fill" className="rounded-full object-cover border-4 border-muted" />
-                                </div>
-                            ) : (
+                           ) : (
                                 <div className="w-48 h-48 rounded-full bg-muted flex items-center justify-center">
                                     <Upload className="h-16 w-16 text-muted-foreground" />
                                 </div>
