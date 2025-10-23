@@ -72,55 +72,63 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
     if (!orgData.password) throw new Error("A password is required to create a new organization.");
     if (!orgData.email) throw new Error("An email is required to create a new organization.");
 
-    // Use a temporary app to create the user to avoid logging out the super admin
     const tempAppName = `temp-user-creation-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
-
-    let newOrgUID: string | null = null;
     let userCredential;
 
     try {
-        // Step 1: Check if email is already in use using the MAIN auth instance
         const signInMethods = await fetchSignInMethodsForEmail(auth, orgData.email);
         if (signInMethods.length > 0) {
-            await deleteApp(tempApp);
             throw new Error(`Email already in use: ${orgData.email}`);
         }
 
-        // Step 2: Create the new user in the temporary auth instance
         userCredential = await createUserWithEmailAndPassword(tempAuth, orgData.email, orgData.password);
-        newOrgUID = userCredential.user.uid;
+        const newOrgUID = userCredential.user.uid;
 
-        // Step 3: Create the organization document in Firestore using the MAIN Firestore instance
+        const batch = writeBatch(firestore);
+
         const newOrgProfile: Omit<Organization, 'id' | 'role'> = {
             organizationName: orgData.organizationName,
             email: orgData.email,
             createdAt: new Date().toISOString(),
             superAdminId: superAdminId,
         };
-
         const orgDocRef = doc(firestore, "organizations", newOrgUID);
-        await setDoc(orgDocRef, newOrgProfile);
+        batch.set(orgDocRef, newOrgProfile);
+        
+        const newDepartment: Omit<Department, 'id'> = {
+            departmentName: orgData.departmentName,
+            organizationName: orgData.organizationName,
+            email: orgData.email,
+            building: orgData.building,
+            floor: orgData.floor,
+            location: orgData.location,
+            createdAt: new Date().toISOString(),
+            devices: orgData.devices,
+            plan: orgData.plan,
+            status: 'active',
+            superAdminId: superAdminId,
+            organizationId: newOrgUID,
+        };
+        const deptDocRef = doc(collection(firestore, "departments"));
+        batch.set(deptDocRef, newDepartment);
+
+        await batch.commit();
 
     } catch (error: any) {
-        // This will now properly catch Firestore permission errors if they occur
         if (error.code && error.code.startsWith('permission-denied')) {
              errorEmitter.emit('permission-error', new FirestorePermissionError({
-                 path: `organizations/${newOrgUID}`,
+                 path: `organizations`,
                  operation: 'create',
                  requestResourceData: orgData
              }));
-             throw new Error(`A security rule violation occurred while creating the organization data. Please check your Firestore rules.`);
+             throw new Error(`A security rule violation occurred. Please check your Firestore rules.`);
         }
-        
-        // Re-throw other errors (e.g., auth errors from createUserWithEmailAndPassword)
         throw error;
-
     } finally {
-        // Step 4: Clean up the temporary app and sign out its user
-        await signOut(tempAuth).catch(() => {}); // Sign out from temp app
-        await deleteApp(tempApp); // Delete the temp app
+        await signOut(tempAuth).catch(() => {});
+        await deleteApp(tempApp);
     }
 };
 
@@ -172,7 +180,6 @@ const seedSuperAdmin = async () => {
     const superAdminEmail = 'super@authstation.com';
     const superAdminPassword = 'super-password';
 
-    // Use a temporary app to avoid interfering with any logged-in user state
     const tempAppName = `temp-superadmin-check-${Date.now()}`;
     const tempApp = initializeApp(firebaseConfig, tempAppName);
     const tempAuth = getAuth(tempApp);
@@ -205,7 +212,6 @@ const seedSuperAdmin = async () => {
     }
 };
 
-// Ensure seeding only runs once on the client
 if (typeof window !== 'undefined') {
     if (!(window as any).__superAdminSeeded) {
         seedSuperAdmin();

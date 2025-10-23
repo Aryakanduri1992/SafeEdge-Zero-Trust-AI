@@ -75,6 +75,12 @@ export type NewOrgData = {
   organizationName: string;
   email: string;
   password: string;
+  departmentName: string;
+  location: string;
+  building: string;
+  floor: string;
+  plan: Plan;
+  devices: number;
 };
 
 export type UpdateDepartmentData = {
