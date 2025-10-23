@@ -25,6 +25,7 @@ type AuthContextType = {
   createDevice: (deviceData: NewDeviceData) => Promise<void>;
   updateDevice: (deviceId: string, deviceData: UpdateDeviceData) => Promise<void>;
   deleteDevice: (deviceId: string) => Promise<void>;
+  updateOrganizationImage: (orgId: string, imageUrl: string) => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -244,6 +245,21 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await authService.deleteDevice(deviceId);
     toast({ title: "Device Deleted", description: `The device has been removed from the system.` });
   };
+  
+  const updateOrganizationImage = async (orgId: string, imageUrl: string) => {
+    if (!appUser || appUser.role !== 'admin' || appUser.id !== orgId) {
+        throw new Error("Unauthorized");
+    }
+    await authService.updateOrganizationImage(orgId, imageUrl);
+    // Optimistically update the local user state
+    setAppUser(prevUser => {
+        if (prevUser && prevUser.role === 'admin') {
+            return { ...prevUser, imageUrl };
+        }
+        return prevUser;
+    });
+    toast({ title: "Profile Image Updated", description: "Your organization's profile image has been changed." });
+  };
 
 
   const isLoading = isFirebaseUserLoading || isAuthLoading;
@@ -263,7 +279,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     activateDepartment,
     createDevice,
     updateDevice,
-    deleteDevice
+    deleteDevice,
+    updateOrganizationImage
   };
 
   return (

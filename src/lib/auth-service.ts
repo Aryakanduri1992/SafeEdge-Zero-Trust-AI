@@ -95,6 +95,7 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
             email: orgData.email,
             createdAt: new Date().toISOString(),
             superAdminId: superAdminId,
+            imageUrl: `https://picsum.photos/seed/${Math.round(Math.random() * 1000)}/200/200`,
         };
         const orgDocRef = doc(firestore, "organizations", newOrgUID);
         batch.set(orgDocRef, newOrgProfile);
@@ -243,6 +244,20 @@ export const deleteDevice = async (deviceId: string): Promise<void> => {
         errorEmitter.emit('permission-error', permissionError);
         throw permissionError;
     });
+};
+
+export const updateOrganizationImage = async (orgId: string, imageUrl: string): Promise<void> => {
+  const orgRef = doc(firestore, 'organizations', orgId);
+  const updateData = { imageUrl };
+  await updateDoc(orgRef, updateData).catch(serverError => {
+    const permissionError = new FirestorePermissionError({
+      path: orgRef.path,
+      operation: 'update',
+      requestResourceData: updateData,
+    });
+    errorEmitter.emit('permission-error', permissionError);
+    throw permissionError;
+  });
 };
 
 
