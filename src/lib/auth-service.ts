@@ -18,6 +18,7 @@ import { initializeFirebase, FirestorePermissionError, errorEmitter } from '@/fi
 
 const { firestore } = initializeFirebase();
 
+
 export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedToken): Promise<SuperAdminUser | Organization | null> {
     const uid = user.uid;
 
@@ -54,20 +55,23 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
             errorEmitter.emit('permission-error', permissionError);
             throw permissionError;
         }
-    } else {
-        // This logic is for regular organization users
-        const orgRef = doc(firestore, "organizations", uid);
-        try {
-            const orgSnap = await getDoc(orgRef);
-            if (orgSnap.exists()) {
-                return { ...orgSnap.data(), id: uid, role: 'admin' } as Organization;
-            }
-        } catch (serverError: any) {
-            const permissionError = new FirestorePermissionError({ path: orgRef.path, operation: 'get' });
-            errorEmitter.emit('permission-error', permissionError);
-            throw permissionError;
+        // This return is critical. If we've handled the superadmin, we must exit here.
+        return null; 
+    } 
+    
+    // This logic is for regular organization users
+    const orgRef = doc(firestore, "organizations", uid);
+    try {
+        const orgSnap = await getDoc(orgRef);
+        if (orgSnap.exists()) {
+            return { ...orgSnap.data(), id: uid, role: 'admin' } as Organization;
         }
+    } catch (serverError: any) {
+        const permissionError = new FirestorePermissionError({ path: orgRef.path, operation: 'get' });
+        errorEmitter.emit('permission-error', permissionError);
+        throw permissionError;
     }
+
 
     // This should only be reached if a non-superadmin user logs in who doesn't have an org profile.
     console.error("User profile not found or could not be created. UID:", uid);
@@ -286,3 +290,6 @@ export const updateSuperAdminImage = async (uid: string, imageUrl: string): Prom
         throw permissionError;
     });
 };
+
+
+    
