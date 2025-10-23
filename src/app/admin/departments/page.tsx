@@ -6,12 +6,15 @@ import { Organization, Department } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, XCircle, HardDrive, Search, Filter, ChevronDown } from "lucide-react";
+import { CheckCircle, XCircle, HardDrive, Search, Filter } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMemo, useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuSeparator, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
 
 const LoadingSkeleton = () => (
   <div className="space-y-4">
@@ -66,6 +69,8 @@ export default function DepartmentsPage() {
       return matchesSearch && matchesLocation && matchesBuilding && matchesFloor && matchesStatus;
     });
   }, [departments, searchTerm, locationFilter, buildingFilter, floorFilter, statusFilter]);
+  
+  const activeFilterCount = [locationFilter, buildingFilter, floorFilter, statusFilter].filter(f => f !== 'all').length;
 
   if (isLoading || !orgUser) {
     return <LoadingSkeleton />;
@@ -95,59 +100,81 @@ export default function DepartmentsPage() {
                 className="pl-10"
               />
             </div>
-             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="flex-1 sm:flex-none">
-                  Location: {locationFilter === 'all' ? 'All' : locationFilter} <ChevronDown className="ml-2 h-4 w-4"/>
+            <Popover>
+              <PopoverTrigger asChild>
+                 <Button variant="outline" className="relative">
+                    <Filter className="mr-2 h-4 w-4" />
+                    Filter
+                    {activeFilterCount > 0 && (
+                        <Badge variant="destructive" className="absolute -right-2 -top-2 h-5 w-5 justify-center rounded-full p-0">
+                            {activeFilterCount}
+                        </Badge>
+                    )}
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuRadioGroup value={locationFilter} onValueChange={setLocationFilter}>
-                    <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
-                    {uniqueLocations.map(loc => <DropdownMenuRadioItem key={loc} value={loc}>{loc}</DropdownMenuRadioItem>)}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="flex-1 sm:flex-none">
-                  Building: {buildingFilter === 'all' ? 'All' : buildingFilter} <ChevronDown className="ml-2 h-4 w-4"/>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuRadioGroup value={buildingFilter} onValueChange={setBuildingFilter}>
-                    <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
-                    {uniqueBuildings.map(b => <DropdownMenuRadioItem key={b} value={b}>{b}</DropdownMenuRadioItem>)}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="flex-1 sm:flex-none">
-                  Floor: {floorFilter === 'all' ? 'All' : floorFilter} <ChevronDown className="ml-2 h-4 w-4"/>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuRadioGroup value={floorFilter} onValueChange={setFloorFilter}>
-                    <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
-                    {uniqueFloors.map(f => <DropdownMenuRadioItem key={f} value={f}>{f}</DropdownMenuRadioItem>)}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="flex-1 sm:flex-none">
-                   Status: {statusFilter.charAt(0).toUpperCase() + statusFilter.slice(1)} <ChevronDown className="ml-2 h-4 w-4"/>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuRadioGroup value={statusFilter} onValueChange={(value) => setStatusFilter(value as any)}>
-                    <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="active">Active</DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="inactive">Inactive</DropdownMenuRadioItem>
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              </PopoverTrigger>
+              <PopoverContent className="w-80" align="end">
+                <div className="grid gap-4">
+                  <div className="space-y-2">
+                    <h4 className="font-medium leading-none">Filters</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Refine your department list.
+                    </p>
+                  </div>
+                  <Separator />
+                  <div className="grid gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="filter-location">Location</Label>
+                       <Select value={locationFilter} onValueChange={setLocationFilter}>
+                          <SelectTrigger>
+                              <SelectValue placeholder="Select a location" />
+                          </SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="all">All Locations</SelectItem>
+                              {uniqueLocations.map(loc => <SelectItem key={loc} value={loc}>{loc}</SelectItem>)}
+                          </SelectContent>
+                       </Select>
+                    </div>
+                     <div className="grid gap-2">
+                      <Label htmlFor="filter-building">Building</Label>
+                       <Select value={buildingFilter} onValueChange={setBuildingFilter}>
+                          <SelectTrigger>
+                              <SelectValue placeholder="Select a building" />
+                          </SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="all">All Buildings</SelectItem>
+                              {uniqueBuildings.map(b => <SelectItem key={b} value={b}>{b}</SelectItem>)}
+                          </SelectContent>
+                       </Select>
+                    </div>
+                     <div className="grid gap-2">
+                      <Label htmlFor="filter-floor">Floor</Label>
+                      <Select value={floorFilter} onValueChange={setFloorFilter}>
+                          <SelectTrigger>
+                              <SelectValue placeholder="Select a floor" />
+                          </SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="all">All Floors</SelectItem>
+                              {uniqueFloors.map(f => <SelectItem key={f} value={f}>{f}</SelectItem>)}
+                          </SelectContent>
+                       </Select>
+                    </div>
+                     <div className="grid gap-2">
+                      <Label htmlFor="filter-status">Status</Label>
+                      <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as any)}>
+                          <SelectTrigger>
+                              <SelectValue placeholder="Select a status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                              <SelectItem value="all">All Statuses</SelectItem>
+                              <SelectItem value="active">Active</SelectItem>
+                              <SelectItem value="inactive">Inactive</SelectItem>
+                          </SelectContent>
+                       </Select>
+                    </div>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
         </CardHeader>
         <CardContent>
