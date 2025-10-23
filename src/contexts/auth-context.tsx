@@ -8,6 +8,7 @@ import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDe
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirestore, FirestorePermissionError, errorEmitter } from '@/firebase';
 import { collection, onSnapshot, Unsubscribe, query, where } from 'firebase/firestore';
+import { getIdTokenResult, User } from 'firebase/auth';
 
 type AuthContextType = {
   user: SuperAdminUser | Organization | null;
@@ -56,7 +57,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       if (firebaseUser) {
         try {
-          const userProfile = await authService.fetchUserProfile(firebaseUser.uid);
+          // Get the full token result to access custom claims
+          const idTokenResult = await getIdTokenResult(firebaseUser);
+          const userProfile = await authService.fetchUserProfile(firebaseUser.uid, idTokenResult.claims);
           
           if (!userProfile) {
              await authService.logout();
@@ -201,7 +204,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 }, [appUser, firestore]);
 
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
-    await authService.login(credentials, role);
+    const user = await authService.login(credentials, role);
+    // After login, the useEffect hook for auth changes will handle fetching the profile
   };
 
   const logout = async (): Promise<void> => {
