@@ -15,6 +15,9 @@ export function Header() {
   const { logout, user } = useAuth();
   const orgUser = user as Organization;
   const pathname = usePathname();
+  
+  // Filter out the 'Devices' link
+  const mobileNavItems = navItems.filter(item => item.href !== '/admin/devices');
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b bg-background/95 px-4 shadow-sm backdrop-blur-sm sm:px-6 md:justify-end">
@@ -35,7 +38,7 @@ export function Header() {
                 <Logo className="h-8 w-8" />
                 <span className="sr-only">{orgUser?.organizationName}</span>
                 </Link>
-                {navItems.map((item) => (
+                {mobileNavItems.map((item) => (
                     <Link
                         key={item.href}
                         href={item.href}
