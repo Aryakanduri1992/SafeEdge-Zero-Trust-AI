@@ -31,7 +31,7 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
     const { updateOrganizationImage } = useAuth();
     const { toast } = useToast();
     
-    // State for the image URL to be displayed in the preview
+    // State for the image URL to be displayed in the preview and potentially saved (if from gallery)
     const [previewUrl, setPreviewUrl] = useState('');
     // State to specifically hold the base64 data of a newly uploaded file
     const [uploadedImageDataUri, setUploadedImageDataUri] = useState<string | null>(null);
@@ -39,13 +39,13 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
     const [isLoading, setIsLoading] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Reset state when the dialog opens
+    // Reset state when the dialog opens or the organization changes
     useEffect(() => {
         if (isOpen) {
             setPreviewUrl(organization.imageUrl || '');
             setUploadedImageDataUri(null);
         }
-    }, [isOpen, organization.imageUrl]);
+    }, [isOpen, organization]);
 
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -92,7 +92,6 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
             });
             onOpenChange(false);
         } catch (error: any) {
-            console.error("Image update failed:", error);
             toast({
                 variant: 'destructive',
                 title: 'Update Failed',
@@ -150,7 +149,7 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
                     </TabsContent>
                     <TabsContent value="upload">
                         <div className="h-[55vh] flex flex-col items-center justify-center gap-6 py-4">
-                           {previewUrl ? (
+                           {previewUrl && uploadedImageDataUri ? (
                                 <div className="w-48 h-48 relative">
                                     <Image src={previewUrl} alt="Logo preview" layout="fill" className="rounded-full object-cover border-4 border-primary" />
                                 </div>
