@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { initializeApp, deleteApp } from 'firebase/app';
@@ -12,7 +11,7 @@ import {
   fetchSignInMethodsForEmail,
   type User as FirebaseUser
 } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, updateDoc, collection, writeBatch, onSnapshot, query } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization } from './types';
 import { initializeFirebase } from '@/firebase';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -73,31 +72,31 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
     if (!orgData.password) throw new Error("A password is required to create a new organization.");
     if (!orgData.email) throw new Error("An email is required to create a new organization.");
 
-    // Store current user to re-authenticate later
-    const superAdminCredentials = {
-        email: 'super@authstation.com',
-        password: 'super-password'
-    };
+    // Store current super admin user to re-authenticate later if needed.
+    const currentSuperAdmin = auth.currentUser;
+    if (!currentSuperAdmin || currentSuperAdmin.uid !== superAdminId) {
+        throw new Error("Super Admin not authenticated. Please log in again.");
+    }
+    
+    // Use a temporary app to create the user, which avoids state conflicts with the current user.
+    const tempAppName = `temp-user-creation-${Date.now()}`;
+    const tempApp = initializeApp(firebaseConfig, tempAppName);
+    const tempAuth = getAuth(tempApp);
+    
+    let newUserId: string | null = null;
 
     try {
-        // Step 1: Check if email exists
+        // Step 1: Check if email exists using the MAIN auth instance to be safe.
         const signInMethods = await fetchSignInMethodsForEmail(auth, orgData.email);
         if (signInMethods.length > 0) {
             throw new Error(`auth/email-already-in-use`);
         }
 
-        // Step 2: Create the new organization user
-        const userCredential = await createUserWithEmailAndPassword(auth, orgData.email, orgData.password);
-        const newUser = userCredential.user;
-        const newOrgUID = newUser.uid;
-        
-        // Step 3: Immediately sign out the new user to not disrupt the super admin's session
-        await signOut(auth);
+        // Step 2: Create the new organization user in the temporary auth instance.
+        const userCredential = await createUserWithEmailAndPassword(tempAuth, orgData.email, orgData.password);
+        newUserId = userCredential.user.uid;
 
-        // Step 4: Re-authenticate the Super Admin
-        await signInWithEmailAndPassword(auth, superAdminCredentials.email, superAdminCredentials.password);
-
-        // Step 5: Write the organization data to Firestore
+        // Step 3: Write the organization data to Firestore using the main admin's authenticated session.
         const newOrgProfile: Omit<Organization, 'id' | 'role'> = {
             organizationName: orgData.organizationName,
             email: orgData.email,
@@ -105,30 +104,35 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
             superAdminId: superAdminId,
         };
 
-        const orgDocRef = doc(firestore, "organizations", newOrgUID);
+        const orgDocRef = doc(firestore, "organizations", newUserId);
         await setDoc(orgDocRef, newOrgProfile);
 
     } catch (error: any) {
-        // If an error occurred, ensure the super admin is logged back in before throwing
-        if (auth.currentUser?.email !== superAdminCredentials.email) {
-            try {
-                await signInWithEmailAndPassword(auth, superAdminCredentials.email, superAdminCredentials.password);
-            } catch (reauthError) {
-                console.error("Failed to re-authenticate super admin after an error:", reauthError);
-                 // If re-auth fails, the session is lost. Force a page reload to fix state.
-                window.location.reload();
-            }
+        // This is a critical failure point. If the Firestore write fails, we have an orphan auth user.
+        if (error.code && error.code.startsWith('permission-denied')) {
+             const detailedError = `Creation Failed: An authentication account for ${orgData.email} was created, but saving the organization data to the database was blocked. This is almost certainly due to a security rule violation. Please go to the Firebase Console, delete the user from the 'Authentication' tab, check the security rules, and try again. Original Error: ${error.message}`;
+             errorEmitter.emit('permission-error', new FirestorePermissionError({
+                 path: `organizations/${newUserId}`,
+                 operation: 'create',
+                 requestResourceData: { organizationName: orgData.organizationName, email: orgData.email, superAdminId }
+             }));
+             throw new Error(detailedError);
         }
-        
+
+        // Handle the specific "email already in use" error cleanly.
         if (error.message === 'auth/email-already-in-use') {
              throw new Error(`An account with the email ${orgData.email} already exists. Please use a different email.`);
         }
-
+        
+        // Re-throw any other errors.
         throw error;
+
+    } finally {
+        // Step 4: Always clean up the temporary app.
+        await signOut(tempAuth).catch(() => {}); // Sign out from temp app
+        await deleteApp(tempApp); // Delete temp app instance
     }
 };
-
-
 
 
 export const updateDepartment = async (departmentId: string, departmentData: UpdateDepartmentData): Promise<void> => {
