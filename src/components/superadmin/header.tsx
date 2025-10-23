@@ -24,7 +24,7 @@ export function Header() {
   const { logout, user } = useAuth();
 
   const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('');
+    return name.split(' ').map(n => n[0]).join('').slice(0, 2);
   }
 
   return (
@@ -32,7 +32,10 @@ export function Header() {
       <div className="flex items-center gap-3">
         <Logo className="h-8 w-8" />
         <div className="flex items-baseline gap-2">
-            <span className="font-headline text-lg sm:text-xl font-bold text-primary">SafeEdge Cyber System</span>
+            <h1 className="font-headline text-lg sm:text-xl font-bold text-primary">
+                <span className="hidden sm:inline">SafeEdge Cyber System</span>
+                <span className="sm:hidden">SafeEdge</span>
+            </h1>
         </div>
       </div>
        <div className='flex items-center gap-2 sm:gap-4'>

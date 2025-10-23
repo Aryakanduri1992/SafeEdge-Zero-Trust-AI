@@ -11,18 +11,20 @@ import { navItems } from './sidebar';
 import { cn } from '@/lib/utils';
 import { usePathname } from 'next/navigation';
 import { Logo } from '../logo';
+import { useState } from 'react';
 
 export function Header() {
   const { logout, user } = useAuth();
   const orgUser = user as Organization;
   const pathname = usePathname();
+  const [isSheetOpen, setIsSheetOpen] = useState(false);
   
   const mobileNavItems = navItems;
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b bg-background/95 px-4 shadow-sm backdrop-blur-sm sm:px-6 md:justify-end">
        <div className="flex items-center gap-4 md:hidden">
-         <Sheet>
+         <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
           <SheetTrigger asChild>
             <Button variant="outline" size="icon">
               <Menu className="h-5 w-5" />
@@ -33,6 +35,7 @@ export function Header() {
              <nav className="grid gap-4 text-lg font-medium">
                 <Link
                 href="/admin/dashboard"
+                onClick={() => setIsSheetOpen(false)}
                 className="flex items-center gap-2 text-lg font-semibold mb-4"
                 >
                 <Logo className="h-8 w-8" />
@@ -42,6 +45,7 @@ export function Header() {
                     <Link
                         key={item.href}
                         href={item.href}
+                        onClick={() => setIsSheetOpen(false)}
                         className={cn(
                         "flex items-center gap-4 rounded-xl px-3 py-2 text-muted-foreground transition-all hover:text-primary",
                         pathname === item.href && "bg-muted text-primary"
