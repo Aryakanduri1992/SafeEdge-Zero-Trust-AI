@@ -6,7 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import * as authService from '@/lib/auth-service';
 import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData, NewDeviceData, UpdateDeviceData, Device } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore, FirestorePermissionError, errorEmitter, useFirebase } from '@/firebase';
+import { useFirebase, useFirestore, FirestorePermissionError, errorEmitter } from '@/firebase';
 import { collection, onSnapshot, Unsubscribe, query, where } from 'firebase/firestore';
 import { User, getIdTokenResult } from 'firebase/auth';
 
@@ -56,7 +56,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setIsAuthLoading(true);
           try {
             const idTokenResult = await getIdTokenResult(firebaseUser, true); // Force refresh
-            const userProfile = await authService.fetchUserProfile(firebaseUser, idTokenResult.claims);
+            const userProfile = await authService.getOrCreateUserProfile(firebaseUser, idTokenResult.claims);
 
             if (userProfile) {
               setAppUser(userProfile);
