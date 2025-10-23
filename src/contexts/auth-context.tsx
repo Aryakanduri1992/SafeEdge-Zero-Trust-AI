@@ -137,7 +137,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 setDepartments(deptList);
             }, (serverError) => {
                  const permissionError = new FirestorePermissionError({
-                    path: 'departments',
+                    path: `departments where organizationId == ${appUser.id}`,
                     operation: 'list',
                 });
                 errorEmitter.emit('permission-error', permissionError);
@@ -150,7 +150,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 setDevices(deviceList);
             }, (serverError) => {
                 const permissionError = new FirestorePermissionError({
-                    path: 'devices',
+                    path: `devices where organizationId == ${appUser.id}`,
                     operation: 'list',
                 });
                 errorEmitter.emit('permission-error', permissionError);

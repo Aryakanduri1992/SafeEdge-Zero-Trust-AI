@@ -20,8 +20,6 @@ const { auth, firestore } = initializeFirebase();
 
 export const fetchUserProfile = async (uid: string): Promise<SuperAdminUser | Organization | null> => {
     // First, try to fetch the user as a regular organization admin.
-    // This is the most common case and avoids trying to access a collection (super_admins)
-    // that most users do not have access to.
     const orgRef = doc(firestore, "organizations", uid);
     try {
         const orgSnap = await getDoc(orgRef);
@@ -29,13 +27,13 @@ export const fetchUserProfile = async (uid: string): Promise<SuperAdminUser | Or
             return { ...orgSnap.data(), id: uid, role: 'admin' } as Organization;
         }
     } catch (serverError: any) {
-        // If we get a permission error here, something is wrong with the rules for organizations.
+        // If we get a permission error here, it's a critical failure for this path.
         const permissionError = new FirestorePermissionError({ path: orgRef.path, operation: 'get' });
         errorEmitter.emit('permission-error', permissionError);
         throw permissionError;
     }
 
-    // If the user is not found in organizations, then check if they are a super admin.
+    // If not found in organizations, THEN check if they are a super admin.
     const superAdminRef = doc(firestore, "roles_super_admin", uid);
     try {
         const superAdminSnap = await getDoc(superAdminRef);
@@ -49,8 +47,8 @@ export const fetchUserProfile = async (uid: string): Promise<SuperAdminUser | Or
             };
         }
     } catch (serverError: any) {
-        // If this fails with permission denied, it's expected for a non-superadmin.
-        // If it's another error, we throw it.
+        // If this fails with permission denied, it's expected for a non-superadmin. We can ignore it.
+        // For any other error, we should throw it.
         if (serverError.code !== 'permission-denied') {
             const permissionError = new FirestorePermissionError({ path: superAdminRef.path, operation: 'get' });
             errorEmitter.emit('permission-error', permissionError);
@@ -280,7 +278,9 @@ const seedSuperAdmin = async () => {
              }
         }
     } finally {
-        await signOut(tempAuth).catch(() => {});
+        if (tempAuth.currentUser) {
+           await signOut(tempAuth).catch(() => {});
+        }
         await deleteApp(tempApp);
     }
 };
