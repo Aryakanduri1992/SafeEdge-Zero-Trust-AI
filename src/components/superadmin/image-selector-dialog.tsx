@@ -59,11 +59,10 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
                     imageHint: 'custom upload'
                 };
                 
-                // Add the new image to the start of the session gallery
+                // Add the new image to the start of the session gallery and select it
                 setSessionImages(prev => [newImage, ...prev]);
-                // Select the newly uploaded image
                 setSelectedImageUrl(newImage.imageUrl);
-                // Switch to the gallery tab to show the user
+                // Switch to the gallery tab to show the user their upload
                 setActiveTab('gallery');
             };
             reader.readAsDataURL(file);
