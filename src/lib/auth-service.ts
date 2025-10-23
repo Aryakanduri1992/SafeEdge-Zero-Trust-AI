@@ -18,7 +18,7 @@ import { initializeFirebase, FirestorePermissionError, errorEmitter } from '@/fi
 const { firestore } = initializeFirebase();
 
 export async function getOrCreateUserProfile(user: FirebaseUser): Promise<SuperAdminUser | Organization | null> {
-    const idTokenResult = await getIdTokenResult(user, true);
+    const idTokenResult = await getIdTokenResult(user, true); // Force refresh to get latest claims
     const claims = idTokenResult.claims;
     const uid = user.uid;
 
@@ -33,7 +33,7 @@ export async function getOrCreateUserProfile(user: FirebaseUser): Promise<SuperA
                     imageUrl: `https://picsum.photos/seed/${uid}/200/200`
                 };
                 await setDoc(superAdminRef, newSuperAdminProfile);
-                superAdminSnap = await getDoc(superAdminRef);
+                superAdminSnap = await getDoc(superAdminRef); // Re-fetch after creation
             }
             if (superAdminSnap.exists()) {
                 const superAdminData = superAdminSnap.data();
@@ -46,7 +46,7 @@ export async function getOrCreateUserProfile(user: FirebaseUser): Promise<SuperA
                 } as SuperAdminUser;
             }
         } catch (serverError: any) {
-            const permissionError = new FirestorePermissionError({
+             const permissionError = new FirestorePermissionError({
                 path: superAdminRef.path,
                 operation: 'write',
                 requestResourceData: { uid, email: user.email },
@@ -54,6 +54,11 @@ export async function getOrCreateUserProfile(user: FirebaseUser): Promise<SuperA
             errorEmitter.emit('permission-error', permissionError);
             throw permissionError;
         }
+        
+        // This path should ideally not be reached if get/set logic is correct
+        console.error("Super admin profile not found or could not be created. UID:", uid);
+        return null;
+
     } else {
         const orgRef = doc(firestore, "organizations", uid);
          try {
