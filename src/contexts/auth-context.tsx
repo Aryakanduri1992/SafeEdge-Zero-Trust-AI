@@ -148,7 +148,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             });
         }
         else if (appUser.role === 'admin') {
-            setOrganizations([appUser]); // Org admin only sees their own org
+            setOrganizations(prevOrgs => {
+                // To avoid flashing, only update if the new user is different from what might be in the list
+                if (!prevOrgs.some(o => o.id === appUser.id)) {
+                    return [appUser];
+                }
+                // Or if the user details changed
+                const existing = prevOrgs.find(o => o.id === appUser.id);
+                if (JSON.stringify(existing) !== JSON.stringify(appUser)) {
+                   return prevOrgs.map(o => o.id === appUser.id ? appUser : o);
+                }
+                return prevOrgs;
+            });
             const deptsQuery = query(collection(firestore, 'departments'), where("organizationId", "==", appUser.id));
             departmentsUnsubscribe = onSnapshot(deptsQuery, (snapshot) => {
                 const deptList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Department));
@@ -266,18 +277,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
   
   const updateOrganizationImage = async (orgId: string, imageUrl: string) => {
-    if (!appUser || appUser.role !== 'admin' || appUser.id !== orgId) {
-        throw new Error("Unauthorized");
+    // Super admin can update any org, admin can only update their own.
+    if (!appUser || (appUser.role === 'admin' && appUser.id !== orgId)) {
+      throw new Error("Unauthorized to update this organization's image.");
     }
     await authService.updateOrganizationImage(orgId, imageUrl);
-    // Optimistically update the local user state
-    setAppUser(prevUser => {
-        if (prevUser && prevUser.role === 'admin') {
-            return { ...prevUser, imageUrl };
-        }
-        return prevUser;
-    });
-    toast({ title: "Profile Image Updated", description: "Your organization's profile image has been changed." });
+
+    if (appUser.role === 'admin' && appUser.id === orgId) {
+        // Optimistically update the local user state for the admin
+        setAppUser(prevUser => {
+            if (prevUser && prevUser.role === 'admin') {
+                return { ...prevUser, imageUrl };
+            }
+            return prevUser;
+        });
+    } else if (appUser.role === 'superadmin') {
+        // Optimistically update the organizations list for the superadmin
+        setOrganizations(prevOrgs => prevOrgs.map(org => 
+            org.id === orgId ? { ...org, imageUrl } : org
+        ));
+    }
   };
 
 
