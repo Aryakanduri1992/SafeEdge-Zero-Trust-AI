@@ -8,7 +8,6 @@ import {
   createUserWithEmailAndPassword, 
   signInWithEmailAndPassword, 
   signOut,
-  fetchSignInMethodsForEmail,
   type User as FirebaseUser
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, updateDoc, writeBatch, collection } from 'firebase/firestore';
@@ -79,15 +78,11 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
     let userCredential;
 
     try {
-        // Directly attempt to create the user. If the email exists, this will throw
-        // an 'auth/email-already-in-use' error, which is caught below.
         userCredential = await createUserWithEmailAndPassword(tempAuth, orgData.email, orgData.password);
         const newOrgUID = userCredential.user.uid;
 
-        // Use a batch write to Firestore for atomic operation
         const batch = writeBatch(firestore);
 
-        // Organization Document
         const newOrgProfile: Omit<Organization, 'id' | 'role'> = {
             organizationName: orgData.organizationName,
             email: orgData.email,
@@ -97,7 +92,6 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
         const orgDocRef = doc(firestore, "organizations", newOrgUID);
         batch.set(orgDocRef, newOrgProfile);
         
-        // Department Document
         const newDepartment: Omit<Department, 'id'> = {
             departmentName: orgData.departmentName,
             organizationName: orgData.organizationName,
@@ -120,20 +114,22 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
     } catch (error: any) {
         let errorMessage = error.message;
         if (error.code === 'auth/email-already-in-use') {
-            errorMessage = `Email already in use: ${orgData.email}. Please choose a different email.`;
-        } else if (error.code?.includes('permission-denied')) {
+            errorMessage = `Creation failed: Email already in use. Please choose a different email.`;
+        } else if (error.code?.includes('permission-denied') || error.name === 'FirebaseError') {
+             // This branch now catches the Firestore permission error from batch.commit()
              errorEmitter.emit('permission-error', new FirestorePermissionError({
-                 path: `organizations`, // Approximate path for error context
+                 path: `organizations or departments`,
                  operation: 'create',
                  requestResourceData: orgData
              }));
-             errorMessage = 'A security rule violation occurred. Please check your Firestore rules.';
+             errorMessage = 'Creation failed due to a database permission error. Please check your Firestore security rules.';
         }
-        // Ensure we throw to stop execution and inform the user
         throw new Error(errorMessage);
     } finally {
-        // Clean up the temporary app
-        await signOut(tempAuth).catch(() => {});
+        // Clean up the temporary app instance
+        if(tempAuth.currentUser) {
+            await signOut(tempAuth).catch(() => {});
+        }
         await deleteApp(tempApp);
     }
 };
