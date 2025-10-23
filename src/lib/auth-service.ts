@@ -279,7 +279,7 @@ export const updateSuperAdminImage = async (uid: string, imageUrl: string): Prom
 
 
 // This function ensures the Super Admin user exists in Auth and Firestore.
-const seedSuperAdmin = async () => {
+const ensureSuperAdminExists = async () => {
     const superAdminEmail = 'super@authstation.com';
     const superAdminPassword = 'super-password';
 
@@ -294,7 +294,7 @@ const seedSuperAdmin = async () => {
     const tempAuth = getAuth(tempApp);
 
     try {
-        // Check if user exists
+        // Check if user exists by trying to sign in
         await signInWithEmailAndPassword(tempAuth, superAdminEmail, superAdminPassword);
     } catch (error: any) {
         if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential') {
@@ -320,7 +320,7 @@ const seedSuperAdmin = async () => {
              } catch (seedError: any) {
                 // Ignore 'already-in-use' as it means another process created it.
                 if (seedError.code !== 'auth/email-already-in-use') {
-                    console.error("Error seeding Super Admin user:", seedError);
+                    console.error("Error ensuring Super Admin user exists:", seedError);
                 }
              }
         }
@@ -332,9 +332,11 @@ const seedSuperAdmin = async () => {
     }
 };
 
+
+// This logic runs once when the app loads on the client.
 if (typeof window !== 'undefined') {
-    if (!(window as any).__superAdminSeeded) {
-        seedSuperAdmin();
-        (window as any).__superAdminSeeded = true;
+    if (!(window as any).__superAdminEnsured) {
+        ensureSuperAdminExists();
+        (window as any).__superAdminEnsured = true;
     }
 }

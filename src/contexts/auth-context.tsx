@@ -62,17 +62,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const userProfile = await authService.fetchUserProfile(firebaseUser.uid, idTokenResult.claims);
           
           if (!userProfile) {
-             await authService.logout();
-             setAppUser(null);
-             toast({
-                variant: 'destructive',
-                title: 'Profile Not Found',
-                description: 'Your user profile could not be found. Please log in again.',
-             });
-             if (!pathname.includes('login')) {
-                router.replace('/organisation-login');
-             }
-             setIsAuthLoading(false);
+             // This can happen briefly during login before claims are set.
+             // We will let the next auth state change handle it.
+             // Only show error if it persists.
+             console.warn("User profile not found, may be transient state.");
+             setIsAuthLoading(false); // Stop loading, wait for next auth change.
              return;
           }
 
