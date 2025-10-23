@@ -1,3 +1,4 @@
+
 export type UserRole = 'admin' | 'superadmin';
 export type Plan = 'Free' | 'Pro' | 'Enterprise';
 export type DepartmentStatus = 'active' | 'inactive';
@@ -54,6 +55,18 @@ export type NewOrgData = {
   floor: string;
   plan: Plan;
   devices: number;
+};
+
+export type NewDepartmentData = {
+  departmentName: string;
+  organizationName: string;
+  email: string;
+  building: string;
+  floor: string;
+  location: string;
+  devices: number;
+  plan: Plan;
+  organizationId: string;
 };
 
 export type UpdateDepartmentData = {

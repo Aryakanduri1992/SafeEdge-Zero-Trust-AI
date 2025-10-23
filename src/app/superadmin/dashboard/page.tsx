@@ -22,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { CreateOrganizationForm } from '@/components/superadmin/create-organization-form';
 import { EditDepartmentForm } from '@/components/superadmin/edit-department-form';
 import { DeactivateDepartmentDialog } from '@/components/superadmin/deactivate-department-dialog';
-import { PlusCircle, Users, Edit, Building, RadioTower, Power, CheckCircle, XCircle, MoreHorizontal, Search, Filter, ShieldCheck } from 'lucide-react';
+import { PlusCircle, Users, Edit, Building, RadioTower, Power, CheckCircle, XCircle, MoreHorizontal, Search, Filter, ShieldCheck, UserPlus } from 'lucide-react';
 import { useState, useMemo, ReactNode } from 'react';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -40,9 +40,11 @@ import {
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { ActivateDepartmentDialog } from '@/components/superadmin/activate-department-dialog';
 import { Input } from '@/components/ui/input';
+import { CreateDepartmentForm } from '@/components/superadmin/create-department-form';
 
 export default function SuperAdminDashboardPage() {
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isCreateOrgDialogOpen, setIsCreateOrgDialogOpen] = useState(false);
+  const [isCreateDeptDialogOpen, setIsCreateDeptDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isDeactivateDialogOpen, setIsDeactivateDialogOpen] = useState(false);
   const [isActivateDialogOpen, setIsActivateDialogOpen] = useState(false);
@@ -105,15 +107,20 @@ export default function SuperAdminDashboardPage() {
         return 'secondary';
     }
   };
+  
+  const handleAddOrganizationClick = () => {
+    setIsCreateOrgDialogOpen(true);
+  }
+  
+  const handleAddDepartmentClick = (department: Department) => {
+    setSelectedDepartment(department);
+    setIsCreateDeptDialogOpen(true);
+  };
 
   const handleEditClick = (department: Department) => {
     setSelectedDepartment(department);
     setIsEditDialogOpen(true);
   };
-  
-  const handleAddOrganizationClick = () => {
-    setIsCreateDialogOpen(true);
-  }
   
   const handleDeactivateClick = (department: Department) => {
     setSelectedDepartment(department);
@@ -142,7 +149,8 @@ export default function SuperAdminDashboardPage() {
   }
 
   const handleCreateFinished = () => {
-    setIsCreateDialogOpen(false);
+    setIsCreateOrgDialogOpen(false);
+    setIsCreateDeptDialogOpen(false);
   }
 
   return (
@@ -292,7 +300,7 @@ export default function SuperAdminDashboardPage() {
                   Create and manage department accounts for all organizations.
                 </CardDescription>
               </div>
-               <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+               <Dialog open={isCreateOrgDialogOpen} onOpenChange={setIsCreateOrgDialogOpen}>
                   <DialogTrigger asChild>
                     <Button onClick={handleAddOrganizationClick}>
                       <PlusCircle className="mr-2 h-4 w-4" />
@@ -386,6 +394,10 @@ export default function SuperAdminDashboardPage() {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => handleAddDepartmentClick(dept)}>
+                            <UserPlus className="mr-2 h-4 w-4" />
+                            <span>Add Department</span>
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleEditClick(dept)}>
                           <Edit className="mr-2 h-4 w-4" />
                           <span>Edit Plan/Quota</span>
@@ -424,6 +436,21 @@ export default function SuperAdminDashboardPage() {
         </CardContent>
       </Card>
 
+      <Dialog open={isCreateDeptDialogOpen} onOpenChange={setIsCreateDeptDialogOpen}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Add New Department</DialogTitle>
+            <DialogDescription>
+                Create a new department for {selectedDepartment?.organizationName}.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedDepartment && <CreateDepartmentForm
+              organization={selectedDepartment} 
+              onFinished={handleCreateFinished} 
+          />}
+        </DialogContent>
+      </Dialog>
+      
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>

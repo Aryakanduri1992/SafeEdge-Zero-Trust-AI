@@ -11,7 +11,7 @@ import {
   type User as FirebaseUser
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, updateDoc, writeBatch, collection } from 'firebase/firestore';
-import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization } from './types';
+import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData } from './types';
 import { initializeFirebase } from '@/firebase';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -118,7 +118,7 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
         } else if (error.code?.includes('permission-denied') || error.name === 'FirebaseError') {
              // This branch now catches the Firestore permission error from batch.commit()
              errorEmitter.emit('permission-error', new FirestorePermissionError({
-                 path: `organizations or departments`,
+                 path: `organizations and/or departments`,
                  operation: 'create',
                  requestResourceData: orgData
              }));
@@ -132,6 +132,26 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
         }
         await deleteApp(tempApp);
     }
+};
+
+export const createDepartment = async (deptData: NewDepartmentData, superAdminId: string): Promise<void> => {
+    const newDepartment: Omit<Department, 'id'> = {
+        ...deptData,
+        createdAt: new Date().toISOString(),
+        status: 'active',
+        superAdminId: superAdminId,
+    };
+    const deptDocRef = doc(collection(firestore, "departments"));
+    
+    await setDoc(deptDocRef, newDepartment).catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+            path: deptDocRef.path,
+            operation: 'create',
+            requestResourceData: newDepartment,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        throw permissionError;
+    });
 };
 
 

@@ -4,7 +4,7 @@
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import * as authService from '@/lib/auth-service';
-import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization } from '@/lib/types';
+import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { useUser, useFirestore, FirestorePermissionError, errorEmitter } from '@/firebase';
@@ -18,6 +18,7 @@ type AuthContextType = {
   login: (credentials: LoginCredentials, role: 'admin' | 'superadmin') => Promise<void>;
   logout: () => Promise<void>;
   createOrganization: (orgData: NewOrgData) => Promise<void>;
+  createDepartment: (deptData: NewDepartmentData) => Promise<void>;
   updateDepartment: (departmentId: string, departmentData: UpdateDepartmentData) => Promise<void>;
   deactivateDepartment: (departmentId: string) => Promise<void>;
   activateDepartment: (departmentId: string) => Promise<void>;
@@ -180,6 +181,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await authService.createOrganization(orgData, appUser.id);
   };
   
+  const createDepartment = async (deptData: NewDepartmentData) => {
+    if (!appUser || appUser.role !== 'superadmin') {
+      throw new Error("Unauthorized");
+    }
+    await authService.createDepartment(deptData, appUser.id);
+  };
+
   const updateDepartment = async (departmentId: string, departmentData: UpdateDepartmentData) => {
      if (!appUser || appUser.role !== 'superadmin') {
       throw new Error("Unauthorized");
@@ -218,7 +226,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     isLoading, 
     login, 
     logout, 
-    createOrganization, 
+    createOrganization,
+    createDepartment,
     updateDepartment, 
     deactivateDepartment,
     activateDepartment,
