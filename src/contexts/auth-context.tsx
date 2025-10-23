@@ -6,7 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import * as authService from '@/lib/auth-service';
 import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData, NewDeviceData, UpdateDeviceData, Device } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { useUser, useFirestore, FirestorePermissionError, errorEmitter, useFirebase } from '@/firebase';
+import { useFirestore, FirestorePermissionError, errorEmitter, useFirebase } from '@/firebase';
 import { collection, onSnapshot, Unsubscribe, query, where } from 'firebase/firestore';
 import { User, getIdTokenResult } from 'firebase/auth';
 
@@ -43,7 +43,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
   const { toast } = useToast();
 
-  const { user: firebaseUser, isUserLoading: isFirebaseUserLoading } = useUser();
+  const { user: firebaseUser, isUserLoading: isFirebaseUserLoading } = useFirebase();
   const { firestore } = useFirebase();
 
   const isLoading = isFirebaseUserLoading || isAuthLoading;
@@ -56,7 +56,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           setIsAuthLoading(true);
           try {
             const idTokenResult = await getIdTokenResult(firebaseUser, true); // Force refresh
-            const userProfile = await authService.getOrCreateUserProfile(firebaseUser, idTokenResult.claims);
+            const userProfile = await authService.fetchUserProfile(firebaseUser, idTokenResult.claims);
 
             if (userProfile) {
               setAppUser(userProfile);
@@ -170,15 +170,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsAuthLoading(true);
     try {
         const userProfile = await authService.loginAndFetchProfile(credentials);
-        if (userProfile) {
-            setAppUser(userProfile);
-            if (userProfile.role === 'superadmin') {
-              router.replace('/superadmin/dashboard');
-            } else if (userProfile.role === 'admin') {
-              router.replace('/admin/dashboard');
-            }
-        } else {
-            throw new Error("Login failed: User profile could not be retrieved.");
+        setAppUser(userProfile);
+        if (userProfile.role === 'superadmin') {
+            router.replace('/superadmin/dashboard');
+        } else if (userProfile.role === 'admin') {
+            router.replace('/admin/dashboard');
         }
     } catch (error: any) {
         toast({
@@ -186,6 +182,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             title: 'Login Failed',
             description: error.message || 'An unexpected error occurred.',
         });
+        // We do not set isAuthLoading to false here on error, 
+        // because the auth state listener will trigger and do it.
     } finally {
         setIsAuthLoading(false);
     }
@@ -318,5 +316,3 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     </AuthContext.Provider>
   );
 };
-
-    

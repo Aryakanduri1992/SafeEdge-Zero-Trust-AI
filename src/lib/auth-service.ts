@@ -18,7 +18,6 @@ import { initializeFirebase, FirestorePermissionError, errorEmitter } from '@/fi
 
 const { firestore, auth } = initializeFirebase();
 
-
 export async function loginAndFetchProfile(credentials: LoginCredentials): Promise<SuperAdminUser | Organization> {
   const { email, password } = credentials;
   if (!password) {
@@ -30,7 +29,7 @@ export async function loginAndFetchProfile(credentials: LoginCredentials): Promi
   const idTokenResult = await getIdTokenResult(userCredential.user, true);
 
   // Now, fetch the profile with the guaranteed-fresh claims
-  const userProfile = await getOrCreateUserProfile(userCredential.user, idTokenResult.claims);
+  const userProfile = await fetchUserProfile(userCredential.user, idTokenResult.claims);
 
   if (!userProfile) {
     throw new Error("User profile could not be found or created after login.");
@@ -39,23 +38,13 @@ export async function loginAndFetchProfile(credentials: LoginCredentials): Promi
   return userProfile;
 };
 
-
-export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedToken): Promise<SuperAdminUser | Organization | null> {
+export async function fetchUserProfile(user: FirebaseUser, claims: ParsedToken): Promise<SuperAdminUser | Organization | null> {
     const uid = user.uid;
 
     if (claims.superadmin === true) {
         const superAdminRef = doc(firestore, "roles_super_admin", uid);
         try {
-            let superAdminSnap = await getDoc(superAdminRef);
-            if (!superAdminSnap.exists()) {
-                const newSuperAdminProfile: Omit<SuperAdminUser, 'id' | 'role'> = {
-                    email: user.email || 'super@authstation.com',
-                    departmentName: "AuthStation HQ",
-                    imageUrl: `https://picsum.photos/seed/${uid}/200/200`
-                };
-                await setDoc(superAdminRef, newSuperAdminProfile);
-                superAdminSnap = await getDoc(superAdminRef);
-            }
+            const superAdminSnap = await getDoc(superAdminRef);
             if (superAdminSnap.exists()) {
                 const superAdminData = superAdminSnap.data();
                 return {
@@ -65,18 +54,18 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
                     departmentName: superAdminData?.departmentName,
                     imageUrl: superAdminData?.imageUrl,
                 } as SuperAdminUser;
+            } else {
+                 // The backend function should have created this. If not, it's a critical issue.
+                throw new Error('Super admin profile document not found.');
             }
         } catch (serverError: any) {
             const permissionError = new FirestorePermissionError({
                 path: superAdminRef.path,
-                operation: serverError.code === 'permission-denied' ? 'get' : 'write', 
-                requestResourceData: { uid, email: user.email },
+                operation: 'get',
             });
             errorEmitter.emit('permission-error', permissionError);
             throw permissionError;
         }
-        // If we get here for a superadmin, something went wrong.
-        return null;
     } 
     
     // This part is for regular organization admins
@@ -92,7 +81,7 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
         throw permissionError;
     }
 
-    console.error("User profile not found or could not be created. UID:", uid);
+    console.error("User profile not found in either 'roles_super_admin' or 'organizations'. UID:", uid);
     return null;
 }
 
