@@ -78,6 +78,7 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
         }
     }
     
+    // This part of the code will now only execute if claims.superadmin is not true.
     const orgRef = doc(firestore, "organizations", uid);
     try {
         const orgSnap = await getDoc(orgRef);
