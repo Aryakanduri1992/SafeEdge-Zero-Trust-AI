@@ -173,6 +173,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (!userProfile) {
           throw new Error(`Login failed: Could not retrieve a user profile for ${credentials.email}.`);
         }
+
+        if (userProfile.role !== role) {
+            throw new Error(`Login failed: User does not have the required '${role}' role.`);
+        }
+
         setAppUser(userProfile);
         if (userProfile.role === 'superadmin') {
             router.replace('/superadmin/dashboard');
@@ -180,8 +185,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             router.replace('/admin/dashboard');
         }
     } catch (error: any) {
-        // The toast is now redundant if loginAndFetchProfile also shows one.
-        // You might want to remove it from one of the places.
+        toast({
+            variant: 'destructive',
+            title: 'Login Failed',
+            description: error.message || 'An unexpected error occurred.',
+        });
     } finally {
         setIsAuthLoading(false);
     }

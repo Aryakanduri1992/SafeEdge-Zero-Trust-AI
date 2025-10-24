@@ -45,11 +45,8 @@ export async function loginAndFetchProfile(credentials: LoginCredentials): Promi
         if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
             friendlyMessage = 'Invalid email or password. Please try again.';
         }
-        toast({
-            variant: 'destructive',
-            title: 'Login Failed',
-            description: friendlyMessage,
-        });
+        // Re-throw the error so the calling component (e.g., AuthProvider) can handle it,
+        // such as by showing a toast message.
         throw new Error(friendlyMessage);
     }
 };
@@ -93,8 +90,6 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
             errorEmitter.emit('permission-error', permissionError);
             throw permissionError;
         }
-        // This return is now inside the if block to prevent fall-through
-        return null; // Should be unreachable if logic is correct
     }
     
     // This part only runs if the user is NOT a superadmin
@@ -104,7 +99,6 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
         if (orgSnap.exists()) {
             return { ...orgSnap.data(), id: uid, role: 'admin' } as Organization;
         } else {
-            // If the user is not a superadmin and has no organization profile, they are not a valid user.
             console.error("User is not a superadmin and no organization profile found. UID:", uid);
             return null;
         }
