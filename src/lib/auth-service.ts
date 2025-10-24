@@ -296,3 +296,5 @@ export const updateSuperAdminImage = async (uid: string, imageUrl: string): Prom
         throw permissionError;
     });
 };
+
+    
