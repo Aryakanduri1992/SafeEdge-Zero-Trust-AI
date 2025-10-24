@@ -62,13 +62,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (firebaseUser) {
           setIsAuthLoading(true);
           try {
-            const idTokenResult = await getIdTokenResult(firebaseUser, true); // Force refresh
+            // Force a token refresh to get the latest custom claims.
+            const idTokenResult = await getIdTokenResult(firebaseUser, true); 
             const userProfile = await authService.getOrCreateUserProfile(firebaseUser, idTokenResult.claims);
 
             if (userProfile) {
               setAppUser(userProfile);
             } else {
-               console.error("User profile could not be found or created. This should not happen. Logging out.");
+               console.error("Auth session restoration failed: User profile could not be found or created. Logging out.");
                await authService.logout();
                setAppUser(null);
             }
@@ -180,7 +181,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsAuthLoading(true);
     try {
         const userCredential = await authService.login(credentials);
-        const idTokenResult = await getIdTokenResult(userCredential.user, true); // Force refresh
+        // Force a token refresh to get the latest custom claims.
+        const idTokenResult = await getIdTokenResult(userCredential.user, true);
         const userProfile = await authService.getOrCreateUserProfile(userCredential.user, idTokenResult.claims);
 
         if (!userProfile) {

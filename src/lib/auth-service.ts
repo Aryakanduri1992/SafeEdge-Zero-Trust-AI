@@ -39,6 +39,7 @@ export async function login(credentials: LoginCredentials): Promise<UserCredenti
 export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedToken): Promise<SuperAdminUser | Organization | null> {
     const uid = user.uid;
 
+    // The claims object from a fresh token is the source of truth.
     if (claims.superadmin === true) {
         const superAdminRef = doc(firestore, "roles_super_admin", uid);
         try {
@@ -53,6 +54,7 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
                     imageUrl: superAdminData?.imageUrl,
                 } as SuperAdminUser;
             } else {
+                // This case handles the very first sign-in of a super admin, creating their profile doc.
                 const newSuperAdminProfile: Omit<SuperAdminUser, 'id' | 'role'> = {
                     email: user.email || 'super@authstation.com',
                     departmentName: 'AuthStation HQ',
@@ -77,22 +79,19 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
         }
     }
     
+    // This code block only runs if the user is NOT a super admin.
     const orgRef = doc(firestore, "organizations", uid);
     try {
         const orgSnap = await getDoc(orgRef);
         if (orgSnap.exists()) {
             return { ...orgSnap.data(), id: uid, role: 'admin' } as Organization;
         } else {
-             // This is the line that produces the error.
-            // It correctly identifies that the user is not a superadmin (based on the token)
-            // and no organization document exists for their UID.
+            // This is the correct final state if a non-superadmin user has no org profile.
             console.error("User is not a superadmin and no organization profile found. UID:", uid);
             return null;
         }
     } catch (serverError: any) {
-         if (serverError instanceof Error && serverError.message.includes("User is not a superadmin")) {
-            throw serverError;
-        }
+        // This handles cases where a non-superadmin tries to read an org doc they don't have access to.
         const permissionError = new FirestorePermissionError({ path: orgRef.path, operation: 'get' });
         errorEmitter.emit('permission-error', permissionError);
         throw permissionError;
