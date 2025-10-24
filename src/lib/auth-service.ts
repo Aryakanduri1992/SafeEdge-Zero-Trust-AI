@@ -53,7 +53,6 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
                     imageUrl: superAdminData?.imageUrl,
                 } as SuperAdminUser;
             } else {
-                // This block creates the superadmin profile doc if it's missing
                 const newSuperAdminProfile: Omit<SuperAdminUser, 'id' | 'role'> = {
                     email: user.email || 'super@authstation.com',
                     departmentName: 'AuthStation HQ',
@@ -84,14 +83,13 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
         if (orgSnap.exists()) {
             return { ...orgSnap.data(), id: uid, role: 'admin' } as Organization;
         } else {
-            // This is the line that produces the error.
+             // This is the line that produces the error.
             // It correctly identifies that the user is not a superadmin (based on the token)
             // and no organization document exists for their UID.
-            throw new Error(`User is not a superadmin and no organization profile found. UID: ${uid}`);
+            console.error("User is not a superadmin and no organization profile found. UID:", uid);
+            return null;
         }
     } catch (serverError: any) {
-        // If the above throw doesn't happen, but we still get an error (like a permission error)
-        // we create and throw a structured permission error.
          if (serverError instanceof Error && serverError.message.includes("User is not a superadmin")) {
             throw serverError;
         }
