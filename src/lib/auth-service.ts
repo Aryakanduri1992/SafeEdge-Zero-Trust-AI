@@ -91,7 +91,7 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
         throw permissionError;
     }
 
-    console.error("User profile not found in either 'roles_super_admin' or 'organizations'. This may happen if claims are not yet set for a new organization admin. UID:", uid);
+    console.error("User profile not found in either 'roles_super_admin' or 'organizations'. UID:", uid);
     return null;
 }
 
