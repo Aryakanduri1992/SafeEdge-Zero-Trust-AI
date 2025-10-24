@@ -9,7 +9,6 @@ import {
   signInWithEmailAndPassword, 
   signOut,
   type User as FirebaseUser,
-  getIdTokenResult,
   type ParsedToken,
   UserCredential
 } from 'firebase/auth';
@@ -54,6 +53,7 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
                     imageUrl: superAdminData?.imageUrl,
                 } as SuperAdminUser;
             } else {
+                // This block creates the superadmin profile doc if it's missing
                 const newSuperAdminProfile: Omit<SuperAdminUser, 'id' | 'role'> = {
                     email: user.email || 'super@authstation.com',
                     departmentName: 'AuthStation HQ',
@@ -67,7 +67,7 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
                 } as SuperAdminUser;
             }
         } catch (serverError: any) {
-            const isCreationError = serverError.code === 'permission-denied';
+            const isCreationError = serverError.code === 'permission-denied' && !await getDoc(superAdminRef).then(s => s.exists());
             const permissionError = new FirestorePermissionError({
                 path: superAdminRef.path,
                 operation: isCreationError ? 'create' : 'get',

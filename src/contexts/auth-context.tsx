@@ -48,6 +48,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const isLoading = isFirebaseUserLoading || isAuthLoading;
 
+  const handleUserRedirect = useCallback((user: SuperAdminUser | Organization | null) => {
+    if (user?.role === 'superadmin') {
+        router.replace('/superadmin/dashboard');
+    } else if (user?.role === 'admin') {
+        router.replace('/admin/dashboard');
+    }
+  }, [router]);
+
   // This effect handles session restoration on page refresh
   useEffect(() => {
     const handleAuthChange = async () => {
@@ -172,14 +180,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsAuthLoading(true);
     try {
         const userCredential = await authService.login(credentials);
-        
-        // This is the critical step: force a token refresh to get custom claims
         const idTokenResult = await getIdTokenResult(userCredential.user, true);
-
         const userProfile = await authService.getOrCreateUserProfile(userCredential.user, idTokenResult.claims);
 
         if (!userProfile) {
-          throw new Error(`Login failed: Could not retrieve a user profile for ${credentials.email}.`);
+            throw new Error(`Login failed: Could not retrieve a user profile for ${credentials.email}.`);
         }
 
         if (userProfile.role !== role) {
@@ -188,20 +193,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
         setAppUser(userProfile);
-        
-        if (userProfile.role === 'superadmin') {
-            router.replace('/superadmin/dashboard');
-        } else if (userProfile.role === 'admin') {
-            router.replace('/admin/dashboard');
-        }
+        handleUserRedirect(userProfile);
+
     } catch (error: any) {
-         toast({
+        // Logout if anything fails during the login process
+        await authService.logout();
+        setAppUser(null);
+        toast({
             variant: 'destructive',
             title: 'Login Failed',
             description: error.message || 'An unexpected error occurred.',
         });
-        setIsAuthLoading(false); // Make sure to set loading to false on error
-    } 
+    } finally {
+        setIsAuthLoading(false);
+    }
   };
 
   const logout = async (): Promise<void> => {
