@@ -49,12 +49,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isLoading = isFirebaseUserLoading || isAuthLoading;
 
   const handleUserRedirect = useCallback((user: SuperAdminUser | Organization | null) => {
-    if (user?.role === 'superadmin') {
+    if (!user) return;
+    if (user.role === 'superadmin' && !pathname.startsWith('/superadmin')) {
         router.replace('/superadmin/dashboard');
-    } else if (user?.role === 'admin') {
+    } else if (user.role === 'admin' && !pathname.startsWith('/admin')) {
         router.replace('/admin/dashboard');
     }
-  }, [router]);
+  }, [router, pathname]);
 
   // This effect handles session restoration on page refresh
   useEffect(() => {
@@ -69,6 +70,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             if (userProfile) {
               setAppUser(userProfile);
             } else {
+               // This case is important. If getOrCreateUserProfile returns null, it means
+               // the user is authenticated with Firebase, but has no corresponding profile doc
+               // (e.g., not a superadmin and no organization doc). This is an invalid state.
                console.error("Auth session restoration failed: User profile could not be found or created. Logging out.");
                await authService.logout();
                setAppUser(null);
@@ -92,19 +96,23 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [firebaseUser, isFirebaseUserLoading]);
 
 
-  // This effect handles redirecting unauthenticated users
+  // This effect handles redirecting unauthenticated users and authenticated users to the correct dashboard
   useEffect(() => {
-    if (!isLoading && !appUser) {
-        const isAuthProtectedRoute = pathname.startsWith('/admin') || pathname.startsWith('/superadmin');
-        if (isAuthProtectedRoute) {
-            if (pathname.startsWith('/superadmin')) {
-                 router.replace('/superadmin-login');
-            } else {
-                 router.replace('/organisation-login');
+    if (!isLoading) {
+        if (appUser) {
+            handleUserRedirect(appUser);
+        } else {
+            const isAuthProtectedRoute = pathname.startsWith('/admin') || pathname.startsWith('/superadmin');
+            if (isAuthProtectedRoute) {
+                if (pathname.startsWith('/superadmin')) {
+                     router.replace('/superadmin-login');
+                } else {
+                     router.replace('/organisation-login');
+                }
             }
         }
     }
-  }, [appUser, isLoading, pathname, router]);
+  }, [appUser, isLoading, pathname, handleUserRedirect, router]);
 
   // This effect subscribes to data based on user role
   useEffect(() => {

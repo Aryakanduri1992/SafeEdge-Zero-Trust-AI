@@ -87,11 +87,13 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
             return { ...orgSnap.data(), id: uid, role: 'admin' } as Organization;
         } else {
             // This is the correct final state if a non-superadmin user has no org profile.
-            console.error("User is not a superadmin and no organization profile found. UID:", uid);
+            // It correctly identifies that the user is not a superadmin (based on the token)
+            // and no organization document exists for their UID.
             return null;
         }
     } catch (serverError: any) {
-        // This handles cases where a non-superadmin tries to read an org doc they don't have access to.
+        // If the above check doesn't happen, but we still get an error (like a permission error)
+        // on the organization collection, we emit it. This is a fallback.
         const permissionError = new FirestorePermissionError({ path: orgRef.path, operation: 'get' });
         errorEmitter.emit('permission-error', permissionError);
         throw permissionError;
