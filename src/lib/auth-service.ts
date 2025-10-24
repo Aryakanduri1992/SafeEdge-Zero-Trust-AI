@@ -15,6 +15,7 @@ import {
 import { getFirestore, doc, setDoc, getDoc, updateDoc, writeBatch, collection, addDoc, deleteDoc } from 'firebase/firestore';
 import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData, NewDeviceData, UpdateDeviceData } from './types';
 import { initializeFirebase, FirestorePermissionError, errorEmitter } from '@/firebase';
+import { toast } from '@/hooks/use-toast';
 
 const { firestore, auth } = initializeFirebase();
 
@@ -23,19 +24,34 @@ export async function loginAndFetchProfile(credentials: LoginCredentials): Promi
     if (!password) {
         throw new Error("Password is required for login.");
     }
-    const userCredential = await signInWithEmailAndPassword(auth, email, password);
     
-    // This is the critical step: force a token refresh to get custom claims
-    const idTokenResult = await getIdTokenResult(userCredential.user, true);
+    try {
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        
+        // This is the critical step: force a token refresh to get custom claims
+        const idTokenResult = await getIdTokenResult(userCredential.user, true);
 
-    // Now, fetch the profile with the guaranteed-fresh claims
-    const userProfile = await getOrCreateUserProfile(userCredential.user, idTokenResult.claims);
+        // Now, fetch the profile with the guaranteed-fresh claims
+        const userProfile = await getOrCreateUserProfile(userCredential.user, idTokenResult.claims);
 
-    if (!userProfile) {
-        throw new Error("User profile could not be found or created after login.");
+        if (!userProfile) {
+            await logout();
+            throw new Error("User profile could not be found or created after login.");
+        }
+
+        return userProfile;
+    } catch (error: any) {
+        let friendlyMessage = 'An unexpected error occurred during login.';
+        if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
+            friendlyMessage = 'Invalid email or password. Please try again.';
+        }
+        toast({
+            variant: 'destructive',
+            title: 'Login Failed',
+            description: friendlyMessage,
+        });
+        throw new Error(friendlyMessage);
     }
-
-    return userProfile;
 };
 
 export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedToken): Promise<SuperAdminUser | Organization | null> {
@@ -77,22 +93,26 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
             errorEmitter.emit('permission-error', permissionError);
             throw permissionError;
         }
+        // This return is now inside the if block to prevent fall-through
+        return null; // Should be unreachable if logic is correct
     }
     
+    // This part only runs if the user is NOT a superadmin
     const orgRef = doc(firestore, "organizations", uid);
     try {
         const orgSnap = await getDoc(orgRef);
         if (orgSnap.exists()) {
             return { ...orgSnap.data(), id: uid, role: 'admin' } as Organization;
+        } else {
+            // If the user is not a superadmin and has no organization profile, they are not a valid user.
+            console.error("User is not a superadmin and no organization profile found. UID:", uid);
+            return null;
         }
     } catch (serverError: any) {
         const permissionError = new FirestorePermissionError({ path: orgRef.path, operation: 'get' });
         errorEmitter.emit('permission-error', permissionError);
         throw permissionError;
     }
-
-    console.error("User profile not found in either 'roles_super_admin' or 'organizations'. UID:", uid);
-    return null;
 }
 
 export const logout = async (): Promise<void> => {
@@ -295,5 +315,3 @@ export const updateSuperAdminImage = async (uid: string, imageUrl: string): Prom
         throw permissionError;
     });
 };
-
-    

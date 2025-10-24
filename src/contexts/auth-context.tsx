@@ -180,11 +180,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             router.replace('/admin/dashboard');
         }
     } catch (error: any) {
-        toast({
-            variant: 'destructive',
-            title: 'Login Failed',
-            description: error.message || 'An unexpected error occurred.',
-        });
+        // The toast is now redundant if loginAndFetchProfile also shows one.
+        // You might want to remove it from one of the places.
     } finally {
         setIsAuthLoading(false);
     }
@@ -317,5 +314,3 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     </AuthContext.Provider>
   );
 };
-
-    
