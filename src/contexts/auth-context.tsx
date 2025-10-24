@@ -68,7 +68,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             if (userProfile) {
               setAppUser(userProfile);
             } else {
-               console.warn("User profile could not be found or created. Logging out.");
+               console.error("User profile could not be found or created. This should not happen. Logging out.");
                await authService.logout();
                setAppUser(null);
             }
