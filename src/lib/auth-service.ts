@@ -68,6 +68,7 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
                     imageUrl: superAdminData?.imageUrl,
                 } as SuperAdminUser;
             } else {
+                // This logic creates the Super Admin profile on their very first login
                 const newSuperAdminProfile: Omit<SuperAdminUser, 'id' | 'role'> = {
                     email: user.email || 'super@authstation.com',
                     departmentName: 'AuthStation HQ',
@@ -92,13 +93,15 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
         }
     }
     
-    // This part only runs if the user is NOT a superadmin
+    // This part only runs if the user is NOT a superadmin.
     const orgRef = doc(firestore, "organizations", uid);
     try {
         const orgSnap = await getDoc(orgRef);
         if (orgSnap.exists()) {
             return { ...orgSnap.data(), id: uid, role: 'admin' } as Organization;
         } else {
+            // This is an important case. A non-superadmin user exists in Auth, but has no org profile.
+            // They should not be able to proceed.
             console.error("User is not a superadmin and no organization profile found. UID:", uid);
             return null;
         }
@@ -108,6 +111,7 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
         throw permissionError;
     }
 }
+
 
 export const logout = async (): Promise<void> => {
   await signOut(auth);

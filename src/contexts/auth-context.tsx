@@ -52,7 +52,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const handleAuthChange = async () => {
       if (firebaseUser) {
-        if (!appUser) { // Only run if we don't have an app user yet
+          // No need to check for appUser here, this effect should only run when firebaseUser changes.
           setIsAuthLoading(true);
           try {
             const idTokenResult = await getIdTokenResult(firebaseUser, true); // Force refresh
@@ -61,16 +61,20 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             if (userProfile) {
               setAppUser(userProfile);
             } else {
+               // This case would mean something is wrong, e.g., deleted user. Logging out is a safe fallback.
+               console.warn("User profile could not be found or created. Logging out.");
                await authService.logout();
+               setAppUser(null);
             }
           } catch (error) {
             console.error("Auth session restoration error:", error);
             await authService.logout();
+            setAppUser(null);
           } finally {
             setIsAuthLoading(false);
           }
-        }
       } else {
+        // Firebase user is null, so there's no app user.
         setAppUser(null);
         setIsAuthLoading(false);
       }
@@ -79,7 +83,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!isFirebaseUserLoading) {
       handleAuthChange();
     }
-  }, [firebaseUser, isFirebaseUserLoading, appUser]);
+  // IMPORTANT: appUser MUST NOT be in this dependency array to prevent an infinite loop.
+  // This hook should only react to changes in the underlying firebaseUser from the useFirebase hook.
+  }, [firebaseUser, isFirebaseUserLoading, router]);
 
 
   // This effect handles redirecting unauthenticated users
@@ -126,10 +132,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
         else if (appUser.role === 'admin') {
             setOrganizations(prevOrgs => {
-                if (!prevOrgs.some(o => o.id === appUser.id)) return [appUser];
-                const existing = prevOrgs.find(o => o.id === appUser.id);
-                if (JSON.stringify(existing) !== JSON.stringify(appUser)) {
-                   return prevOrgs.map(o => o.id === appUser.id ? appUser : o);
+                const appUserAsOrg = appUser as Organization;
+                if (!prevOrgs.some(o => o.id === appUserAsOrg.id)) return [appUserAsOrg];
+                const existing = prevOrgs.find(o => o.id === appUserAsOrg.id);
+                if (JSON.stringify(existing) !== JSON.stringify(appUserAsOrg)) {
+                   return prevOrgs.map(o => o.id === appUserAsOrg.id ? appUserAsOrg : o);
                 }
                 return prevOrgs;
             });
@@ -191,9 +198,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             title: 'Login Failed',
             description: error.message || 'An unexpected error occurred.',
         });
-    } finally {
+        // Ensure loading state is turned off on failure to allow for retry
         setIsAuthLoading(false);
-    }
+    } 
+    // We don't set isAuthLoading to false on success because the useEffect will handle it
   };
 
   const logout = async (): Promise<void> => {
