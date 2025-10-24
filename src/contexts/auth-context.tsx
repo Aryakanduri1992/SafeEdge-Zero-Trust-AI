@@ -175,6 +175,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
         if (userProfile.role !== role) {
+            await authService.logout();
             throw new Error(`Login failed: User does not have the required '${role}' role.`);
         }
 
@@ -185,7 +186,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             router.replace('/admin/dashboard');
         }
     } catch (error: any) {
-        toast({
+         toast({
             variant: 'destructive',
             title: 'Login Failed',
             description: error.message || 'An unexpected error occurred.',
