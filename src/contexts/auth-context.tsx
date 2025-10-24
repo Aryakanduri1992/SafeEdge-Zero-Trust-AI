@@ -180,10 +180,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsAuthLoading(true);
     try {
         const userCredential = await authService.login(credentials);
-        const idTokenResult = await getIdTokenResult(userCredential.user, true);
+        const idTokenResult = await getIdTokenResult(userCredential.user, true); // Force refresh
         const userProfile = await authService.getOrCreateUserProfile(userCredential.user, idTokenResult.claims);
 
         if (!userProfile) {
+            await authService.logout(); // Ensure logout if profile fails
             throw new Error(`Login failed: Could not retrieve a user profile for ${credentials.email}.`);
         }
 
@@ -196,14 +197,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         handleUserRedirect(userProfile);
 
     } catch (error: any) {
-        // Logout if anything fails during the login process
         await authService.logout();
         setAppUser(null);
-        toast({
-            variant: 'destructive',
-            title: 'Login Failed',
-            description: error.message || 'An unexpected error occurred.',
-        });
+        // The original error is more informative than a generic message
+        throw error;
     } finally {
         setIsAuthLoading(false);
     }

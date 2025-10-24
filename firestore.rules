@@ -1,54 +1,36 @@
 
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper function to check if a user is a super admin
+  
     function isSuperAdmin() {
       return request.auth.token.superadmin == true;
     }
-
-    // Helper function to check if a user is an admin of a specific organization
+    
     function isOrgAdmin(orgId) {
       return request.auth.uid == orgId;
     }
-
-    match /roles_super_admin/{uid} {
-      // Super admins can create their own role document upon first login
-      allow create: if isSuperAdmin() && request.auth.uid == uid;
-      // Only super admins can read or update super admin role documents
-      allow read, update: if isSuperAdmin();
-      // Disallow public listing or deletion
-      allow list, delete: if false;
+  
+    match /roles_super_admin/{superAdminId} {
+      allow read: if isSuperAdmin() && request.auth.uid == superAdminId;
+      allow write: if isSuperAdmin() && request.auth.uid == superAdminId;
     }
-
+    
     match /organizations/{organizationId} {
-      // Super admins have full access to all organization records
-      allow read, write: if isSuperAdmin();
-      // Organization admins can read their own record
-      allow get: if isOrgAdmin(organizationId);
-      // Organization admins can update their own imageUrl
-      allow update: if isOrgAdmin(organizationId) && request.resource.data.keys().hasOnly(['imageUrl']);
-       // Disallow listing, creation, or deletion by non-superadmins
-      allow list, create, delete: if isSuperAdmin();
+      allow read: if isOrgAdmin(organizationId) || isSuperAdmin();
+      allow write: if isSuperAdmin();
+      allow create: if isSuperAdmin();
     }
-
+    
     match /departments/{departmentId} {
-        // Super admins can do anything
-        allow read, write: if isSuperAdmin();
-        // Organization admins can read departments belonging to their organization
-        allow list, get: if isOrgAdmin(resource.data.organizationId);
+      allow read: if isOrgAdmin(resource.data.organizationId) || isSuperAdmin();
+      allow create: if isSuperAdmin();
+      allow update: if isSuperAdmin();
+      allow delete: if isSuperAdmin();
     }
-
+    
     match /devices/{deviceId} {
-        // Super admins can read all devices
-        allow read: if isSuperAdmin();
-        // Organization admins can create, read, update, and delete devices within their organization
-        allow write: if isOrgAdmin(request.resource.data.organizationId);
-        allow read, update, delete: if isOrgAdmin(resource.data.organizationId);
+      allow read, write: if isOrgAdmin(request.auth.uid) || isSuperAdmin();
     }
   }
 }
-
-    
