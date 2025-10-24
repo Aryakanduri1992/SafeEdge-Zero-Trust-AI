@@ -10,7 +10,8 @@ import {
   signOut,
   type User as FirebaseUser,
   getIdTokenResult,
-  type ParsedToken
+  type ParsedToken,
+  UserCredential
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, updateDoc, writeBatch, collection, addDoc, deleteDoc } from 'firebase/firestore';
 import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData, NewDeviceData, UpdateDeviceData } from './types';
@@ -19,34 +20,19 @@ import { toast } from '@/hooks/use-toast';
 
 const { firestore, auth } = initializeFirebase();
 
-export async function loginAndFetchProfile(credentials: LoginCredentials): Promise<SuperAdminUser | Organization> {
+export async function login(credentials: LoginCredentials): Promise<UserCredential> {
     const { email, password } = credentials;
     if (!password) {
         throw new Error("Password is required for login.");
     }
     
     try {
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        
-        // This is the critical step: force a token refresh to get custom claims
-        const idTokenResult = await getIdTokenResult(userCredential.user, true);
-
-        // Now, fetch the profile with the guaranteed-fresh claims
-        const userProfile = await getOrCreateUserProfile(userCredential.user, idTokenResult.claims);
-
-        if (!userProfile) {
-            await logout();
-            throw new Error("User profile could not be found or created after login.");
-        }
-
-        return userProfile;
+        return await signInWithEmailAndPassword(auth, email, password);
     } catch (error: any) {
         let friendlyMessage = 'An unexpected error occurred during login.';
         if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
             friendlyMessage = 'Invalid email or password. Please try again.';
         }
-        // Re-throw the error so the calling component (e.g., AuthProvider) can handle it,
-        // such as by showing a toast message.
         throw new Error(friendlyMessage);
     }
 };
@@ -68,7 +54,6 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
                     imageUrl: superAdminData?.imageUrl,
                 } as SuperAdminUser;
             } else {
-                // This logic creates the Super Admin profile on their very first login
                 const newSuperAdminProfile: Omit<SuperAdminUser, 'id' | 'role'> = {
                     email: user.email || 'super@authstation.com',
                     departmentName: 'AuthStation HQ',
@@ -93,15 +78,12 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
         }
     }
     
-    // This part only runs if the user is NOT a superadmin.
     const orgRef = doc(firestore, "organizations", uid);
     try {
         const orgSnap = await getDoc(orgRef);
         if (orgSnap.exists()) {
             return { ...orgSnap.data(), id: uid, role: 'admin' } as Organization;
         } else {
-            // This is an important case. A non-superadmin user exists in Auth, but has no org profile.
-            // They should not be able to proceed.
             console.error("User is not a superadmin and no organization profile found. UID:", uid);
             return null;
         }

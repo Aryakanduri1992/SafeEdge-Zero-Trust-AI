@@ -95,7 +95,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             }
         }
     }
-  }, [appUser, isLoading, pathname]);
+  }, [appUser, isLoading, pathname, router]);
 
   // This effect subscribes to data based on user role
   useEffect(() => {
@@ -171,7 +171,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
     setIsAuthLoading(true);
     try {
-        const userProfile = await authService.loginAndFetchProfile(credentials);
+        const userCredential = await authService.login(credentials);
+        
+        // This is the critical step: force a token refresh to get custom claims
+        const idTokenResult = await getIdTokenResult(userCredential.user, true);
+
+        const userProfile = await authService.getOrCreateUserProfile(userCredential.user, idTokenResult.claims);
+
         if (!userProfile) {
           throw new Error(`Login failed: Could not retrieve a user profile for ${credentials.email}.`);
         }
@@ -182,6 +188,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
         setAppUser(userProfile);
+        
         if (userProfile.role === 'superadmin') {
             router.replace('/superadmin/dashboard');
         } else if (userProfile.role === 'admin') {
@@ -193,7 +200,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             title: 'Login Failed',
             description: error.message || 'An unexpected error occurred.',
         });
-        setIsAuthLoading(false);
+        setIsAuthLoading(false); // Make sure to set loading to false on error
     } 
   };
 
@@ -324,4 +331,3 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     </AuthContext.Provider>
   );
 };
-
