@@ -52,7 +52,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const handleAuthChange = async () => {
       if (firebaseUser) {
-          // No need to check for appUser here, this effect should only run when firebaseUser changes.
           setIsAuthLoading(true);
           try {
             const idTokenResult = await getIdTokenResult(firebaseUser, true); // Force refresh
@@ -61,7 +60,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             if (userProfile) {
               setAppUser(userProfile);
             } else {
-               // This case would mean something is wrong, e.g., deleted user. Logging out is a safe fallback.
                console.warn("User profile could not be found or created. Logging out.");
                await authService.logout();
                setAppUser(null);
@@ -74,7 +72,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             setIsAuthLoading(false);
           }
       } else {
-        // Firebase user is null, so there's no app user.
         setAppUser(null);
         setIsAuthLoading(false);
       }
@@ -83,9 +80,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!isFirebaseUserLoading) {
       handleAuthChange();
     }
-  // IMPORTANT: appUser MUST NOT be in this dependency array to prevent an infinite loop.
-  // This hook should only react to changes in the underlying firebaseUser from the useFirebase hook.
-  }, [firebaseUser, isFirebaseUserLoading, router]);
+  }, [firebaseUser, isFirebaseUserLoading]);
 
 
   // This effect handles redirecting unauthenticated users
@@ -100,7 +95,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             }
         }
     }
-  }, [appUser, isLoading, pathname, router]);
+  }, [appUser, isLoading, pathname]);
 
   // This effect subscribes to data based on user role
   useEffect(() => {
@@ -198,10 +193,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             title: 'Login Failed',
             description: error.message || 'An unexpected error occurred.',
         });
-        // Ensure loading state is turned off on failure to allow for retry
         setIsAuthLoading(false);
     } 
-    // We don't set isAuthLoading to false on success because the useEffect will handle it
   };
 
   const logout = async (): Promise<void> => {
@@ -331,3 +324,4 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     </AuthContext.Provider>
   );
 };
+
