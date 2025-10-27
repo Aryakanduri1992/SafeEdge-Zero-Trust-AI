@@ -16,16 +16,25 @@ import { Input } from '../ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '../ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { ThemeToggle } from '../theme-toggle';
+import { useToast } from '@/hooks/use-toast';
 
 export function Header() {
   const { logout, user, globalSearchTerm, setGlobalSearchTerm } = useAuth();
   const orgUser = user as Organization;
   const pathname = usePathname();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const { toast } = useToast();
   
   const getInitials = (name?: string) => {
     return name ? name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : '';
   }
+
+  const handleComingSoon = () => {
+    toast({
+        title: "Coming Soon",
+        description: "This feature is currently under development.",
+    });
+  };
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b bg-background/80 px-4 shadow-sm backdrop-blur-sm sm:px-6">
@@ -105,9 +114,9 @@ export function Header() {
                 </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-                <DropdownMenuItem>Documentation</DropdownMenuItem>
-                <DropdownMenuItem>Chat Support</DropdownMenuItem>
-                <DropdownMenuItem>Contact Admin</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleComingSoon}>Documentation</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleComingSoon}>Chat Support</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleComingSoon}>Contact Admin</DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
 
@@ -151,5 +160,3 @@ export function Header() {
     </header>
   );
 }
-
-    
