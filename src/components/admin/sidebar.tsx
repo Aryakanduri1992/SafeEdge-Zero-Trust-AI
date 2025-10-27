@@ -7,8 +7,6 @@ import { LayoutDashboard, User, Users, ShieldAlert, HardDrive } from "lucide-rea
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import type { Organization } from "@/lib/types";
-import { Logo } from "../logo";
-
 
 export const navItems = [
   { href: "/admin/dashboard", icon: LayoutDashboard, label: "Organization" },
@@ -28,7 +26,6 @@ export function Sidebar() {
       <div className="flex h-full max-h-screen flex-col gap-2">
         <div className="flex h-16 items-center border-b px-6">
           <Link href="/admin/dashboard" className="flex items-center gap-3 font-semibold overflow-hidden">
-            <Logo className="h-7 w-7 flex-shrink-0" />
             <span className="font-headline text-primary truncate text-base lg:text-lg">{orgUser?.organizationName || "Dashboard"}</span>
           </Link>
         </div>

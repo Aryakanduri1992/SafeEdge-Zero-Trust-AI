@@ -38,7 +38,6 @@ export function Header() {
                 onClick={() => setIsSheetOpen(false)}
                 className="flex items-center gap-2 text-lg font-semibold mb-4 overflow-hidden"
                 >
-                <Logo className="h-8 w-8 flex-shrink-0" />
                 <span className="truncate">{orgUser?.organizationName}</span>
                 </Link>
                 {mobileNavItems.map((item) => (
