@@ -44,14 +44,14 @@ export function Header({ user }: HeaderProps) {
       </div>
       <div className='flex items-center gap-2 sm:gap-4'>
         <div className="hidden sm:flex flex-col items-end">
-            <span className="text-sm font-semibold">{user.departmentName}</span>
+            <span className="text-sm font-semibold">{user?.departmentName || 'Super Admin'}</span>
             <span className="text-xs text-muted-foreground">Super Admin</span>
         </div>
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                     <Avatar className="h-10 w-10">
-                        <AvatarFallback>{getInitials(user.departmentName)}</AvatarFallback>
+                        <AvatarFallback>{getInitials(user?.departmentName)}</AvatarFallback>
                     </Avatar>
                 </Button>
             </DropdownMenuTrigger>

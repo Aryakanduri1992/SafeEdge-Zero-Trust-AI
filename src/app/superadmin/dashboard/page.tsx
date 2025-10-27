@@ -37,7 +37,6 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { ActivateDepartmentDialog } from '@/components/superadmin/activate-department-dialog';
 import { Input } from '@/components/ui/input';
 import { CreateDepartmentForm } from '@/components/superadmin/create-department-form';
@@ -407,7 +406,7 @@ export default function SuperAdminDashboardPage() {
               ))}
                  {filteredDepartments.length === 0 && (
                     <TableRow>
-                        <TableCell colSpan={8} className="h-24 text-center">
+                        <TableCell colSpan={7} className="h-24 text-center">
                             No departments found matching your criteria.
                         </TableCell>
                     </TableRow>

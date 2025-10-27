@@ -152,7 +152,7 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
                                                             <Edit className="mr-2 h-4 w-4" />
                                                             <span>Edit</span>
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleDeleteClick(device)} className="text-destructive focus:text-destructive">
+                                                        <DropdownMenuItem onClick={() => handleDeleteClick(device)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                                                             <Trash2 className="mr-2 h-4 w-4" />
                                                             <span>Delete</span>
                                                         </DropdownMenuItem>

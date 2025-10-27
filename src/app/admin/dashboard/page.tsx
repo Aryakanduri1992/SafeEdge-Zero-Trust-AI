@@ -17,6 +17,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const LoadingSkeleton = () => (
   <div className="flex flex-col gap-8">
@@ -83,14 +84,14 @@ export default function AdminDashboardPage() {
                 A list of all departments registered under {orgUser.organizationName}.
               </DialogDescription>
             </DialogHeader>
-            <div className="max-h-[60vh] overflow-y-auto pr-4">
+            <ScrollArea className="max-h-[60vh]">
                 {departments.length > 0 ? (
                     <Table>
                     <TableHeader>
                         <TableRow>
                         <TableHead>Department</TableHead>
-                        <TableHead>Location</TableHead>
-                        <TableHead>Building/Floor</TableHead>
+                        <TableHead className="hidden sm:table-cell">Location</TableHead>
+                        <TableHead className="hidden md:table-cell">Building/Floor</TableHead>
                         <TableHead className="text-center">Device Quota</TableHead>
                         <TableHead className="text-center">Status</TableHead>
                         </TableRow>
@@ -101,8 +102,8 @@ export default function AdminDashboardPage() {
                             <TableCell>
                             <div className="font-medium">{dept.departmentName}</div>
                             </TableCell>
-                            <TableCell>{dept.location}</TableCell>
-                            <TableCell>{dept.building}, Fl {dept.floor}</TableCell>
+                            <TableCell className="hidden sm:table-cell">{dept.location}</TableCell>
+                            <TableCell className="hidden md:table-cell">{dept.building}, Fl {dept.floor}</TableCell>
                             <TableCell className="text-center">
                                 <div className="flex items-center justify-center gap-2">
                                 <HardDrive className="h-4 w-4 text-muted-foreground"/> 
@@ -128,7 +129,7 @@ export default function AdminDashboardPage() {
                         </p>
                     </div>
                 )}
-            </div>
+            </ScrollArea>
           </DialogContent>
         </Dialog>
 
@@ -183,7 +184,7 @@ export default function AdminDashboardPage() {
         <CardHeader>
           <CardTitle>Departments Overview</CardTitle>
           <CardDescription>
-            A high-level overview of your departments will be shown here.
+            A high-level overview of your departments.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -192,7 +193,7 @@ export default function AdminDashboardPage() {
                     <TableHeader>
                         <TableRow>
                         <TableHead>Department</TableHead>
-                        <TableHead>Location</TableHead>
+                        <TableHead className="hidden sm:table-cell">Location</TableHead>
                         <TableHead className="text-center">Status</TableHead>
                         </TableRow>
                     </TableHeader>
@@ -202,7 +203,7 @@ export default function AdminDashboardPage() {
                             <TableCell>
                                 <div className="font-medium">{dept.departmentName}</div>
                             </TableCell>
-                            <TableCell>{dept.location}</TableCell>
+                            <TableCell className="hidden sm:table-cell">{dept.location}</TableCell>
                             <TableCell className="text-center">
                             {dept.status === 'active' ? (
                                 <Badge variant="outline" className="text-green-400 border-green-400/50"><CheckCircle className="mr-1 h-3 w-3" />Active</Badge>

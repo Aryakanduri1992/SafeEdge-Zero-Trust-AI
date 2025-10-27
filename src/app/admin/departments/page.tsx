@@ -98,19 +98,19 @@ export default function DepartmentsPage() {
           <CardDescription>
             A list of all registered departments within your organization.
           </CardDescription>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <div className="relative flex-1 min-w-[250px]">
+          <div className="mt-4 flex flex-col sm:flex-row items-center gap-2">
+            <div className="relative flex-1 w-full">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search departments..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
+                className="pl-10 w-full"
               />
             </div>
             <Popover>
               <PopoverTrigger asChild>
-                 <Button variant="outline" className="relative">
+                 <Button variant="outline" className="relative w-full sm:w-auto">
                     <Filter className="mr-2 h-4 w-4" />
                     Filter
                     {activeFilterCount > 0 && (
@@ -200,9 +200,9 @@ export default function DepartmentsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Department</TableHead>
-                  <TableHead>Location</TableHead>
-                  <TableHead>Building</TableHead>
-                  <TableHead>Floor</TableHead>
+                  <TableHead className="hidden sm:table-cell">Location</TableHead>
+                  <TableHead className="hidden md:table-cell">Building</TableHead>
+                  <TableHead className="hidden lg:table-cell">Floor</TableHead>
                   <TableHead className="text-center">Device Quota</TableHead>
                   <TableHead className="text-center">Status</TableHead>
                 </TableRow>
@@ -212,11 +212,11 @@ export default function DepartmentsPage() {
                   <TableRow key={dept.id}>
                     <TableCell>
                       <div className="font-medium">{dept.departmentName}</div>
-                      <div className="text-xs text-muted-foreground font-mono">{dept.organizationName}</div>
+                      <div className="text-xs text-muted-foreground font-mono hidden sm:block">{dept.organizationName}</div>
                     </TableCell>
-                    <TableCell>{dept.location}</TableCell>
-                    <TableCell>{dept.building}</TableCell>
-                    <TableCell>{dept.floor}</TableCell>
+                    <TableCell className="hidden sm:table-cell">{dept.location}</TableCell>
+                    <TableCell className="hidden md:table-cell">{dept.building}</TableCell>
+                    <TableCell className="hidden lg:table-cell">{dept.floor}</TableCell>
                     <TableCell className="text-center">
                         <div className="flex items-center justify-center gap-2">
                            <HardDrive className="h-4 w-4 text-muted-foreground"/> 
