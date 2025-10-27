@@ -5,9 +5,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { LayoutDashboard, User, Users, ShieldAlert, HardDrive } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Logo } from "@/components/logo";
 import { useAuth } from "@/hooks/use-auth";
 import type { Organization } from "@/lib/types";
+import { Logo } from "../logo";
 
 
 export const navItems = [
@@ -28,7 +28,8 @@ export function Sidebar() {
       <div className="flex h-full max-h-screen flex-col gap-2">
         <div className="flex h-16 items-center border-b px-6">
           <Link href="/admin/dashboard" className="flex items-center gap-2 font-semibold">
-            <span className="font-headline text-xl text-primary">{orgUser?.organizationName || "Dashboard"}</span>
+            <Logo className="h-7 w-7" />
+            <span className="font-headline text-lg text-primary">{orgUser?.organizationName || "Dashboard"}</span>
           </Link>
         </div>
         <div className="flex-1 overflow-auto py-2">
@@ -38,7 +39,7 @@ export function Sidebar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:text-primary",
+                  "flex items-center gap-3 rounded-lg px-3 py-3 text-muted-foreground transition-all hover:bg-muted hover:text-primary",
                   pathname === item.href && "bg-muted text-primary"
                 )}
               >

@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Globe, User, ShieldCheck, Palette, Edit } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,9 +25,9 @@ const LoadingSkeleton = () => (
       <Skeleton className="h-5 w-96" />
     </div>
     <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-3">
-      <Skeleton className="h-64" />
-      <Skeleton className="h-64" />
-      <Skeleton className="h-64" />
+      <Skeleton className="h-64 rounded-lg" />
+      <Skeleton className="h-64 rounded-lg" />
+      <Skeleton className="h-64 rounded-lg" />
     </div>
   </div>
 );
@@ -67,7 +67,7 @@ export default function ProfilePage() {
 
         <div className="grid gap-8 lg:grid-cols-3">
           <div className="lg:col-span-1 space-y-8">
-            <Card>
+            <Card className="shadow-lg">
               <CardHeader>
                 <CardTitle>Organization Profile</CardTitle>
                 <CardDescription>Primary contact and identity.</CardDescription>
@@ -75,7 +75,7 @@ export default function ProfilePage() {
               <CardContent className="space-y-6">
                 <div className="flex flex-col items-center gap-4">
                    <div className="relative group">
-                      <Avatar className="h-24 w-24 border-2 border-primary/20">
+                      <Avatar className="h-24 w-24 border-4 border-background outline outline-1 outline-border shadow-lg">
                         {orgUser.imageUrl ? (
                            <Image src={orgUser.imageUrl} alt={orgUser.organizationName} fill className="object-cover" />
                         ) : (
@@ -87,7 +87,7 @@ export default function ProfilePage() {
                       <Button
                           variant="outline"
                           size="icon"
-                          className="absolute bottom-0 right-0 rounded-full h-8 w-8 bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="absolute bottom-0 right-0 rounded-full h-8 w-8 bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm"
                           onClick={() => setIsImageSelectorOpen(true)}
                         >
                           <Edit className="h-4 w-4" />
@@ -123,7 +123,7 @@ export default function ProfilePage() {
           </div>
 
           <div className="lg:col-span-2 space-y-8">
-             <Card>
+             <Card className="shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <ShieldCheck className="h-5 w-5 text-primary" />
@@ -153,7 +153,7 @@ export default function ProfilePage() {
               </CardContent>
             </Card>
 
-             <Card>
+             <Card className="shadow-lg">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Palette className="h-5 w-5 text-primary" />

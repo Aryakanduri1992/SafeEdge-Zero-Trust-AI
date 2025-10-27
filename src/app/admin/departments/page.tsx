@@ -92,7 +92,7 @@ export default function DepartmentsPage() {
           Viewing all departments for {orgUser.organizationName}.
         </p>
       </div>
-      <Card>
+      <Card className="shadow-lg">
         <CardHeader>
           <CardTitle>Department List</CardTitle>
           <CardDescription>
@@ -225,7 +225,7 @@ export default function DepartmentsPage() {
                     </TableCell>
                     <TableCell className="text-center">
                       {dept.status === 'active' ? (
-                        <Badge variant="outline" className="text-green-400 border-green-400/50"><CheckCircle className="mr-1 h-3 w-3" />Active</Badge>
+                        <Badge variant="outline" className="text-green-500 border-green-500/50 bg-green-500/10"><CheckCircle className="mr-1 h-3 w-3" />Active</Badge>
                       ) : (
                         <Badge variant="destructive" className="bg-muted-foreground/20 text-muted-foreground border-muted-foreground/30"><XCircle className="mr-1 h-3 w-3" />Inactive</Badge>
                       )}

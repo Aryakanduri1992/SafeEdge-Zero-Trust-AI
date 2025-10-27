@@ -28,6 +28,8 @@ const LoadingSkeleton = () => (
     <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <Skeleton className="h-[108px] w-full" />
       <Skeleton className="h-[108px] w-full" />
+      <Skeleton className="h-[108px] w-full" />
+      <Skeleton className="h-[108px] w-full" />
     </div>
   </div>
 );
@@ -61,10 +63,10 @@ export default function AdminDashboardPage() {
         <p className="text-muted-foreground">Welcome back, {user?.organizationName}. Here is the real-time status of your protected assets.</p>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2">
         <Dialog>
           <DialogTrigger asChild>
-            <Card className="cursor-pointer transition-colors hover:border-primary/50">
+            <Card className="cursor-pointer transition-transform duration-200 hover:scale-[1.02] hover:shadow-primary/20">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Departments</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
@@ -112,7 +114,7 @@ export default function AdminDashboardPage() {
                             </TableCell>
                             <TableCell className="text-center">
                             {dept.status === 'active' ? (
-                                <Badge variant="outline" className="text-green-400 border-green-400/50"><CheckCircle className="mr-1 h-3 w-3" />Active</Badge>
+                                <Badge variant="outline" className="text-green-500 border-green-500/50 bg-green-500/10"><CheckCircle className="mr-1 h-3 w-3" />Active</Badge>
                             ) : (
                                 <Badge variant="destructive" className="bg-muted-foreground/20 text-muted-foreground border-muted-foreground/30"><XCircle className="mr-1 h-3 w-3" />Inactive</Badge>
                             )}
@@ -135,7 +137,7 @@ export default function AdminDashboardPage() {
 
         <Dialog>
           <DialogTrigger asChild>
-            <Card className="cursor-pointer transition-colors hover:border-primary/50">
+            <Card className="cursor-pointer transition-transform duration-200 hover:scale-[1.02] hover:shadow-primary/20">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Device License Quota</CardTitle>
                 <Database className="h-4 w-4 text-muted-foreground" />
@@ -172,7 +174,7 @@ export default function AdminDashboardPage() {
                     </div>
                      <div>
                         <p className="text-xs text-muted-foreground">Remaining</p>
-                        <p className="text-2xl font-bold text-green-400">{remainingDevices}</p>
+                        <p className="text-2xl font-bold text-green-500">{remainingDevices}</p>
                     </div>
                 </div>
              </div>
@@ -180,7 +182,7 @@ export default function AdminDashboardPage() {
         </Dialog>
       </div>
 
-       <Card>
+       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle>Departments Overview</CardTitle>
           <CardDescription>
@@ -206,7 +208,7 @@ export default function AdminDashboardPage() {
                             <TableCell className="hidden sm:table-cell">{dept.location}</TableCell>
                             <TableCell className="text-center">
                             {dept.status === 'active' ? (
-                                <Badge variant="outline" className="text-green-400 border-green-400/50"><CheckCircle className="mr-1 h-3 w-3" />Active</Badge>
+                                <Badge variant="outline" className="text-green-500 border-green-500/50 bg-green-500/10"><CheckCircle className="mr-1 h-3 w-3" />Active</Badge>
                             ) : (
                                 <Badge variant="destructive" className="bg-muted-foreground/20 text-muted-foreground border-muted-foreground/30"><XCircle className="mr-1 h-3 w-3" />Inactive</Badge>
                             )}

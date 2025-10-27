@@ -74,7 +74,7 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
     
     const statusColor = (status: Device['status']) => {
         switch (status) {
-            case 'online': return 'text-green-400 border-green-400/50';
+            case 'online': return 'text-green-500 border-green-500/50 bg-green-500/10';
             case 'offline': return 'text-muted-foreground';
             case 'alerting': return '';
         }
@@ -82,7 +82,7 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
 
     return (
         <>
-            <Card>
+            <Card className="shadow-lg">
                 <CardHeader>
                     <CardTitle>Registered Devices</CardTitle>
                     <CardDescription>A list of all devices registered to your organization.</CardDescription>
