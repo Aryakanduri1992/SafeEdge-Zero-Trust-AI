@@ -1,119 +1,33 @@
-/**
- * @fileoverview Firestore Security Rules for AuthStation.
- *
- * Core Philosophy:
- * This ruleset enforces a multi-tenant data model where access is primarily based on organization and user roles.
- * SuperAdmins have broad access within their organization, while regular users typically have read access.
- * The rules prioritize security by default, explicitly denying access where the intent is unclear.
- *
- * Data Structure:
- * - /roles_super_admin/{superAdminId}: Identifies super admins.
- * - /organizations/{organizationId}: Stores organization data.
- * - /departments/{departmentId}: Stores department data, linked to organizations.
- * - /devices/{deviceId}: Stores device data, linked to departments and organizations.
- *
- * Key Security Decisions:
- * - SuperAdmin role assignment is managed through the roles_super_admin collection.
- * - Listing of the roles_super_admin collection is forbidden.
- * - Write access to organization and department data is restricted to super admins.
- * - Read access to organization and department data is open within the organization.
- *
- * Denormalization for Authorization:
- * - The 'Department' entity includes 'organizationId' and 'superAdminId' to simplify authorization checks.
- * - The 'Device' entity includes 'organizationId' and 'departmentId' for similar reasons.
- */
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * @description SuperAdmin role assignment.
-     * @path /roles_super_admin/{superAdminId}
-     * @allow (create) User with matching UID can create their own role document.
-     * @deny (create) User attempts to create a role document for another user.
-     * @allow (get) Any authenticated user can check if a user is a super admin.
-     * @deny (list) Listing super admin roles is not allowed.
-     * @principle Enforces user-ownership and prevents unauthorized role assignment.
-     */
-    match /roles_super_admin/{superAdminId} {
-      allow create: if isSignedIn() && isOwner(superAdminId);
-      allow get: if isSignedIn();
-      allow list: if false;
-      allow update: if false;
-      allow delete: if false;
+    // Helper function to check if the requester is a Super Admin
+    function isSuperAdmin() {
+      return exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
     }
 
-    /**
-     * @description Organization profile information.
-     * @path /organizations/{organizationId}
-     * @allow (create) Any authenticated user can create an organization.
-     * @allow (get, list) Any authenticated user can read organization information.
-     * @deny (update, delete) Only super admins can update or delete organization data.
-     * @principle Restricts write access to super admins while allowing open read access.
-     */
-    match /organizations/{organizationId} {
-      allow create: if isSignedIn();
-      allow get, list: if isSignedIn();
-      allow update: if isSignedIn() && isSuperAdminForOrganization(organizationId);
-      allow delete: if isSignedIn() && isSuperAdminForOrganization(organizationId);
+    // Super Admins have universal access. This rule must come first.
+    match /{document=**} {
+      allow read, write: if isSuperAdmin();
     }
 
-    /**
-     * @description Department information for all organizations.
-     * @path /departments/{departmentId}
-     * @allow (create) Only super admins can create departments.
-     * @allow (get, list) Any authenticated user can read department information.
-     * @deny (update, delete) Only super admins can update or delete departments.
-     * @principle Restricts write access to super admins while allowing open read access.
-     */
-    match /departments/{departmentId} {
-      allow create: if isSignedIn() && isSuperAdminForOrganization(request.resource.data.organizationId);
-      allow get, list: if isSignedIn();
-      allow update: if isSignedIn() && isSuperAdminForOrganization(resource.data.organizationId);
-      allow delete: if isSignedIn() && isSuperAdminForOrganization(resource.data.organizationId);
+    // Organization admins can read their own document.
+    match /organizations/{orgId} {
+      allow get: if request.auth.uid == orgId;
     }
 
-    /**
-     * @description Information about individual devices.
-     * @path /devices/{deviceId}
-     * @allow (create) Only super admins can create devices.
-     * @allow (get, list) Any authenticated user can read device information.
-     * @deny (update, delete) Only super admins can update or delete devices.
-     * @principle Restricts write access to super admins while allowing open read access.
-     */
+    // Organization admins can query for their own departments.
+    match /departments/{deptId} {
+       allow list: if request.auth.uid == request.query.organizationId;
+       allow get: if request.auth.uid == resource.data.organizationId;
+    }
+    
+    // Organization admins can manage their own devices.
     match /devices/{deviceId} {
-      allow create: if isSignedIn() && isSuperAdminForOrganization(request.resource.data.organizationId);
-      allow get, list: if isSignedIn();
-      allow update: if isSignedIn() && isSuperAdminForOrganization(resource.data.organizationId);
-      allow delete: if isSignedIn() && isSuperAdminForOrganization(resource.data.organizationId);
+      allow get, list, create, update, delete: if request.auth.uid == request.resource.data.organizationId 
+                                                 || request.auth.uid == resource.data.organizationId;
     }
-  }
-
-  // --- Helper functions ---
-
-  /**
-   * @description Checks if the user is signed in.
-   * @return {boolean} True if the user is authenticated, false otherwise.
-   */
-  function isSignedIn() {
-    return request.auth != null;
-  }
-
-  /**
-   * @description Checks if the user is the owner of the resource.
-   * @param {string} userId The user ID to check against.
-   * @return {boolean} True if the user is the owner, false otherwise.
-   */
-  function isOwner(userId) {
-    return request.auth.uid == userId;
-  }
-
-    /**
-   * @description Checks if the user is a super admin for a given organization.
-   * @param {string} organizationId The organization ID to check.
-   * @return {boolean} True if the user is a super admin for the organization, false otherwise.
-   */
-  function isSuperAdminForOrganization(organizationId) {
-    return exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
   }
 }
