@@ -27,9 +27,9 @@ export function Sidebar() {
     <div className="hidden border-r bg-background md:block">
       <div className="flex h-full max-h-screen flex-col gap-2">
         <div className="flex h-16 items-center border-b px-6">
-          <Link href="/admin/dashboard" className="flex items-center gap-2 font-semibold">
-            <Logo className="h-7 w-7" />
-            <span className="font-headline text-lg text-primary">{orgUser?.organizationName || "Dashboard"}</span>
+          <Link href="/admin/dashboard" className="flex items-center gap-2 font-semibold overflow-hidden">
+            <Logo className="h-7 w-7 flex-shrink-0" />
+            <span className="font-headline text-primary truncate text-base lg:text-lg">{orgUser?.organizationName || "Dashboard"}</span>
           </Link>
         </div>
         <div className="flex-1 overflow-auto py-2">

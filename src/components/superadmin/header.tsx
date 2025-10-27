@@ -44,7 +44,7 @@ export function Header({ user }: HeaderProps) {
       </div>
       <div className='flex items-center gap-2 sm:gap-4'>
         <div className="hidden sm:flex flex-col items-end">
-            <span className="text-sm font-semibold">{user?.departmentName || 'Super Admin'}</span>
+            <span className="text-sm font-semibold truncate max-w-[200px]">{user?.departmentName || 'Super Admin'}</span>
             <span className="text-xs text-muted-foreground">Super Admin</span>
         </div>
         <DropdownMenu>

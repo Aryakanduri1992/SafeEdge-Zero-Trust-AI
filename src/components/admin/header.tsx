@@ -36,10 +36,10 @@ export function Header() {
                 <Link
                 href="/admin/dashboard"
                 onClick={() => setIsSheetOpen(false)}
-                className="flex items-center gap-2 text-lg font-semibold mb-4"
+                className="flex items-center gap-2 text-lg font-semibold mb-4 overflow-hidden"
                 >
-                <Logo className="h-8 w-8" />
-                <span>{orgUser?.organizationName}</span>
+                <Logo className="h-8 w-8 flex-shrink-0" />
+                <span className="truncate">{orgUser?.organizationName}</span>
                 </Link>
                 {mobileNavItems.map((item) => (
                     <Link
@@ -68,7 +68,7 @@ export function Header() {
             <Bell className="h-5 w-5" />
             <span className="sr-only">Notifications</span>
         </Button>
-        <span className="text-sm text-muted-foreground hidden sm:inline">
+        <span className="text-sm text-muted-foreground hidden sm:inline truncate max-w-[150px] lg:max-w-xs">
             {orgUser?.organizationName}
         </span>
         <Button variant="ghost" size="sm" onClick={logout}>
