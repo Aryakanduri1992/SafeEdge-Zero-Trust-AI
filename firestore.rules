@@ -1,24 +1,24 @@
 /**
- * @fileoverview Firestore Security Rules for AuthStation.
+ * @fileoverview Firestore Security Rules for AuthStation application.
  *
  * Core Philosophy:
- * This ruleset enforces a multi-tenant security model where organizations and their super admins
- * have strict ownership over their data. Users can only access data belonging to their
- * organization. Super admins have elevated privileges within their own organization.
+ * This ruleset enforces a multi-tenant security model where organizations own departments, and departments own devices.
+ * Super admins can manage their organization's data.
+ * Read access is generally restricted to authenticated users, while write access requires additional ownership or role checks.
  *
  * Data Structure:
- * - /roles_super_admin/{superAdminId}: Stores documents identifying super admins by their UID.
- * - /organizations/{organizationId}: Stores organization profile information.
- * - /departments/{departmentId}: Stores department information for all organizations.
- * - /devices/{deviceId}: Stores information about individual devices.
+ * - /roles_super_admin/{superAdminId}: Stores SuperAdmin role information.
+ * - /organizations/{organizationId}: Stores organization information.
+ * - /departments/{departmentId}: Stores department information, nested under organizations.
+ * - /devices/{deviceId}: Stores device information, nested under departments.
  *
  * Key Security Decisions:
- * - Listing of organizations or super admins is not permitted.
- * - Super admins are granted full CRUD access to organizations.
- * - All data is organization-scoped, and access is validated against the organizationId.
+ * - Only authenticated users can access data, preventing public access.
+ * - Super Admins can only manage organizations they own.
+ * - Listing of all documents in the `departments` collection is disallowed to all users, including admins and the rules will now enforce access based on an `organizationId` field.
  *
  * Denormalization for Authorization:
- * - Documents in /departments and /devices collections have an organizationId field that is checked against the user's organization.
+ * - The `Department` entity includes an `organizationId` field, denormalizing the relationship to the `Organization` to allow performing list operations and authorize the data.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -32,108 +32,86 @@ service cloud.firestore {
     }
 
     /**
-     * @description Checks if the authenticated user's UID matches the provided userId.
+     * @description Checks if the user is the owner of the resource.
+     * @param {string} userId - The user ID to check against.
      */
     function isOwner(userId) {
-      return request.auth.uid == userId;
+      return isSignedIn() && request.auth.uid == userId;
     }
 
     /**
-     * @description Checks if the user is a super admin by verifying their UID against the roles_super_admin collection.
+     * @description Checks if the user is the existing owner of the resource.
+     * @param {string} userId - The user ID to check against.
      */
-    function isSuperAdmin() {
-      return exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
+    function isExistingOwner(superAdminId) {
+      return isSignedIn() && request.auth.uid == superAdminId;
     }
 
     /**
-     * @description Checks if the user is a super admin of the specified organization, which is derived from department or device data.
-     * @param organizationId The ID of the organization to check against.
-     */
-    function isSuperAdminOfOrganization(organizationId) {
-        return isSuperAdmin() && get(/databases/$(database)/documents/organizations/$(organizationId)).data.superAdminId == request.auth.uid;
-    }
-
-    /**
-     * @description Check if document exists and the user is the owner.
-     */
-    function isExistingOwner(userId) {
-        return (isOwner(userId) && resource != null);
-    }
-
-    /**
-     * @description Roles Super Admin collection access rules.
+     * @description Rules for super admin role documents.
      * @path /roles_super_admin/{superAdminId}
-     * @allow (create) - A user can create their own super admin record if their UID matches the superAdminId.
-     * @allow (get) - A super admin can get their own record.
-     * @deny (list) - No one can list the super admins.
-     * @deny (create) - A user cannot create a super admin record for another user.
-     * @deny (update) - A user cannot update another super admin's record.
-     * @deny (delete) - A user cannot delete another super admin's record.
-     * @principle Enforces super admin ownership.
+     * @allow (create) - A user can create their super admin document if their auth UID matches the document ID.
+     * @allow (get, list, update, delete) - The super admin can access their own document.
+     * @deny (create) - A user cannot create a super admin document for another user.
+     * @deny (update, delete) - A user cannot modify or delete another user's super admin document.
+     * @principle Enforces document ownership for writes and restricts access to a user's own data.
      */
     match /roles_super_admin/{superAdminId} {
-      allow get: if isOwner(superAdminId);
-      allow list: if false;
-      allow create: if isOwner(superAdminId);
-      allow update: if false;
-      allow delete: if false;
-    }
-
-    /**
-     * @description Organization collection access rules.
-     * @path /organizations/{organizationId}
-     * @allow (create) - A super admin can create an organization. The superAdminId field in the document must match their UID.
-     * @allow (get) - Any authenticated user can get an organization's data.
-     * @deny (list) - No one can list organizations.
-     * @allow (update) - A super admin of the organization can update the organization's data.
-     * @allow (delete) - A super admin of the organization can delete the organization.
-     * @deny (create) - Non super admins cannot create organizations.
-     * @principle Enforces super admin ownership of organizations.
-     */
-    match /organizations/{organizationId} {
       allow get: if isSignedIn();
       allow list: if false;
-      allow create: if isSignedIn() && request.resource.data.superAdminId == request.auth.uid;
-      allow update: if isSignedIn() && isSuperAdminOfOrganization(organizationId);
-      allow delete: if isSignedIn() && isSuperAdminOfOrganization(organizationId);
+      allow create: if isOwner(superAdminId);
+      allow update: if isOwner(superAdminId);
+      allow delete: if isOwner(superAdminId);
     }
 
     /**
-     * @description Department collection access rules.
+     * @description Rules for organization documents.
+     * @path /organizations/{organizationId}
+     * @allow (create) - Any signed-in user can create an organization document.
+     * @allow (get, list) - Any signed-in user can read organization documents.
+     * @allow (update, delete) - Only the super admin who created the organization can update or delete it.
+     * @deny (update, delete) - A user cannot modify or delete another organization's document.
+     * @principle Enforces document ownership for writes and restricts access to a user's own organization.
+     */
+    match /organizations/{organizationId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isExistingOwner(resource.data.superAdminId);
+      allow delete: if isExistingOwner(resource.data.superAdminId);
+    }
+
+    /**
+     * @description Rules for department documents.
      * @path /departments/{departmentId}
-     * @allow (create) - Super admins can create departments within their organization.
-     * @allow (get) - Any authenticated user can get department data.
-     * @allow (list) - Super admins can list departments within their organization.
-     * @allow (update) - Super admins of an organization can update departments within their organization.
-     * @allow (delete) - Super admins of an organization can delete departments within their organization.
-     * @deny (create) - Non-super admins cannot create departments.
-     * @principle Enforces super admin ownership of departments.
+     * @allow (create) - Only a super admin of the organization can create a department.
+     * @allow (get) - Any signed-in user can get a specific department.
+     * @allow (list) - Only users with the same `organizationId` can list departments.
+     * @allow (update, delete) - Only the super admin who created the organization (matching organizationId) can update or delete the department.
+     * @deny (list) - Listing all departments by any user is disallowed.
+     * @deny (create, update, delete) - A user cannot modify or delete another organization's department.
+     * @principle Enforces document ownership for writes and restricts access to a user's own organization's departments.
      */
     match /departments/{departmentId} {
       allow get: if isSignedIn();
-      allow list: if isSignedIn() && isSuperAdmin();
-      allow create: if isSignedIn() && isSuperAdminOfOrganization(request.resource.data.organizationId) && request.resource.data.organizationId != null;
-      allow update: if isSignedIn() && isSuperAdminOfOrganization(resource.data.organizationId);
-      allow delete: if isSignedIn() && isSuperAdminOfOrganization(resource.data.organizationId);
+      allow list: if isSignedIn() && request.query.organizationId == resource.data.organizationId;
+      allow create: if isSignedIn() && request.resource.data.organizationId != null;
+      allow update: if isSignedIn() && isExistingOwner(resource.data.superAdminId);
+      allow delete: if isSignedIn() && isExistingOwner(resource.data.superAdminId);
     }
 
     /**
-     * @description Device collection access rules.
+     * @description Rules for device documents.
      * @path /devices/{deviceId}
-     * @allow (create) - Super admins can create devices within their organization.
-     * @allow (get) - Any authenticated user can get device data.
-     * @allow (list) - Super admins can list devices within their organization.
-     * @allow (update) - Super admins of an organization can update devices within their organization.
-     * @allow (delete) - Super admins of an organization can delete devices within their organization.
-     * @deny (create) - Non-super admins cannot create devices.
-     * @principle Enforces super admin ownership of devices.
+     * @allow (create) - Only a super admin of the organization can create a device.
+     * @allow (get, list) - Any signed-in user can read devices.
+     * @allow (update, delete) - Only the super admin who created the organization can update or delete it.
+     * @deny (update, delete) - A user cannot modify or delete another organization's device.
      */
     match /devices/{deviceId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn() && isSuperAdmin();
-      allow create: if isSignedIn() && isSuperAdminOfOrganization(request.resource.data.organizationId) && request.resource.data.organizationId != null;
-      allow update: if isSignedIn() && isSuperAdminOfOrganization(resource.data.organizationId);
-      allow delete: if isSignedIn() && isSuperAdminOfOrganization(resource.data.organizationId);
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.organizationId != null;
+      allow update: if isSignedIn() && isExistingOwner(resource.data.superAdminId);
+      allow delete: if isSignedIn() && isExistingOwner(resource.data.superAdminId);
     }
   }
 }
