@@ -2,34 +2,41 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // SUPERADMIN: Global read/write access
+    
+    // Superadmins can do anything
     function isSuperAdmin() {
       return exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
     }
 
+    // Default deny all reads and writes
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Super Admin global access
     match /{document=**} {
       allow read, write: if isSuperAdmin();
     }
 
-    // ORGANIZATIONS: Admins can read their own profile
+    // Organizations can be read by their owner.
     match /organizations/{orgId} {
-      allow read: if request.auth.uid == orgId;
+      allow read, update: if request.auth.uid == orgId;
     }
 
-    // DEPARTMENTS: Admins can list and get departments belonging to their organization
     match /departments/{departmentId} {
+      // An org admin can list departments belonging to their organization
+      allow list: if request.auth.uid == request.query.filters.organizationId;
+      
+      // An org admin can read a specific department if it belongs to their org
       allow read: if request.auth.uid == resource.data.organizationId;
-      allow list: if request.auth.uid == request.query.get("where")[2][2];
     }
 
-    // DEVICES: Admins can manage devices for their organization
     match /devices/{deviceId} {
-      allow get: if request.auth.uid == resource.data.organizationId;
-      allow list: if request.auth.uid == request.query.get("where")[2][2];
-      allow create: if request.auth.uid == request.resource.data.organizationId;
-      allow update: if request.auth.uid == resource.data.organizationId;
-      allow delete: if request.auth.uid == resource.data.organizationId;
+      // An org admin can query/list devices belonging to their own organization
+      allow list, read: if request.auth.uid == resource.data.organizationId;
+      
+      // An org admin can create, update, and delete devices for their own organization
+      allow create, update, delete: if request.auth.uid == request.resource.data.organizationId;
     }
   }
 }
