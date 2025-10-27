@@ -38,7 +38,7 @@ export function Header() {
                 onClick={() => setIsSheetOpen(false)}
                 className="flex items-center gap-2 text-lg font-semibold mb-4 overflow-hidden"
                 >
-                <span className="font-headline text-primary truncate text-lg">SafeEdge</span>
+                <span className="font-headline text-primary truncate text-xl">SafeEdge</span>
                 </Link>
                 {mobileNavItems.map((item) => (
                     <Link
@@ -59,8 +59,8 @@ export function Header() {
         </Sheet>
         <Link href="/admin/dashboard" className="flex items-center gap-2 font-semibold">
             <div className="flex flex-col">
-              <span className="font-headline text-lg text-primary hidden sm:inline">{orgUser?.organizationName}</span>
-              <span className="text-xs text-muted-foreground hidden sm:inline">SafeEdge Cyber Defense</span>
+              <span className="font-headline text-lg text-primary hidden sm:inline">SafeEdge</span>
+              <span className="text-xs text-muted-foreground hidden sm:inline">{orgUser?.organizationName}</span>
             </div>
         </Link>
       </div>
@@ -81,5 +81,6 @@ export function Header() {
     </header>
   );
 }
+
 
 

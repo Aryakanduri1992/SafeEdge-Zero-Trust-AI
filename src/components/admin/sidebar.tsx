@@ -27,7 +27,7 @@ export function Sidebar() {
       <div className="flex h-full max-h-screen flex-col gap-2">
         <div className="flex h-16 items-center border-b px-6">
           <Link href="/admin/dashboard" className="flex items-center gap-3 font-semibold overflow-hidden">
-             <span className="font-headline text-primary truncate text-base lg:text-lg">SafeEdge</span>
+             <span className="font-headline text-primary truncate text-lg lg:text-xl">SafeEdge</span>
           </Link>
         </div>
         <div className="flex-1 overflow-auto py-4">
@@ -54,4 +54,5 @@ export function Sidebar() {
     </div>
   );
 }
+
 
