@@ -16,7 +16,7 @@ export default function OrganisationLoginPage() {
           <p className="text-muted-foreground">Organization Portal</p>
         </div>
       </div>
-      <Card className="w-full max-w-sm border-primary/20 bg-card/60 shadow-xl backdrop-blur-sm">
+      <Card className="w-full max-w-sm border-primary/10 bg-card/60 shadow-xl backdrop-blur-lg">
         <CardHeader>
           <CardTitle className="text-2xl">Organization Login</CardTitle>
           <CardDescription>

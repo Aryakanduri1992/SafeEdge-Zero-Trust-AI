@@ -16,7 +16,7 @@ export default function SuperAdminLoginPage() {
             <p className="text-muted-foreground">Super Admin Portal</p>
         </div>
       </div>
-      <Card className="w-full max-w-sm border-primary/20 bg-card/60 shadow-xl backdrop-blur-sm">
+      <Card className="w-full max-w-sm border-primary/10 bg-card/60 shadow-xl backdrop-blur-lg">
         <CardHeader>
           <CardTitle className="text-2xl">Super Admin Login</CardTitle>
           <CardDescription>
