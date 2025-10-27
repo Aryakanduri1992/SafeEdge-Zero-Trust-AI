@@ -8,7 +8,7 @@ import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDe
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, FirestorePermissionError, errorEmitter } from '@/firebase';
 import { collection, onSnapshot, Unsubscribe, query, where } from 'firebase/firestore';
-import { User, getIdTokenResult } from 'firebase/auth';
+import { User } from 'firebase/auth';
 
 type AuthContextType = {
   user: SuperAdminUser | Organization | null;
@@ -62,13 +62,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (firebaseUser) {
           setIsAuthLoading(true);
           try {
-            // Force a token refresh to get the latest custom claims.
-            const idTokenResult = await getIdTokenResult(firebaseUser, true); 
-            const userProfile = await authService.getOrCreateUserProfile(firebaseUser, idTokenResult.claims);
+            const userProfile = await authService.fetchUserProfile(firebaseUser);
 
             if (userProfile) {
               setAppUser(userProfile);
             } else {
+               // This means the user is authenticated with Firebase, but has no corresponding profile doc
+               // (e.g., not a superadmin and no organization doc). This is an invalid state.
+               console.error("Auth session restoration failed: User profile could not be found or created. Logging out.");
                await authService.logout();
                setAppUser(null);
             }
@@ -184,18 +185,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsAuthLoading(true);
     try {
         const userCredential = await authService.login(credentials);
-        // Force a token refresh to get the latest custom claims.
-        const idTokenResult = await getIdTokenResult(userCredential.user, true);
-        const userProfile = await authService.getOrCreateUserProfile(userCredential.user, idTokenResult.claims);
+        const userProfile = await authService.fetchUserProfile(userCredential.user);
 
-        if (!userProfile) {
-            await authService.logout(); // Ensure logout if profile fails
-            throw new Error(`Login failed: Could not retrieve a user profile for ${credentials.email}.`);
-        }
-
-        if (userProfile.role !== role) {
+        if (!userProfile || userProfile.role !== role) {
             await authService.logout();
-            throw new Error(`Login failed: User does not have the required '${role}' role.`);
+            throw new Error(`Login failed: User does not have the required '${role}' role or profile not found.`);
         }
 
         setAppUser(userProfile);
@@ -315,7 +309,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     updateDevice,
     deleteDevice,
     updateOrganizationImage,
-    updateSuperAdminImage: async () => {} // Removed functionality
   };
 
   return (

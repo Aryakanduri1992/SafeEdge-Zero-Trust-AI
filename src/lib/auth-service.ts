@@ -10,12 +10,12 @@ import {
   signOut,
   type User as FirebaseUser,
   type ParsedToken,
-  UserCredential
+  UserCredential,
+  getIdTokenResult
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, updateDoc, writeBatch, collection, addDoc, deleteDoc } from 'firebase/firestore';
 import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData, NewDeviceData, UpdateDeviceData } from './types';
 import { initializeFirebase, FirestorePermissionError, errorEmitter } from '@/firebase';
-import { toast } from '@/hooks/use-toast';
 
 const { firestore, auth } = initializeFirebase();
 
@@ -36,12 +36,14 @@ export async function login(credentials: LoginCredentials): Promise<UserCredenti
     }
 };
 
-export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedToken): Promise<SuperAdminUser | Organization | null> {
-    const uid = user.uid;
+export async function fetchUserProfile(user: FirebaseUser): Promise<SuperAdminUser | Organization | null> {
+    try {
+        const idTokenResult = await getIdTokenResult(user, true); // Force refresh
+        const claims = idTokenResult.claims;
+        const uid = user.uid;
 
-    if (claims.superadmin === true) {
-        const superAdminRef = doc(firestore, "roles_super_admin", uid);
-        try {
+        if (claims.superadmin === true) {
+            const superAdminRef = doc(firestore, "roles_super_admin", uid);
             const superAdminSnap = await getDoc(superAdminRef);
             if (superAdminSnap.exists()) {
                 const superAdminData = superAdminSnap.data();
@@ -52,40 +54,31 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
                     departmentName: superAdminData?.departmentName,
                 } as SuperAdminUser;
             } else {
-                // This is a failsafe. A superadmin user should always have a profile doc.
-                // If not, we create one.
+                 // Failsafe: if a user has the claim but no doc, create it.
                 const newSuperAdminProfile: Omit<SuperAdminUser, 'id' | 'role'> = {
                     email: user.email || 'super@authstation.com',
                     departmentName: 'AuthStation HQ',
                 };
                 await setDoc(superAdminRef, newSuperAdminProfile);
-                return {
-                    id: uid,
-                    role: 'superadmin',
-                    ...newSuperAdminProfile
-                } as SuperAdminUser;
+                return { id: uid, role: 'superadmin', ...newSuperAdminProfile } as SuperAdminUser;
             }
-        } catch (serverError: any) {
-            const permissionError = new FirestorePermissionError({ path: superAdminRef.path, operation: 'get' });
-            errorEmitter.emit('permission-error', permissionError);
-            throw permissionError;
-        }
-    }
-    
-    const orgRef = doc(firestore, "organizations", uid);
-    try {
-        const orgSnap = await getDoc(orgRef);
-        if (orgSnap.exists()) {
-            return { ...orgSnap.data(), id: uid, role: 'admin' } as Organization;
         } else {
-            // This is the key change: if not a superadmin and no org doc, return null.
-            // The AuthProvider will handle logging the user out.
-            return null;
+            const orgRef = doc(firestore, "organizations", uid);
+            const orgSnap = await getDoc(orgRef);
+            if (orgSnap.exists()) {
+                return { ...orgSnap.data(), id: uid, role: 'admin' } as Organization;
+            } else {
+                // User is not a superadmin and no organization profile found.
+                return null;
+            }
         }
-    } catch (serverError: any) {
-        const permissionError = new FirestorePermissionError({ path: orgRef.path, operation: 'get' });
-        errorEmitter.emit('permission-error', permissionError);
-        throw permissionError;
+    } catch (error) {
+        console.error("Error fetching user profile:", error);
+        // Let the caller handle the null return
+        if (error instanceof Error && error.message.includes("permission-denied")) {
+             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `roles_super_admin/${user.uid} or organizations/${user.uid}`, operation: 'get' }));
+        }
+        return null;
     }
 }
 
