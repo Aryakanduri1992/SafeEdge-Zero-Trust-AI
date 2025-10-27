@@ -52,8 +52,8 @@ export default function AdminDashboardPage() {
   const totalDepartments = departments.length;
   const totalDeviceQuota = departments.reduce((acc, dept) => acc + dept.devices, 0);
   const usedDevices = devices.length;
-  const remainingDevices = totalDeviceQuota - usedDevices;
-  const usagePercentage = totalDeviceQuota > 0 ? (usedDevices / totalDeviceQuota) * 100 : 0;
+  const remainingDevices = Math.max(0, totalDeviceQuota - usedDevices);
+  const usagePercentage = totalDeviceQuota > 0 ? Math.min(100, (usedDevices / totalDeviceQuota) * 100) : 0;
 
 
   return (

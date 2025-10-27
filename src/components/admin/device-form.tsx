@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -13,6 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Save, PlusCircle } from 'lucide-react';
 import { Device, NewDeviceData, UpdateDeviceData } from '@/lib/types';
+import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Device name is required.'),
@@ -29,7 +30,16 @@ type DeviceFormProps = {
 
 export function DeviceForm({ deviceToEdit, onFinished }: DeviceFormProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const { user, departments, createDevice, updateDevice } = useAuth();
+  const { user, departments, devices, createDevice, updateDevice } = useAuth();
+  const { toast } = useToast();
+
+  const { totalDeviceQuota, usedDevices } = useMemo(() => {
+    const quota = departments.reduce((acc, dept) => acc + dept.devices, 0);
+    return {
+      totalDeviceQuota: quota,
+      usedDevices: devices.length,
+    };
+  }, [departments, devices]);
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -44,6 +54,16 @@ export function DeviceForm({ deviceToEdit, onFinished }: DeviceFormProps) {
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user) return;
+
+    if (!deviceToEdit && usedDevices >= totalDeviceQuota) {
+      toast({
+        variant: "destructive",
+        title: "Quota Reached",
+        description: "You have reached your device limit. Contact admin to upgrade plan.",
+      });
+      return;
+    }
+    
     setIsLoading(true);
 
     try {
