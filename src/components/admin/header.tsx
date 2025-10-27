@@ -3,7 +3,7 @@
 
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
-import { LogOut, Bell, Menu, Search, User, Settings, LifeBuoy, X } from 'lucide-react';
+import { LogOut, Bell, Menu, Search, User, Settings, LifeBuoy, X, Building } from 'lucide-react';
 import { Organization } from '@/lib/types';
 import Link from 'next/link';
 import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
@@ -75,11 +75,15 @@ export function Header() {
         </Sheet>
         <div className="hidden md:flex items-center gap-2">
              <Logo className="h-7 w-7" />
-             <span className="font-headline text-primary truncate text-lg lg:text-xl">SafeEdge</span>
+             <span className="font-headline text-primary truncate text-xl font-bold">SafeEdge</span>
         </div>
       </div>
       
-      <div className="flex-1 flex justify-center px-4 lg:px-8">
+      <div className="flex-1 flex justify-center items-center gap-4 px-4 lg:px-8">
+        <div className="hidden lg:flex items-center gap-2">
+          <Building className="h-5 w-5 text-muted-foreground" />
+          <span className="font-semibold whitespace-nowrap">{orgUser?.organizationName}</span>
+        </div>
         <div className="relative w-full max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
