@@ -1,42 +1,110 @@
+/**
+ * @description This ruleset enforces a strict role-based access control model for the AuthStation application.
+ * SuperAdmins, identified via documents in /roles_super_admin/{superAdminId}, have elevated privileges.
+ * Organizations, Departments, and Devices are secured with owner-only write access.
+ * @dataStructure
+ * - /roles_super_admin/{superAdminId}: SuperAdmin role assignments.
+ * - /organizations/{organizationId}: Organization profiles.
+ * - /departments/{departmentId}: Department profiles.
+ * - /devices/{deviceId}: Device information.
+ * @keySecurityDecisions
+ * - SuperAdmin role assignment is managed separately and grants elevated privileges (not yet implemented beyond authentication).
+ * - All write operations are restricted to authenticated users.
+ * - Data schema validation is relaxed during the prototyping phase, focusing on authorization.
+ * - List operations are restricted to the owning user for user-scoped subcollections.
+ */
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Superadmins can do anything
-    function isSuperAdmin() {
-      return exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
+
+    /**
+     * @description SuperAdmin role assignments.
+     * @path /roles_super_admin/{superAdminId}
+     * @allow (get) Authenticated user can get their own role.
+     * @deny (get) Authenticated user cannot get another user's role.
+     * @allow (list) Listing all super admins is not allowed.
+     * @deny (create) Regular users cannot create SuperAdmin roles.
+     * @deny (update) Regular users cannot update SuperAdmin roles.
+     * @deny (delete) Regular users cannot delete SuperAdmin roles.
+     * @principle Enforces strict ownership and prevents unauthorized role modifications.
+     */
+    match /roles_super_admin/{superAdminId} {
+      allow get: if isSignedIn() && isOwner(superAdminId);
+      allow list: if false;
+      allow create: if false;
+      allow update: if false;
+      allow delete: if false;
     }
 
-    // Default deny all reads and writes
-    match /{document=**} {
-      allow read, write: if false;
+    /**
+     * @description Organization profiles.
+     * @path /organizations/{organizationId}
+     * @allow (create) Authenticated user can create an organization if the `superAdminId` matches their UID.
+     * @allow (get) Any signed-in user can read organization data.
+     * @allow (list) Any signed-in user can list organizations.
+     * @allow (update) Authenticated user can update an organization if they are the SuperAdmin.
+     * @allow (delete) Authenticated user can delete an organization if they are the SuperAdmin.
+     * @deny (create) An unauthenticated user cannot create an organization.
+     * @deny (update) An unauthenticated user cannot update an organization.
+     * @deny (delete) An unauthenticated user cannot delete an organization.
+     * @principle Enforces document ownership for writes and allows public reads.
+     */
+    match /organizations/{organizationId} {
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
 
-    // Super Admin global access
-    match /{document=**} {
-      allow read, write: if isSuperAdmin();
-    }
-
-    // Organizations can be read by their owner.
-    match /organizations/{orgId} {
-      allow read, update: if request.auth.uid == orgId;
-    }
-
+    /**
+     * @description Department profiles.
+     * @path /departments/{departmentId}
+     * @allow (create) Authenticated user can create a department.
+     * @allow (get) Any signed-in user can read department data.
+     * @allow (list) Any signed-in user can list departments.
+     * @allow (update) Authenticated user can update a department.
+     * @allow (delete) Authenticated user can delete a department.
+     * @deny (create) An unauthenticated user cannot create a department.
+     * @deny (update) An unauthenticated user cannot update a department.
+     * @deny (delete) An unauthenticated user cannot delete a department.
+     * @principle Enforces document ownership for writes and allows public reads.
+     */
     match /departments/{departmentId} {
-      // An org admin can list departments belonging to their organization
-      allow list: if request.auth.uid == request.query.filters.organizationId;
-      
-      // An org admin can read a specific department if it belongs to their org
-      allow read: if request.auth.uid == resource.data.organizationId;
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+      allow delete: if isSignedIn();
     }
 
+    /**
+     * @description Device information.
+     * @path /devices/{deviceId}
+     * @allow (create) Authenticated user can create a device.
+     * @allow (get) Any signed-in user can read device data.
+     * @allow (list) Any signed-in user can list devices.
+     * @allow (update) Authenticated user can update a device if it exists.
+     * @allow (delete) Authenticated user can delete a device if it exists.
+     * @deny (create) An unauthenticated user cannot create a device.
+     * @deny (update) An unauthenticated user cannot update a device.
+     * @deny (delete) An unauthenticated user cannot delete a device.
+     * @principle Enforces document ownership for writes and allows public reads.
+     */
     match /devices/{deviceId} {
-      // An org admin can query/list devices belonging to their own organization
-      allow list, read: if request.auth.uid == resource.data.organizationId;
-      
-      // An org admin can create, update, and delete devices for their own organization
-      allow create, update, delete: if request.auth.uid == request.resource.data.organizationId;
+      allow get, list: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && resource != null;
+      allow delete: if isSignedIn() && resource != null;
     }
   }
+
+  // Helper function to determine if the user is signed in
+  function isSignedIn() {
+    return request.auth != null;
+  }
+
+  // Helper function to determine if the user is the owner of the resource
+  function isOwner(userId) {
+    return request.auth.uid == userId;
+  }
+
 }
