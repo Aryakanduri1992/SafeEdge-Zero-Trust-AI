@@ -3,7 +3,7 @@
 
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
-import { LogOut, Bell, Menu, Search, User, Settings, LifeBuoy, Moon, Sun } from 'lucide-react';
+import { LogOut, Bell, Menu, Search, User, Settings, LifeBuoy, Moon, Sun, X } from 'lucide-react';
 import { Organization } from '@/lib/types';
 import Link from 'next/link';
 import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
@@ -22,6 +22,7 @@ export function Header() {
   const orgUser = user as Organization;
   const pathname = usePathname();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   
   const getInitials = (name?: string) => {
     return name ? name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : '';
@@ -74,8 +75,20 @@ export function Header() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="Search devices, alerts, or departments..."
-            className="pl-10 bg-background/50"
+            className="pl-10 pr-10 bg-background/50"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
           />
+           {searchTerm && (
+            <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
+                onClick={() => setSearchTerm('')}
+            >
+                <X className="h-4 w-4 text-muted-foreground transition-colors hover:text-primary" />
+            </Button>
+        )}
         </div>
       </div>
 
