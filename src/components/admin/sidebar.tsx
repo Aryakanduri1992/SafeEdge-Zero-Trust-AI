@@ -26,7 +26,8 @@ export function Sidebar() {
     <div className="hidden border-r bg-card md:block">
       <div className="flex h-full max-h-screen flex-col gap-2">
         <div className="flex h-16 items-center border-b px-6">
-          <Link href="/admin/dashboard" className="flex items-center gap-3 font-semibold overflow-hidden">
+          <Link href="/admin/dashboard" className="flex items-center gap-2 font-semibold overflow-hidden">
+             <Logo className="h-7 w-7" />
              <span className="font-headline text-primary truncate text-lg lg:text-xl">SafeEdge</span>
           </Link>
         </div>
@@ -54,5 +55,6 @@ export function Sidebar() {
     </div>
   );
 }
+
 
 
