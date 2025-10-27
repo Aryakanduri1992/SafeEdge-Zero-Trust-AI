@@ -112,7 +112,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             }
         }
     }
-  }, [appUser, isLoading, pathname, handleUserRedirect, router]);
+  }, [pathname, isLoading, appUser, handleUserRedirect, router]);
 
   // This effect subscribes to data based on user role
   useEffect(() => {

@@ -39,7 +39,6 @@ export async function login(credentials: LoginCredentials): Promise<UserCredenti
 export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedToken): Promise<SuperAdminUser | Organization | null> {
     const uid = user.uid;
 
-    // The claims object from a fresh token is the source of truth.
     if (claims.superadmin === true) {
         const superAdminRef = doc(firestore, "roles_super_admin", uid);
         try {
@@ -54,7 +53,6 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
                     imageUrl: superAdminData?.imageUrl,
                 } as SuperAdminUser;
             } else {
-                // This case handles the very first sign-in of a super admin, creating their profile doc.
                 const newSuperAdminProfile: Omit<SuperAdminUser, 'id' | 'role'> = {
                     email: user.email || 'super@authstation.com',
                     departmentName: 'AuthStation HQ',
@@ -79,20 +77,18 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
         }
     }
     
-    // This code block only runs if the user is NOT a super admin.
     const orgRef = doc(firestore, "organizations", uid);
     try {
         const orgSnap = await getDoc(orgRef);
         if (orgSnap.exists()) {
             return { ...orgSnap.data(), id: uid, role: 'admin' } as Organization;
         } else {
-            // This is the correct final state if a non-superadmin user has no org profile.
             // It correctly identifies that the user is not a superadmin (based on the token)
             // and no organization document exists for their UID.
             return null;
         }
     } catch (serverError: any) {
-        // If the above check doesn't happen, but we still get an error (like a permission error)
+        // If the above throw doesn't happen, but we still get an error (like a permission error)
         // on the organization collection, we emit it. This is a fallback.
         const permissionError = new FirestorePermissionError({ path: orgRef.path, operation: 'get' });
         errorEmitter.emit('permission-error', permissionError);
