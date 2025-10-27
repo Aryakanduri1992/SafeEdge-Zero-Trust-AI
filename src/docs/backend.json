@@ -1,0 +1,110 @@
+
+{
+  "entities": {
+    "SuperAdmin": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "SuperAdmin",
+      "type": "object",
+      "description": "Represents a super administrator user in the AuthStation application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the SuperAdmin entity."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the super administrator.",
+          "format": "email"
+        },
+        "departmentName": {
+          "type": "string",
+          "description": "The name of the super administrator's department."
+        }
+      },
+      "required": [
+        "id",
+        "email",
+        "departmentName"
+      ]
+    },
+    "Organization": {
+      "title": "Organization",
+      "description": "Represents a single client organization.",
+      "type": "object",
+      "properties": {
+        "organizationName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "superAdminId": { "type": "string" },
+        "imageUrl": { "type": "string", "format": "uri" }
+      },
+      "required": ["organizationName", "email", "createdAt", "superAdminId"]
+    },
+    "Department": {
+        "title": "Department",
+        "description": "Represents a department within an organization.",
+        "type": "object",
+        "properties": {
+            "departmentName": { "type": "string" },
+            "organizationName": { "type": "string" },
+            "email": { "type": "string", "format": "email" },
+            "location": { "type": "string" },
+            "building": { "type": "string" },
+            "floor": { "type": "string" },
+            "createdAt": { "type": "string", "format": "date-time" },
+            "devices": { "type": "number" },
+            "plan": { "type": "string", "enum": ["Free", "Pro", "Enterprise"] },
+            "status": { "type": "string", "enum": ["active", "inactive"] },
+            "superAdminId": { "type": "string" },
+            "organizationId": { "type": "string" }
+        },
+        "required": ["departmentName", "organizationName", "email", "location", "building", "floor", "createdAt", "devices", "plan", "status", "superAdminId", "organizationId"]
+    },
+    "Device": {
+        "title": "Device",
+        "description": "Represents a single manageable device.",
+        "type": "object",
+        "properties": {
+            "name": { "type": "string" },
+            "location": { "type": "string" },
+            "type": { "type": "string", "enum": ["Sensor", "Gateway", "Actuator", "Camera"] },
+            "status": { "type": "string", "enum": ["online", "offline", "alerting"] },
+            "lastSeen": { "type": "string", "format": "date-time" },
+            "departmentId": { "type": "string" },
+            "organizationId": { "type": "string" },
+            "description": { "type": "string" }
+        },
+        "required": ["name", "location", "type", "status", "lastSeen", "departmentId", "organizationId"]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "/roles_super_admin/{superAdminId}": {
+      "schema": {
+        "$ref": "#/entities/SuperAdmin"
+      },
+      "description": "Stores documents that identify a user as a Super Admin by their UID."
+    },
+     "/organizations/{organizationId}": {
+      "schema": {
+        "$ref": "#/entities/Organization"
+      },
+      "description": "Stores organization profile information."
+    },
+    "/departments/{departmentId}": {
+      "schema": {
+        "$ref": "#/entities/Department"
+      },
+      "description": "Stores department information for all organizations."
+    },
+    "/devices/{deviceId}": {
+        "schema": { "$ref": "#/entities/Device" },
+        "description": "Stores information about individual devices."
+    }
+  }
+}

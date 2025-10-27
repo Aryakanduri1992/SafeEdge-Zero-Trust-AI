@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect } from 'react';
@@ -5,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { Loader2 } from 'lucide-react';
 import { Header } from '@/components/superadmin/header';
+import { SuperAdminUser } from '@/lib/types';
 
 export default function SuperAdminLayout({
   children,
@@ -20,9 +22,11 @@ export default function SuperAdminLayout({
     }
   }, [isLoading, isAuthenticated, user, router]);
 
-  if (isLoading || !isAuthenticated || user?.role !== 'superadmin') {
+  const superAdmin = user as SuperAdminUser;
+
+  if (isLoading || !isAuthenticated || !superAdmin || superAdmin.role !== 'superadmin') {
     return (
-      <div className="flex h-screen w-full items-center justify-center">
+      <div className="flex h-screen w-full items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -30,8 +34,8 @@ export default function SuperAdminLayout({
 
   return (
     <div className="flex min-h-screen w-full flex-col">
-      <Header />
-      <main className="flex-1 p-4 sm:p-6 md:p-8">
+      <Header user={superAdmin} />
+      <main className="flex-1 bg-muted/40 p-4 sm:p-6 md:p-8">
         {children}
       </main>
     </div>

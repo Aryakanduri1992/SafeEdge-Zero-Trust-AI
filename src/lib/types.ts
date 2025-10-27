@@ -40,7 +40,6 @@ export interface Department {
 export interface SuperAdminUser extends BaseUser {
   departmentName: string;
   role: 'superadmin';
-  imageUrl?: string;
 }
 
 export interface LoginCredentials {

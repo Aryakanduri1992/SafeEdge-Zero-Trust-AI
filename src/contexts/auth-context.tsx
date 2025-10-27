@@ -28,7 +28,6 @@ type AuthContextType = {
   updateDevice: (deviceId: string, deviceData: UpdateDeviceData) => Promise<void>;
   deleteDevice: (deviceId: string) => Promise<void>;
   updateOrganizationImage: (orgId: string, imageUrl: string) => Promise<void>;
-  updateSuperAdminImage: (uid: string, imageUrl: string) => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -70,10 +69,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             if (userProfile) {
               setAppUser(userProfile);
             } else {
-               // This case is important. If getOrCreateUserProfile returns null, it means
-               // the user is authenticated with Firebase, but has no corresponding profile doc
-               // (e.g., not a superadmin and no organization doc). This is an invalid state.
-               console.error("Auth session restoration failed: User profile could not be found or created. Logging out.");
                await authService.logout();
                setAppUser(null);
             }
@@ -209,7 +204,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     } catch (error: any) {
         await authService.logout();
         setAppUser(null);
-        // The original error is more informative than a generic message
         throw error;
     } finally {
         setIsAuthLoading(false);
@@ -302,20 +296,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         ));
     }
   };
-  
-  const updateSuperAdminImage = async (uid: string, imageUrl: string) => {
-        if (!appUser || appUser.role !== 'superadmin' || appUser.id !== uid) {
-            throw new Error("Unauthorized to update this profile image.");
-        }
-        await authService.updateSuperAdminImage(uid, imageUrl);
-        setAppUser(prevUser => {
-            if (prevUser && prevUser.role === 'superadmin') {
-                return { ...prevUser, imageUrl };
-            }
-            return prevUser;
-        });
-    };
-  
+
   const contextValue = { 
     user: appUser, 
     organizations,
@@ -334,7 +315,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     updateDevice,
     deleteDevice,
     updateOrganizationImage,
-    updateSuperAdminImage
+    updateSuperAdminImage: async () => {} // Removed functionality
   };
 
   return (

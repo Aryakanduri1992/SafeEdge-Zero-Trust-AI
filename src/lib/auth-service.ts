@@ -50,13 +50,13 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
                     role: 'superadmin',
                     email: superAdminData?.email,
                     departmentName: superAdminData?.departmentName,
-                    imageUrl: superAdminData?.imageUrl,
                 } as SuperAdminUser;
             } else {
+                // This is a failsafe. A superadmin user should always have a profile doc.
+                // If not, we create one.
                 const newSuperAdminProfile: Omit<SuperAdminUser, 'id' | 'role'> = {
                     email: user.email || 'super@authstation.com',
                     departmentName: 'AuthStation HQ',
-                    imageUrl: `https://picsum.photos/seed/${Math.round(Math.random() * 1000)}/200/200`,
                 };
                 await setDoc(superAdminRef, newSuperAdminProfile);
                 return {
@@ -66,12 +66,7 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
                 } as SuperAdminUser;
             }
         } catch (serverError: any) {
-            const isCreationError = serverError.code === 'permission-denied' && !await getDoc(superAdminRef).then(s => s.exists());
-            const permissionError = new FirestorePermissionError({
-                path: superAdminRef.path,
-                operation: isCreationError ? 'create' : 'get',
-                requestResourceData: isCreationError ? { email: user.email } : undefined,
-            });
+            const permissionError = new FirestorePermissionError({ path: superAdminRef.path, operation: 'get' });
             errorEmitter.emit('permission-error', permissionError);
             throw permissionError;
         }
@@ -83,18 +78,16 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
         if (orgSnap.exists()) {
             return { ...orgSnap.data(), id: uid, role: 'admin' } as Organization;
         } else {
-            // It correctly identifies that the user is not a superadmin (based on the token)
-            // and no organization document exists for their UID.
+            // This is the key change: if not a superadmin and no org doc, return null.
+            // The AuthProvider will handle logging the user out.
             return null;
         }
     } catch (serverError: any) {
-        // If the above throw doesn't happen, but we still get an error (like a permission error)
         const permissionError = new FirestorePermissionError({ path: orgRef.path, operation: 'get' });
         errorEmitter.emit('permission-error', permissionError);
         throw permissionError;
     }
 }
-
 
 export const logout = async (): Promise<void> => {
   await signOut(auth);
@@ -281,18 +274,4 @@ export const updateOrganizationImage = async (orgId: string, imageUrl: string): 
     errorEmitter.emit('permission-error', permissionError);
     throw permissionError;
   });
-};
-
-export const updateSuperAdminImage = async (uid: string, imageUrl: string): Promise<void> => {
-    const userRef = doc(firestore, 'roles_super_admin', uid);
-    const updateData = { imageUrl };
-    await updateDoc(userRef, updateData).catch(serverError => {
-        const permissionError = new FirestorePermissionError({
-            path: userRef.path,
-            operation: 'update',
-            requestResourceData: updateData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        throw permissionError;
-    });
 };
