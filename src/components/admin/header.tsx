@@ -75,7 +75,6 @@ export function Header() {
         </Sheet>
         <div className="hidden md:flex items-center gap-2">
              <Logo className="h-7 w-7" />
-             <span className="font-headline text-primary truncate text-xl font-bold">SafeEdge</span>
         </div>
       </div>
       
