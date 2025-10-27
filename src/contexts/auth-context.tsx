@@ -7,9 +7,9 @@ import { useRouter, usePathname } from 'next/navigation';
 import * as authService from '@/lib/auth-service';
 import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData, NewDeviceData, UpdateDeviceData, Device } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, FirestorePermissionError, errorEmitter } from '@/firebase';
+import { useFirebase, useFirestore, FirestorePermissionError, errorEmitter } from '@/firebase';
 import { collection, onSnapshot, Unsubscribe, query, where } from 'firebase/firestore';
-import { User } from 'firebase/auth';
+import { User, getIdTokenResult } from 'firebase/auth';
 
 type AuthContextType = {
   user: SuperAdminUser | Organization | null;
@@ -44,18 +44,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const { toast } = useToast();
 
   const { user: firebaseUser, isUserLoading: isFirebaseUserLoading } = useFirebase();
-  const { firestore } = useFirebase();
+  const firestore = useFirestore();
 
   const isLoading = isFirebaseUserLoading || isAuthLoading;
-
-  const handleUserRedirect = useCallback((user: SuperAdminUser | Organization | null) => {
-    if (!user) return;
-    if (user.role === 'superadmin' && !pathname.startsWith('/superadmin')) {
-        router.replace('/superadmin/dashboard');
-    } else if (user.role === 'admin' && !pathname.startsWith('/admin')) {
-        router.replace('/admin/dashboard');
-    }
-  }, [router, pathname]);
 
   // This effect handles session restoration on page refresh
   useEffect(() => {
@@ -93,23 +84,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [firebaseUser, isFirebaseUserLoading]);
 
 
-  // This effect handles redirecting unauthenticated users and authenticated users to the correct dashboard
+  // This effect handles redirecting unauthenticated users to the login page
   useEffect(() => {
-    if (!isLoading) {
-        if (appUser) {
-            handleUserRedirect(appUser);
-        } else {
-            const isAuthProtectedRoute = pathname.startsWith('/admin') || pathname.startsWith('/superadmin');
-            if (isAuthProtectedRoute) {
-                if (pathname.startsWith('/superadmin')) {
-                     router.replace('/superadmin-login');
-                } else {
-                     router.replace('/organisation-login');
-                }
+    if (!isLoading && !appUser) {
+        const isAuthProtectedRoute = pathname.startsWith('/admin') || pathname.startsWith('/superadmin');
+        if (isAuthProtectedRoute) {
+            if (pathname.startsWith('/superadmin')) {
+                 router.replace('/superadmin-login');
+            } else {
+                 router.replace('/organisation-login');
             }
         }
     }
-  }, [pathname, isLoading, appUser, handleUserRedirect, router]);
+  }, [pathname, isLoading, appUser, router]);
 
   // This effect subscribes to data based on user role
   useEffect(() => {
@@ -194,7 +181,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         }
 
         setAppUser(userProfile);
-        handleUserRedirect(userProfile);
+        
+        // Explicitly redirect after successful login and profile fetch
+        if (userProfile.role === 'superadmin') {
+            router.replace('/superadmin/dashboard');
+        } else if (userProfile.role === 'admin') {
+            router.replace('/admin/dashboard');
+        }
 
     } catch (error: any) {
         await authService.logout();
