@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { initializeApp, deleteApp } from 'firebase/app';
@@ -62,16 +63,18 @@ export async function fetchUserProfile(user: FirebaseUser): Promise<SuperAdminUs
                 await setDoc(superAdminRef, newSuperAdminProfile);
                 return { id: uid, role: 'superadmin', ...newSuperAdminProfile } as SuperAdminUser;
             }
-        } else {
-            const orgRef = doc(firestore, "organizations", uid);
-            const orgSnap = await getDoc(orgRef);
-            if (orgSnap.exists()) {
-                return { ...orgSnap.data(), id: uid, role: 'admin' } as Organization;
-            } else {
-                // User is not a superadmin and no organization profile found.
-                return null;
-            }
         }
+        
+        // Fallback or primary path for regular organization admins
+        const orgRef = doc(firestore, "organizations", uid);
+        const orgSnap = await getDoc(orgRef);
+        if (orgSnap.exists()) {
+            return { ...orgSnap.data(), id: uid, role: 'admin' } as Organization;
+        }
+
+        // If no claim and no org doc, this is an invalid user state
+        return null;
+
     } catch (error) {
         console.error("Error fetching user profile:", error);
         // Let the caller handle the null return
