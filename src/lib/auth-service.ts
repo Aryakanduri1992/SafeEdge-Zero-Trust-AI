@@ -10,7 +10,6 @@ import {
   signInWithEmailAndPassword, 
   signOut,
   type User as FirebaseUser,
-  type ParsedToken,
   UserCredential,
   getIdTokenResult
 } from 'firebase/auth';
@@ -38,51 +37,44 @@ export async function login(credentials: LoginCredentials): Promise<UserCredenti
 };
 
 export async function fetchUserProfile(user: FirebaseUser): Promise<SuperAdminUser | Organization | null> {
+    const uid = user.uid;
+    
+    // Primary, robust check: Directly query the super_admin role document.
+    // This is not subject to token claim propagation delays.
+    const superAdminRef = doc(firestore, "roles_super_admin", uid);
     try {
-        const idTokenResult = await getIdTokenResult(user, true); // Force refresh
-        const claims = idTokenResult.claims;
-        const uid = user.uid;
-
-        if (claims.superadmin === true) {
-            const superAdminRef = doc(firestore, "roles_super_admin", uid);
-            const superAdminSnap = await getDoc(superAdminRef);
-            if (superAdminSnap.exists()) {
-                const superAdminData = superAdminSnap.data();
-                return {
-                    id: uid,
-                    role: 'superadmin',
-                    email: superAdminData?.email,
-                    departmentName: superAdminData?.departmentName,
-                } as SuperAdminUser;
-            } else {
-                 // Failsafe: if a user has the claim but no doc, create it.
-                const newSuperAdminProfile: Omit<SuperAdminUser, 'id' | 'role'> = {
-                    email: user.email || 'super@authstation.com',
-                    departmentName: 'AuthStation HQ',
-                };
-                await setDoc(superAdminRef, newSuperAdminProfile);
-                return { id: uid, role: 'superadmin', ...newSuperAdminProfile } as SuperAdminUser;
-            }
+        const superAdminSnap = await getDoc(superAdminRef);
+        if (superAdminSnap.exists()) {
+            const superAdminData = superAdminSnap.data();
+            return {
+                id: uid,
+                role: 'superadmin',
+                email: superAdminData?.email,
+                departmentName: superAdminData?.departmentName,
+            } as SuperAdminUser;
         }
-        
-        // Fallback or primary path for regular organization admins
-        const orgRef = doc(firestore, "organizations", uid);
+    } catch (error: any) {
+        // This could be a legitimate permission error if rules are strict, but we still want to check for org user.
+        console.warn("Could not check for super admin role, proceeding to check for organization role.", error.message);
+    }
+
+    // If not a super admin, check for a regular organization admin profile.
+    const orgRef = doc(firestore, "organizations", uid);
+    try {
         const orgSnap = await getDoc(orgRef);
         if (orgSnap.exists()) {
             return { ...orgSnap.data(), id: uid, role: 'admin' } as Organization;
         }
-
-        // If no claim and no org doc, this is an invalid user state
-        return null;
-
     } catch (error) {
-        console.error("Error fetching user profile:", error);
-        // Let the caller handle the null return
-        if (error instanceof Error && error.message.includes("permission-denied")) {
-             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: `roles_super_admin/${user.uid} or organizations/${user.uid}`, operation: 'get' }));
+        console.error("Error fetching organization user profile:", error);
+         if (error instanceof Error && error.message.includes("permission-denied")) {
+             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: orgRef.path, operation: 'get' }));
         }
         return null;
     }
+    
+    // If no profile is found in either collection, the user is invalid.
+    return null;
 }
 
 export const logout = async (): Promise<void> => {
