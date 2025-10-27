@@ -6,10 +6,9 @@ import { Organization, Department } from "@/lib/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, XCircle, HardDrive, Search, Filter } from "lucide-react";
+import { CheckCircle, XCircle, HardDrive, Filter } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMemo, useState } from "react";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
@@ -33,10 +32,9 @@ const LoadingSkeleton = () => (
 );
 
 export default function DepartmentsPage() {
-  const { user, departments, isLoading } = useAuth();
+  const { user, departments, isLoading, globalSearchTerm } = useAuth();
   const orgUser = user as Organization;
 
-  const [searchTerm, setSearchTerm] = useState('');
   const [locationFilter, setLocationFilter] = useState('all');
   const [buildingFilter, setBuildingFilter] = useState('all');
   const [floorFilter, setFloorFilter] = useState('all');
@@ -61,19 +59,18 @@ export default function DepartmentsPage() {
   const filteredDepartments = useMemo(() => {
     return departments.filter(dept => {
       const searchCorpus = `${dept.departmentName} ${dept.location} ${dept.building} ${dept.floor}`.toLowerCase();
-      const matchesSearch = searchCorpus.includes(searchTerm.toLowerCase());
+      const matchesSearch = globalSearchTerm ? searchCorpus.includes(globalSearchTerm.toLowerCase()) : true;
       const matchesLocation = locationFilter === 'all' || dept.location === locationFilter;
       const matchesBuilding = buildingFilter === 'all' || dept.building === buildingFilter;
       const matchesFloor = floorFilter === 'all' || dept.floor === floorFilter;
       const matchesStatus = statusFilter === 'all' || dept.status === statusFilter;
       return matchesSearch && matchesLocation && matchesBuilding && matchesFloor && matchesStatus;
     });
-  }, [departments, searchTerm, locationFilter, buildingFilter, floorFilter, statusFilter]);
+  }, [departments, globalSearchTerm, locationFilter, buildingFilter, floorFilter, statusFilter]);
   
   const activeFilterCount = [locationFilter, buildingFilter, floorFilter, statusFilter].filter(f => f !== 'all').length;
 
   const handleResetFilters = () => {
-    setSearchTerm('');
     setLocationFilter('all');
     setBuildingFilter('all');
     setFloorFilter('all');
@@ -94,25 +91,18 @@ export default function DepartmentsPage() {
       </div>
       <Card className="shadow-lg">
         <CardHeader>
-          <CardTitle>Department List</CardTitle>
-          <CardDescription>
-            A list of all registered departments within your organization.
-          </CardDescription>
-          <div className="mt-4 flex flex-col sm:flex-row items-center gap-2">
-            <div className="relative flex-1 w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search departments..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 w-full"
-              />
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <CardTitle>Department List</CardTitle>
+              <CardDescription>
+                A list of all registered departments within your organization.
+              </CardDescription>
             </div>
             <Popover>
               <PopoverTrigger asChild>
-                 <Button variant="outline" className="relative w-full sm:w-auto">
+                 <Button variant="outline" className="relative w-full sm:w-auto shrink-0">
                     <Filter className="mr-2 h-4 w-4" />
-                    Filter
+                    Filter Departments
                     {activeFilterCount > 0 && (
                         <Badge variant="destructive" className="absolute -right-2 -top-2 h-5 w-5 justify-center rounded-full p-0">
                             {activeFilterCount}
@@ -185,7 +175,7 @@ export default function DepartmentsPage() {
                     variant="ghost"
                     className="w-full justify-center"
                     onClick={handleResetFilters}
-                    disabled={activeFilterCount === 0 && !searchTerm}
+                    disabled={activeFilterCount === 0}
                   >
                     Reset Filters
                   </Button>
@@ -196,51 +186,53 @@ export default function DepartmentsPage() {
         </CardHeader>
         <CardContent>
           {departments.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Department</TableHead>
-                  <TableHead className="hidden sm:table-cell">Location</TableHead>
-                  <TableHead className="hidden md:table-cell">Building</TableHead>
-                  <TableHead className="hidden lg:table-cell">Floor</TableHead>
-                  <TableHead className="text-center">Device Quota</TableHead>
-                  <TableHead className="text-center">Status</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredDepartments.map((dept) => (
-                  <TableRow key={dept.id}>
-                    <TableCell>
-                      <div className="font-medium">{dept.departmentName}</div>
-                      <div className="text-xs text-muted-foreground font-mono hidden sm:block">{dept.organizationName}</div>
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell">{dept.location}</TableCell>
-                    <TableCell className="hidden md:table-cell">{dept.building}</TableCell>
-                    <TableCell className="hidden lg:table-cell">{dept.floor}</TableCell>
-                    <TableCell className="text-center">
-                        <div className="flex items-center justify-center gap-2">
-                           <HardDrive className="h-4 w-4 text-muted-foreground"/> 
-                           <span>{dept.devices}</span>
-                        </div>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {dept.status === 'active' ? (
-                        <Badge variant="outline" className="text-green-500 border-green-500/50 bg-green-500/10"><CheckCircle className="mr-1 h-3 w-3" />Active</Badge>
-                      ) : (
-                        <Badge variant="destructive" className="bg-muted-foreground/20 text-muted-foreground border-muted-foreground/30"><XCircle className="mr-1 h-3 w-3" />Inactive</Badge>
-                      )}
-                    </TableCell>
+            <div className="relative w-full overflow-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Department</TableHead>
+                    <TableHead className="hidden sm:table-cell">Location</TableHead>
+                    <TableHead className="hidden md:table-cell">Building</TableHead>
+                    <TableHead className="hidden lg:table-cell">Floor</TableHead>
+                    <TableHead className="text-center">Device Quota</TableHead>
+                    <TableHead className="text-center">Status</TableHead>
                   </TableRow>
-                ))}
-                {filteredDepartments.length === 0 && (
-                   <TableRow>
-                        <TableCell colSpan={6} className="h-24 text-center">
-                            No departments found matching your criteria.
-                        </TableCell>
+                </TableHeader>
+                <TableBody>
+                  {filteredDepartments.map((dept) => (
+                    <TableRow key={dept.id}>
+                      <TableCell>
+                        <div className="font-medium">{dept.departmentName}</div>
+                        <div className="text-xs text-muted-foreground font-mono hidden sm:block">{dept.organizationName}</div>
+                      </TableCell>
+                      <TableCell className="hidden sm:table-cell">{dept.location}</TableCell>
+                      <TableCell className="hidden md:table-cell">{dept.building}</TableCell>
+                      <TableCell className="hidden lg:table-cell">{dept.floor}</TableCell>
+                      <TableCell className="text-center">
+                          <div className="flex items-center justify-center gap-2">
+                             <HardDrive className="h-4 w-4 text-muted-foreground"/> 
+                             <span>{dept.devices}</span>
+                          </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {dept.status === 'active' ? (
+                          <Badge variant="outline" className="text-green-500 border-green-500/50 bg-green-500/10"><CheckCircle className="mr-1 h-3 w-3" />Active</Badge>
+                        ) : (
+                          <Badge variant="destructive" className="bg-muted-foreground/20 text-muted-foreground border-muted-foreground/30"><XCircle className="mr-1 h-3 w-3" />Inactive</Badge>
+                        )}
+                      </TableCell>
                     </TableRow>
-                )}
-              </TableBody>
-            </Table>
+                  ))}
+                  {filteredDepartments.length === 0 && (
+                     <TableRow>
+                          <TableCell colSpan={6} className="h-24 text-center">
+                              No departments found matching your criteria.
+                          </TableCell>
+                      </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </div>
           ) : (
              <div className="text-center py-16">
                 <h3 className="mt-2 text-lg font-semibold">No Departments Found</h3>
@@ -254,3 +246,5 @@ export default function DepartmentsPage() {
     </div>
   );
 }
+
+    

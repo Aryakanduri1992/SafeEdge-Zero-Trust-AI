@@ -159,7 +159,7 @@ export default function SuperAdminDashboardPage() {
       <div className="grid gap-6 md:grid-cols-2">
         <Dialog onOpenChange={() => setSelectedOrg(null)}>
           <DialogTrigger asChild>
-            <Card className="cursor-pointer hover:border-primary/50 transition-colors">
+            <Card className="cursor-pointer transition-transform duration-200 hover:scale-[1.02] hover:shadow-primary/20">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Organizations</CardTitle>
                 <Building className="h-4 w-4 text-muted-foreground" />
@@ -213,7 +213,7 @@ export default function SuperAdminDashboardPage() {
           
         <Dialog>
           <DialogTrigger asChild>
-            <Card className="cursor-pointer hover:border-primary/50 transition-colors">
+            <Card className="cursor-pointer transition-transform duration-200 hover:scale-[1.02] hover:shadow-primary/20">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Departments</CardTitle>
                 <Users className="h-4 w-4 text-muted-foreground" />
@@ -255,7 +255,7 @@ export default function SuperAdminDashboardPage() {
                               <TableCell className="hidden sm:table-cell">{dept.building}, Fl {dept.floor}</TableCell>
                               <TableCell className="text-center">
                                  {dept.status === 'active' ? (
-                                  <Badge variant="outline" className="text-green-400 border-green-400/50"><CheckCircle className="mr-1 h-3 w-3"/>Active</Badge>
+                                  <Badge variant="outline" className="text-green-500 border-green-500/50 bg-green-500/10"><CheckCircle className="mr-1 h-3 w-3"/>Active</Badge>
                                   ) : (
                                   <Badge variant="destructive" className="bg-muted-foreground/20 text-muted-foreground border-muted-foreground/30"><XCircle className="mr-1 h-3 w-3"/>Inactive</Badge>
                                   )}
@@ -271,7 +271,7 @@ export default function SuperAdminDashboardPage() {
       </div>
 
       {/* Admin Management Section */}
-      <Card className="shadow-sm">
+      <Card className="shadow-lg">
         <CardHeader>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
@@ -360,7 +360,7 @@ export default function SuperAdminDashboardPage() {
                   </TableCell>
                    <TableCell className="text-center">
                     {dept.status === 'active' ? (
-                      <Badge variant="outline" className="text-green-400 border-green-400/50"><CheckCircle className="mr-1 h-3 w-3"/>Active</Badge>
+                      <Badge variant="outline" className="text-green-500 border-green-500/50 bg-green-500/10"><CheckCircle className="mr-1 h-3 w-3"/>Active</Badge>
                     ) : (
                        <Badge variant="destructive" className="bg-muted-foreground/20 text-muted-foreground border-muted-foreground/30"><XCircle className="mr-1 h-3 w-3"/>Inactive</Badge>
                     )}
@@ -459,3 +459,5 @@ export default function SuperAdminDashboardPage() {
     </div>
   );
 }
+
+    

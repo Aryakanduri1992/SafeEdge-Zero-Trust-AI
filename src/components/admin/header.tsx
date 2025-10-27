@@ -3,7 +3,7 @@
 
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
-import { LogOut, Bell, Menu, Search, User, Settings, LifeBuoy, Moon, Sun, X } from 'lucide-react';
+import { LogOut, Bell, Menu, Search, User, Settings, LifeBuoy, X } from 'lucide-react';
 import { Organization } from '@/lib/types';
 import Link from 'next/link';
 import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
@@ -18,11 +18,10 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { ThemeToggle } from '../theme-toggle';
 
 export function Header() {
-  const { logout, user } = useAuth();
+  const { logout, user, globalSearchTerm, setGlobalSearchTerm } = useAuth();
   const orgUser = user as Organization;
   const pathname = usePathname();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
   
   const getInitials = (name?: string) => {
     return name ? name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : '';
@@ -46,7 +45,7 @@ export function Header() {
                 className="flex items-center gap-2 text-lg font-semibold mb-4"
                 >
                 <Logo className="h-7 w-7" />
-                <span className="font-headline text-primary text-xl">SafeEdge</span>
+                <span className="font-headline text-primary text-xl tracking-tighter">SafeEdge</span>
                 </Link>
                 {navItems.map((item) => (
                     <Link
@@ -74,17 +73,17 @@ export function Header() {
         <div className="relative w-full max-w-md">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
-            placeholder="Search devices, alerts, or departments..."
+            placeholder="Search devices, departments..."
             className="pl-10 pr-10 bg-background/50"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            value={globalSearchTerm}
+            onChange={(e) => setGlobalSearchTerm(e.target.value)}
           />
-           {searchTerm && (
+           {globalSearchTerm && (
             <Button
                 variant="ghost"
                 size="icon"
                 className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
-                onClick={() => setSearchTerm('')}
+                onClick={() => setGlobalSearchTerm('')}
             >
                 <X className="h-4 w-4 text-muted-foreground transition-colors hover:text-primary" />
             </Button>
@@ -152,3 +151,5 @@ export function Header() {
     </header>
   );
 }
+
+    

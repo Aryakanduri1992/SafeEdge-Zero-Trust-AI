@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, Edit, Trash2, HardDrive, AlertTriangle, Search, X } from 'lucide-react';
+import { MoreHorizontal, Edit, Trash2, HardDrive, AlertTriangle } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { DeviceForm } from './device-form';
 import { DeleteDeviceDialog } from './delete-device-dialog';
@@ -20,7 +20,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Input } from '../ui/input';
 
 type DeviceListProps = {
     devices: Device[];
@@ -28,19 +27,18 @@ type DeviceListProps = {
 };
 
 export function DeviceList({ devices, departments }: DeviceListProps) {
-    const { deleteDevice } = useAuth();
+    const { deleteDevice, globalSearchTerm } = useAuth();
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
-    const [searchTerm, setSearchTerm] = useState('');
 
     const filteredDevices = useMemo(() => {
         return devices.filter(device => {
             const department = departments.find(d => d.id === device.departmentId);
             const searchCorpus = `${device.name} ${device.location} ${device.type} ${department?.departmentName || ''}`.toLowerCase();
-            return searchCorpus.includes(searchTerm.toLowerCase());
+            return globalSearchTerm ? searchCorpus.includes(globalSearchTerm.toLowerCase()) : true;
         });
-    }, [devices, departments, searchTerm]);
+    }, [devices, departments, globalSearchTerm]);
 
     const handleEditClick = (device: Device) => {
         setSelectedDevice(device);
@@ -86,27 +84,6 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
                 <CardHeader>
                     <CardTitle>Registered Devices</CardTitle>
                     <CardDescription>A list of all devices registered to your organization.</CardDescription>
-                     <div className="mt-4 flex items-center gap-2">
-                        <div className="relative flex-1">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input
-                            placeholder="Search devices..."
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-10 pr-10"
-                        />
-                        {searchTerm && (
-                            <Button
-                                variant="ghost"
-                                size="icon"
-                                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8"
-                                onClick={() => setSearchTerm('')}
-                            >
-                                <X className="h-4 w-4 text-muted-foreground transition-colors hover:text-primary" />
-                            </Button>
-                        )}
-                        </div>
-                    </div>
                 </CardHeader>
                 <CardContent>
                     {devices.length > 0 ? (
@@ -213,3 +190,5 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
         </>
     );
 }
+
+    

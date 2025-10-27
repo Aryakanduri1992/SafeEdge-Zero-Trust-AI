@@ -18,6 +18,8 @@ type AuthContextType = {
   devices: Device[];
   isAuthenticated: boolean;
   isLoading: boolean;
+  globalSearchTerm: string;
+  setGlobalSearchTerm: (term: string) => void;
   login: (credentials: LoginCredentials, role: 'admin' | 'superadmin') => Promise<void>;
   logout: () => Promise<void>;
   createOrganization: (orgData: NewOrgData) => Promise<void>;
@@ -39,6 +41,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [globalSearchTerm, setGlobalSearchTerm] = useState('');
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
@@ -292,6 +295,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     devices,
     isAuthenticated: !!appUser, 
     isLoading, 
+    globalSearchTerm,
+    setGlobalSearchTerm,
     login, 
     logout, 
     createOrganization,
@@ -311,3 +316,5 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     </AuthContext.Provider>
   );
 };
+
+    
