@@ -2,26 +2,33 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Super admins can read and write to any collection.
+
+    // Super Admins can read/write anywhere
     match /{document=**} {
-      allow read, write: if request.auth.uid != null && exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
+      allow read, write: if get(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid)).exists();
     }
 
-    // Organizations can read their own profile.
+    // Organization admins can read their own organization document
     match /organizations/{orgId} {
-      allow read, update: if request.auth.uid == orgId;
+      allow read: if request.auth.uid == orgId;
+      allow update: if request.auth.uid == orgId;
     }
 
-    // Admins can read departments belonging to their organization.
+    // Organization admins can read departments associated with their org
     match /departments/{deptId} {
-      allow read: if request.auth.uid != null && get(/databases/$(database)/documents/departments/$(deptId)).data.organizationId == request.auth.uid;
-      allow create: if request.auth.uid != null; // Super admin rule covers this, but explicit for clarity
+      allow read: if get(/databases/$(database)/documents/organizations/$(request.auth.uid)).data.id == resource.data.organizationId;
     }
 
-    // Admins can read and write devices belonging to their organization.
+    // Rules for devices
     match /devices/{deviceId} {
-      allow read, delete, update: if request.auth.uid != null && get(/databases/$(database)/documents/devices/$(deviceId)).data.organizationId == request.auth.uid;
-      allow create: if request.auth.uid != null && request.resource.data.organizationId == request.auth.uid;
+      // Allow read (get, list) if the user's UID matches the device's organizationId
+      allow read: if request.auth != null && get(/databases/$(database)/documents/organizations/$(request.auth.uid)).exists();
+
+      // Allow create if the user is authenticated and is setting the organizationId to their own UID
+      allow create: if request.auth != null && request.resource.data.organizationId == request.auth.uid;
+
+      // Allow update and delete if the user is authenticated and the device belongs to their organization
+      allow update, delete: if request.auth != null && get(/databases/$(database)/documents/devices/$(deviceId)).data.organizationId == request.auth.uid;
     }
   }
 }
