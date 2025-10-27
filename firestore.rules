@@ -1,34 +1,28 @@
 rules_version = '2';
-
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Super Admins can read/write anywhere
+    // Super Admins can read/write anything
     match /{document=**} {
-      allow read, write: if get(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid)).exists();
+      allow read, write: if get(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid)).data.email == request.auth.email;
     }
 
-    // Organization admins can read their own organization document
     match /organizations/{orgId} {
-      allow read: if request.auth.uid == orgId;
-      allow update: if request.auth.uid == orgId;
+      allow read, update: if request.auth.uid == orgId;
     }
 
-    // Organization admins can read departments associated with their org
     match /departments/{deptId} {
-      allow read: if get(/databases/$(database)/documents/organizations/$(request.auth.uid)).data.id == resource.data.organizationId;
+      allow read: if request.auth.uid == get(/databases/$(database)/documents/departments/$(deptId)).data.organizationId;
     }
 
-    // Rules for devices
     match /devices/{deviceId} {
-      // Allow read (get, list) if the user's UID matches the device's organizationId
-      allow read: if request.auth != null && get(/databases/$(database)/documents/organizations/$(request.auth.uid)).exists();
+      // Admins can create devices for their own organization
+      allow create: if request.auth.uid == request.resource.data.organizationId;
 
-      // Allow create if the user is authenticated and is setting the organizationId to their own UID
-      allow create: if request.auth != null && request.resource.data.organizationId == request.auth.uid;
-
-      // Allow update and delete if the user is authenticated and the device belongs to their organization
-      allow update, delete: if request.auth != null && get(/databases/$(database)/documents/devices/$(deviceId)).data.organizationId == request.auth.uid;
+      // Admins can get, update, and delete devices in their own organization
+      allow get, update, delete: if request.auth.uid == get(/databases/$(database)/documents/devices/$(deviceId)).data.organizationId;
+      
+      // Admins can list devices for their own organization
+      allow list: if request.auth.uid == request.query.filters[0].value;
     }
   }
 }
