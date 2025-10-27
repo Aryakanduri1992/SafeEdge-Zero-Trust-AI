@@ -10,13 +10,11 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
-import { Globe, User, ShieldCheck, Palette, Edit } from "lucide-react";
+import { Globe, User, ShieldCheck, Palette } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format } from "date-fns";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useToast } from "@/hooks/use-toast";
-import Image from 'next/image';
-import { ImageSelectorDialog } from "@/components/admin/image-selector-dialog";
 
 const LoadingSkeleton = () => (
   <div className="space-y-8">
@@ -36,7 +34,6 @@ export default function ProfilePage() {
   const { user, isLoading: isAuthLoading } = useAuth();
   const orgUser = user as Organization;
   const { toast } = useToast();
-  const [isImageSelectorOpen, setIsImageSelectorOpen] = useState(false);
 
   const isLoading = isAuthLoading || !orgUser;
 
@@ -76,23 +73,10 @@ export default function ProfilePage() {
                 <div className="flex flex-col items-center gap-4">
                    <div className="relative group">
                       <Avatar className="h-24 w-24 border-4 border-background outline outline-1 outline-border shadow-lg">
-                        {orgUser.imageUrl ? (
-                           <Image src={orgUser.imageUrl} alt={orgUser.organizationName} fill className="object-cover" />
-                        ) : (
                           <AvatarFallback className="text-3xl bg-muted text-muted-foreground">
                             {getInitials(orgUser.organizationName)}
                           </AvatarFallback>
-                        )}
                       </Avatar>
-                      <Button
-                          variant="outline"
-                          size="icon"
-                          className="absolute bottom-0 right-0 rounded-full h-8 w-8 bg-background/80 opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm"
-                          onClick={() => setIsImageSelectorOpen(true)}
-                        >
-                          <Edit className="h-4 w-4" />
-                          <span className="sr-only">Change Image</span>
-                        </Button>
                   </div>
                   <div className="text-center">
                     <p className="text-xl font-semibold">{orgUser.organizationName}</p>
@@ -176,11 +160,6 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
-      <ImageSelectorDialog
-        isOpen={isImageSelectorOpen}
-        onOpenChange={setIsImageSelectorOpen}
-        currentImageUrl={orgUser.imageUrl}
-      />
     </>
   );
 }

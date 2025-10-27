@@ -18,7 +18,6 @@ export interface Organization extends BaseUser {
     organizationName: string;
     createdAt: string; // ISO String
     superAdminId: string;
-    imageUrl?: string;
 }
 
 export interface Department {

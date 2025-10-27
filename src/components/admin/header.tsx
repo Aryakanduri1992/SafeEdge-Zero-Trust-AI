@@ -14,7 +14,7 @@ import { Logo } from '../logo';
 import { useState } from 'react';
 import { Input } from '../ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '../ui/dropdown-menu';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { Avatar, AvatarFallback } from '../ui/avatar';
 import { ThemeToggle } from '../theme-toggle';
 import { useToast } from '@/hooks/use-toast';
 
@@ -73,8 +73,9 @@ export function Header() {
             </nav>
           </SheetContent>
         </Sheet>
-        <div className="hidden md:flex flex-col">
-            <span className="font-headline text-lg text-primary">{orgUser?.organizationName}</span>
+        <div className="hidden md:flex items-center gap-2">
+             <Logo className="h-7 w-7" />
+             <span className="font-headline text-primary truncate text-lg lg:text-xl">SafeEdge</span>
         </div>
       </div>
       
@@ -124,7 +125,6 @@ export function Header() {
             <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-10 w-10 rounded-full">
                     <Avatar className="h-10 w-10">
-                        <AvatarImage src={orgUser?.imageUrl} alt={orgUser?.organizationName} />
                         <AvatarFallback>{getInitials(orgUser?.organizationName)}</AvatarFallback>
                     </Avatar>
                 </Button>

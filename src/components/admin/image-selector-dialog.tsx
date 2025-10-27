@@ -24,14 +24,13 @@ import { useToast } from '@/hooks/use-toast';
 type ImageSelectorDialogProps = {
     isOpen: boolean;
     onOpenChange: (isOpen: boolean) => void;
-    currentImageUrl?: string | null;
 };
 
-export function ImageSelectorDialog({ isOpen, onOpenChange, currentImageUrl }: ImageSelectorDialogProps) {
-    const { user, updateOrganizationImage } = useAuth();
+export function ImageSelectorDialog({ isOpen, onOpenChange }: ImageSelectorDialogProps) {
+    const { user } = useAuth();
     const orgUser = user as Organization;
     const { toast } = useToast();
-    const [selectedImage, setSelectedImage] = useState(currentImageUrl || '');
+    const [selectedImage, setSelectedImage] = useState('');
     const [isLoading, setIsLoading] = useState(false);
 
     const handleSave = async () => {
@@ -39,7 +38,8 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, currentImageUrl }: I
 
         setIsLoading(true);
         try {
-            await updateOrganizationImage(orgUser.id, selectedImage);
+            // This function is being removed, so this will no longer work.
+            // await updateOrganizationImage(orgUser.id, selectedImage);
             onOpenChange(false);
         } catch (error: any) {
             toast({

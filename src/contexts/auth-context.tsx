@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
@@ -30,7 +29,6 @@ type AuthContextType = {
   createDevice: (deviceData: NewDeviceData) => Promise<void>;
   updateDevice: (deviceId: string, deviceData: UpdateDeviceData) => Promise<void>;
   deleteDevice: (deviceId: string) => Promise<void>;
-  updateOrganizationImage: (orgId: string, imageUrl: string) => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -267,26 +265,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await authService.deleteDevice(deviceId);
     toast({ title: "Device Deleted", description: `The device has been removed from the system.` });
   };
-  
-  const updateOrganizationImage = async (orgId: string, imageUrl: string) => {
-    if (!appUser || (appUser.role === 'admin' && appUser.id !== orgId) && appUser.role !== 'superadmin') {
-      throw new Error("Unauthorized to update this organization's image.");
-    }
-    await authService.updateOrganizationImage(orgId, imageUrl);
-
-    if (appUser.role === 'admin' && appUser.id === orgId) {
-        setAppUser(prevUser => {
-            if (prevUser && prevUser.role === 'admin') {
-                return { ...prevUser, imageUrl };
-            }
-            return prevUser;
-        });
-    } else if (appUser.role === 'superadmin') {
-        setOrganizations(prevOrgs => prevOrgs.map(org => 
-            org.id === orgId ? { ...org, imageUrl } : org
-        ));
-    }
-  };
 
   const contextValue = { 
     user: appUser, 
@@ -307,7 +285,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     createDevice,
     updateDevice,
     deleteDevice,
-    updateOrganizationImage,
   };
 
   return (
@@ -316,5 +293,3 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     </AuthContext.Provider>
   );
 };
-
-    
