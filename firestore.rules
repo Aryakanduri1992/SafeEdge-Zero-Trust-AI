@@ -1,130 +1,33 @@
-/**
- * @file Firestore Security Rules
- * @description This ruleset enforces a role-based access control model, primarily using a SuperAdmin role.
- *
- * Data Structure:
- * - /roles_super_admin/{superAdminId}: Documents identifying Super Admins by their UID.
- * - /organizations/{organizationId}: Stores organization profile information.
- * - /departments/{departmentId}: Stores department information for all organizations.
- * - /devices/{deviceId}: Stores information about individual devices.
- *
- * Key Security Decisions:
- * - SuperAdmins can list organizations.
- * - All write access is denied by default unless explicitly granted by a rule.
- */
+
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * @description Checks if the requesting user is signed in.
-     * @returns {boolean} True if the user is signed in, false otherwise.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the requesting user's UID matches the provided userId.
-     * @param {string} userId - The user ID to compare against.
-     * @returns {boolean} True if the user is the owner, false otherwise.
-     */
-    function isOwner(userId) {
-      return request.auth.uid == userId;
-    }
-
-    /**
-     * @description Checks if the requesting user is an existing owner of the document.
-     * @param {string} userId - The user ID to compare against.
-     * @returns {boolean} True if the user is the owner and the document exists, false otherwise.
-     */
-    function isExistingOwner(userId) {
-        return isOwner(userId) && resource != null;
-    }
-
-    /**
-     * @description Checks if the requesting user is a super admin.
-     * @returns {boolean} True if the user is a super admin, false otherwise.
-     */
+    // Helper function to check if the user's UID exists in the roles_super_admin collection.
+    // This is more reliable than custom claims for rules, as it doesn't depend on token refresh state.
     function isSuperAdmin() {
-      return exists(/databases/(default)/documents/roles_super_admin/$(request.auth.uid));
-    }
-    
-    /**
-     * @description Rule for the SuperAdmin role.  Super admins have read access to all other documents.
-     * @path /roles_super_admin/{superAdminId}
-     * @allow (create) - A user with a matching UID can create their own SuperAdmin document.
-     * @deny (create) - A user attempts to create a SuperAdmin document with an ID that doesn't match their UID.
-     * @allow (get) - A super admin can get their own super admin role
-     * @deny (get) - A non-super admin attempts to read another super admin's role
-     * @allow (list) - Super admins can list super admins.
-     * @deny (list) - Standard users cannot list super admins.
-     * @allow (update) - Super admins can update their own record.
-     * @deny (update) - Standard users cannot update super admins.
-     * @allow (delete) - Super admins can delete their own record.
-     * @deny (delete) - Standard users cannot delete super admins.
-     * @principle Enforces strict ownership for SuperAdmin documents and prevents unauthorized modification.
-     */
-    match /roles_super_admin/{superAdminId} {
-        allow get: if isSuperAdmin() || isOwner(superAdminId);
-        allow list: if isSuperAdmin();
-        allow create: if isOwner(superAdminId);
-        allow update: if isExistingOwner(superAdminId);
-        allow delete: if isExistingOwner(superAdminId);
+      return exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
     }
 
-    /**
-     * @description Rules for organizations. Super admins can list, but create, update, and delete operations are denied.
-     * @path /organizations/{organizationId}
-     * @allow (get) - Any signed-in user can retrieve organization data.
-     * @allow (list) - A super admin can list all organizations.
-     * @deny (create) - No one can create organizations directly via client-side rules.
-     * @deny (update) - No one can update organizations directly via client-side rules.
-     * @deny (delete) - No one can delete organizations directly via client-side rules.
-     * @principle Restricts write access to organizations and allows public read access.
-     */
-    match /organizations/{organizationId} {
-      allow get: if isSignedIn();
-      allow list: if isSuperAdmin();
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+    // Super admins have broad access
+    match /{document=**} {
+      allow read, write: if isSuperAdmin();
     }
 
-    /**
-     * @description Rules for departments.  Create, update, and delete operations are denied to all.
-     * @path /departments/{departmentId}
-     * @allow (get) - Any signed-in user can retrieve department data.
-     * @allow (list) - A super admin can list all departments.
-     * @deny (create) - No one can create departments directly via client-side rules.
-     * @deny (update) - No one can update departments directly via client-side rules.
-     * @deny (delete) - No one can delete departments directly via client-side rules.
-     * @principle Restricts write access to departments.
-     */
-    match /departments/{departmentId} {
-      allow get: if isSignedIn();
-      allow list: if isSuperAdmin();
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+    // Organizations can be read and updated by the user whose UID matches the document ID (the org admin).
+    match /organizations/{orgId} {
+      allow read, update: if request.auth.uid == orgId;
     }
 
-    /**
-     * @description Rules for devices. Create, update, and delete operations are denied to all.
-     * @path /devices/{deviceId}
-     * @allow (get) - Any signed-in user can retrieve device data.
-     * @allow (list) - A super admin can list all devices.
-     * @deny (create) - No one can create devices directly via client-side rules.
-     * @deny (update) - No one can update devices directly via client-side rules.
-     * @deny (delete) - No one can delete devices directly via client-side rules.
-     * @principle Restricts write access to devices.
-     */
+    // Departments can be read by the admin of the organization they belong to.
+    match /departments/{deptId} {
+      allow read: if request.auth.uid == resource.data.organizationId;
+    }
+
+    // Devices can be read by the admin of the organization they belong to.
     match /devices/{deviceId} {
-      allow get: if isSignedIn();
-      allow list: if isSuperAdmin();
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow read, write, delete: if request.auth.uid == resource.data.organizationId;
     }
   }
 }
