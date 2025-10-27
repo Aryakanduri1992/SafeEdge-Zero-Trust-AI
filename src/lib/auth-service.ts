@@ -88,8 +88,6 @@ export async function getOrCreateUserProfile(user: FirebaseUser, claims: ParsedT
             return null;
         }
     } catch (serverError: any) {
-        // If the above throw doesn't happen, but we still get an error (like a permission error)
-        // on the organization collection, we emit it. This is a fallback.
         const permissionError = new FirestorePermissionError({ path: orgRef.path, operation: 'get' });
         errorEmitter.emit('permission-error', permissionError);
         throw permissionError;
