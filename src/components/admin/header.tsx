@@ -3,7 +3,7 @@
 
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/use-auth';
-import { LogOut, Bell, Menu } from 'lucide-react';
+import { LogOut, Bell, Menu, Search, User, Settings, LifeBuoy, Moon, Sun } from 'lucide-react';
 import { Organization } from '@/lib/types';
 import Link from 'next/link';
 import { Sheet, SheetContent, SheetTrigger } from '../ui/sheet';
@@ -12,6 +12,10 @@ import { cn } from '@/lib/utils';
 import { usePathname } from 'next/navigation';
 import { Logo } from '../logo';
 import { useState } from 'react';
+import { Input } from '../ui/input';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuLabel, DropdownMenuSeparator } from '../ui/dropdown-menu';
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { ThemeToggle } from '../theme-toggle';
 
 export function Header() {
   const { logout, user } = useAuth();
@@ -19,7 +23,9 @@ export function Header() {
   const pathname = usePathname();
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   
-  const mobileNavItems = navItems;
+  const getInitials = (name?: string) => {
+    return name ? name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase() : '';
+  }
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center justify-between gap-4 border-b bg-background/80 px-4 shadow-sm backdrop-blur-sm sm:px-6">
@@ -36,12 +42,12 @@ export function Header() {
                 <Link
                 href="/admin/dashboard"
                 onClick={() => setIsSheetOpen(false)}
-                className="flex items-center gap-2 text-lg font-semibold mb-4 overflow-hidden"
+                className="flex items-center gap-2 text-lg font-semibold mb-4"
                 >
                 <Logo className="h-7 w-7" />
-                <span className="font-headline text-primary truncate text-xl">SafeEdge</span>
+                <span className="font-headline text-primary text-xl">SafeEdge</span>
                 </Link>
-                {mobileNavItems.map((item) => (
+                {navItems.map((item) => (
                     <Link
                         key={item.href}
                         href={item.href}
@@ -58,33 +64,78 @@ export function Header() {
             </nav>
           </SheetContent>
         </Sheet>
-        <Link href="/admin/dashboard" className="flex items-center gap-2 font-semibold md:hidden">
-            <Logo className="h-7 w-7" />
-            <span className="font-headline text-lg text-primary">SafeEdge</span>
-        </Link>
         <div className="hidden md:flex flex-col">
             <span className="font-headline text-lg text-primary">{orgUser?.organizationName}</span>
-            <span className="text-xs text-muted-foreground">Organization Portal</span>
         </div>
       </div>
-      <div className='flex items-center gap-2 sm:gap-4'>
+      
+      <div className="flex-1 flex justify-center px-4 lg:px-8">
+        <div className="relative w-full max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input 
+            placeholder="Search devices, alerts, or departments..."
+            className="pl-10 bg-background/50"
+          />
+        </div>
+      </div>
+
+      <div className='flex items-center gap-2 sm:gap-3'>
+        <ThemeToggle />
         <Button variant="ghost" size="icon" className="relative">
             <Bell className="h-5 w-5" />
             <span className="absolute top-2 right-2 block h-2 w-2 rounded-full bg-primary ring-2 ring-background"></span>
             <span className="sr-only">Notifications</span>
         </Button>
-        <span className="text-sm text-muted-foreground hidden sm:inline truncate max-w-[150px] lg:max-w-xs">
-            {orgUser?.organizationName}
-        </span>
-        <Button size="sm" onClick={logout}>
-          <LogOut className="mr-0 sm:mr-2 h-4 w-4" />
-          <span className="hidden sm:inline">Logout</span>
-        </Button>
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                    <LifeBuoy className="h-5 w-5" />
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuItem>Documentation</DropdownMenuItem>
+                <DropdownMenuItem>Chat Support</DropdownMenuItem>
+                <DropdownMenuItem>Contact Admin</DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                    <Avatar className="h-10 w-10">
+                        <AvatarImage src={orgUser?.imageUrl} alt={orgUser?.organizationName} />
+                        <AvatarFallback>{getInitials(orgUser?.organizationName)}</AvatarFallback>
+                    </Avatar>
+                </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+                <DropdownMenuLabel>
+                    <div className="flex flex-col">
+                        <span>{orgUser?.organizationName}</span>
+                        <span className="text-xs font-normal text-muted-foreground">{orgUser?.email}</span>
+                    </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <Link href="/admin/profile">
+                  <DropdownMenuItem>
+                      <User className="mr-2 h-4 w-4" />
+                      <span>Profile</span>
+                  </DropdownMenuItem>
+                </Link>
+                <Link href="/admin/profile">
+                  <DropdownMenuItem>
+                      <Settings className="mr-2 h-4 w-4" />
+                      <span>Account Settings</span>
+                  </DropdownMenuItem>
+                </Link>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Sign Out</span>
+                </DropdownMenuItem>
+            </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );
 }
-
-
-
-
