@@ -3,31 +3,33 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if the requester is a Super Admin
+    // SUPERADMIN: Global read/write access
     function isSuperAdmin() {
       return exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
     }
 
-    // Super Admins have universal access. This rule must come first.
     match /{document=**} {
       allow read, write: if isSuperAdmin();
     }
 
-    // Organization admins can read their own document.
+    // ORGANIZATIONS: Admins can read their own profile
     match /organizations/{orgId} {
-      allow get: if request.auth.uid == orgId;
+      allow read: if request.auth.uid == orgId;
     }
 
-    // Organization admins can query for their own departments.
-    match /departments/{deptId} {
-       allow list: if request.auth.uid == request.query.organizationId;
-       allow get: if request.auth.uid == resource.data.organizationId;
+    // DEPARTMENTS: Admins can list and get departments belonging to their organization
+    match /departments/{departmentId} {
+      allow read: if request.auth.uid == resource.data.organizationId;
+      allow list: if request.auth.uid == request.query.get("where")[2][2];
     }
-    
-    // Organization admins can manage their own devices.
+
+    // DEVICES: Admins can manage devices for their organization
     match /devices/{deviceId} {
-      allow get, list, create, update, delete: if request.auth.uid == request.resource.data.organizationId 
-                                                 || request.auth.uid == resource.data.organizationId;
+      allow get: if request.auth.uid == resource.data.organizationId;
+      allow list: if request.auth.uid == request.query.get("where")[2][2];
+      allow create: if request.auth.uid == request.resource.data.organizationId;
+      allow update: if request.auth.uid == resource.data.organizationId;
+      allow delete: if request.auth.uid == resource.data.organizationId;
     }
   }
 }
