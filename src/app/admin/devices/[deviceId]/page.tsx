@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { HardDrive, ArrowLeft, RadioTower, Loader2, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
+import { HardDrive, ArrowLeft, RadioTower, Loader2, Wifi, WifiOff, AlertTriangle, TimerOff } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -30,8 +30,10 @@ export default function DeviceDetailPage() {
     switch (connectionStatus) {
       case 'connecting':
         return { text: `Connecting...`, className: 'text-muted-foreground animate-pulse', icon: <Loader2 className="h-4 w-4 animate-spin"/> };
-      case 'connected':
+      case 'online':
         return { text: 'Live Feed', className: 'text-green-500 border-green-500/50 bg-green-500/10', icon: <Wifi className="h-4 w-4" /> };
+      case 'stale':
+         return { text: 'Signal Lost', className: 'text-amber-500 border-amber-500/50 bg-amber-500/10', icon: <TimerOff className="h-4 w-4" /> };
       case 'error':
         return { text: 'Permission Denied', className: 'text-destructive border-destructive/50 bg-destructive/10', icon: <AlertTriangle className="h-4 w-4" /> };
       case 'no-path':
@@ -79,7 +81,7 @@ export default function DeviceDetailPage() {
             <span className="text-sm text-muted-foreground">Connecting to Realtime DB...</span>
           </div>
         );
-      case 'connected':
+      case 'online':
         if (liveData) {
           return (
             <div>
@@ -98,6 +100,14 @@ export default function DeviceDetailPage() {
               <span className="font-semibold text-green-500">Connected</span>
               <span className="text-sm text-muted-foreground">Waiting for first data point...</span>
            </div>
+        );
+      case 'stale':
+        return (
+          <div className="flex flex-col items-center gap-2">
+            <TimerOff className="h-8 w-8 text-amber-500" />
+            <span className="font-semibold text-amber-500">Signal Lost</span>
+            <span className="text-sm text-muted-foreground">Device may be offline. Last value: {liveData?.value?.toFixed(2) ?? '--'}</span>
+          </div>
         );
       case 'error':
         return (
