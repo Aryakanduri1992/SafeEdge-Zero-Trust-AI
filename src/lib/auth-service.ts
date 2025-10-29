@@ -51,11 +51,13 @@ export async function fetchUserProfile(user: FirebaseUser): Promise<SuperAdminUs
             } as SuperAdminUser;
         }
     } catch (error: any) {
+         // This is an expected "failure" for non-superadmins.
+         // We don't want to throw a global error here, just proceed to the next check.
          if (error.code === 'permission-denied') {
-            const permissionError = new FirestorePermissionError({ path: superAdminRef.path, operation: 'get' });
-            errorEmitter.emit('permission-error', permissionError);
+            console.log("User is not a super admin. Checking for organization role.");
         } else {
-            console.warn("Could not check for super admin role, proceeding to check for organization role.", error.message);
+            // For other unexpected errors, we can log them.
+            console.warn("Could not check for super admin role due to an unexpected error:", error.message);
         }
     }
 
