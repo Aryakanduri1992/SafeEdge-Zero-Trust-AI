@@ -95,10 +95,10 @@ export type NewDeviceData = Omit<Device, 'id' | 'lastSeen' | 'status' | 'value' 
 export type UpdateDeviceData = Partial<Omit<Device, 'id' | 'organizationId'>>;
 
 export type UpdateDeviceStatusData = {
-  value: number;
-  timestamp: string; // ISO date string
-  status: 'online';
-  lastSeen: string;
+  value?: number;
+  timestamp?: string; // ISO date string
+  status: 'online' | 'offline';
+  lastSeen?: string;
 };
 
 export interface SensorReading {
