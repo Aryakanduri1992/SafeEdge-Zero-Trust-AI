@@ -114,7 +114,7 @@ export default function DeviceDetailPage() {
            <div className="flex flex-col items-center gap-2">
               <AlertTriangle className="h-8 w-8 text-destructive" />
               <span className="font-semibold text-destructive">Permission Denied</span>
-              <span className="text-sm text-muted-foreground">Check your database rules.</span>
+              <span className="text-sm text-muted-foreground">Check your Realtime Database rules.</span>
            </div>
         );
       case 'no-path':
