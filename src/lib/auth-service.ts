@@ -38,8 +38,6 @@ export async function login(credentials: LoginCredentials): Promise<UserCredenti
 export async function fetchUserProfile(user: FirebaseUser): Promise<SuperAdminUser | Organization | null> {
     const uid = user.uid;
     
-    // Primary, robust check: Directly query the super_admin role document.
-    // This is not subject to token claim propagation delays.
     const superAdminRef = doc(firestore, "roles_super_admin", uid);
     try {
         const superAdminSnap = await getDoc(superAdminRef);
@@ -53,11 +51,14 @@ export async function fetchUserProfile(user: FirebaseUser): Promise<SuperAdminUs
             } as SuperAdminUser;
         }
     } catch (error: any) {
-        // This could be a legitimate permission error if rules are strict, but we still want to check for org user.
-        console.warn("Could not check for super admin role, proceeding to check for organization role.", error.message);
+         if (error.code === 'permission-denied') {
+            const permissionError = new FirestorePermissionError({ path: superAdminRef.path, operation: 'get' });
+            errorEmitter.emit('permission-error', permissionError);
+        } else {
+            console.warn("Could not check for super admin role, proceeding to check for organization role.", error.message);
+        }
     }
 
-    // If not a super admin, check for a regular organization admin profile.
     const orgRef = doc(firestore, "organizations", uid);
     try {
         const orgSnap = await getDoc(orgRef);
@@ -65,14 +66,15 @@ export async function fetchUserProfile(user: FirebaseUser): Promise<SuperAdminUs
             return { ...orgSnap.data(), id: uid, role: 'admin' } as Organization;
         }
     } catch (error) {
-        console.error("Error fetching organization user profile:", error);
-         if (error instanceof Error && error.message.includes("permission-denied")) {
-             errorEmitter.emit('permission-error', new FirestorePermissionError({ path: orgRef.path, operation: 'get' }));
+        if (error instanceof Error && (error.message.includes("permission-denied") || error.message.includes("insufficient permissions"))) {
+             const permissionError = new FirestorePermissionError({ path: orgRef.path, operation: 'get' });
+             errorEmitter.emit('permission-error', permissionError);
+        } else {
+            console.error("Error fetching organization user profile:", error);
         }
         return null;
     }
     
-    // If no profile is found in either collection, the user is invalid.
     return null;
 }
 
@@ -95,7 +97,7 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
 
         const batch = writeBatch(firestore);
 
-        const newOrgProfile: Omit<Organization, 'id' | 'role'> = {
+        const newOrgProfile: Omit<Organization, 'id' | 'role' | 'imageUrl'> = {
             organizationName: orgData.organizationName,
             email: orgData.email,
             createdAt: new Date().toISOString(),
@@ -121,19 +123,22 @@ export const createOrganization = async (orgData: NewOrgData, superAdminId: stri
         const deptDocRef = doc(collection(firestore, "departments"));
         batch.set(deptDocRef, newDepartment);
 
-        await batch.commit();
+        await batch.commit().catch(serverError => {
+            const permissionError = new FirestorePermissionError({
+                 path: `organizations/${newOrgUID} and departments`,
+                 operation: 'write',
+                 requestResourceData: { organization: newOrgProfile, department: newDepartment }
+            });
+            errorEmitter.emit('permission-error', permissionError);
+            throw permissionError;
+        });
 
     } catch (error: any) {
+        if (error instanceof FirestorePermissionError) throw error;
+        
         let errorMessage = error.message;
         if (error.code === 'auth/email-already-in-use') {
             errorMessage = `Creation failed: Email already in use. Please choose a different email.`;
-        } else if (error.code?.includes('permission-denied') || error.name === 'FirebaseError') {
-             errorEmitter.emit('permission-error', new FirestorePermissionError({
-                 path: `organizations and/or departments`,
-                 operation: 'create',
-                 requestResourceData: orgData
-             }));
-             errorMessage = 'Creation failed due to a database permission error. Please check your Firestore security rules.';
         }
         throw new Error(errorMessage);
     } finally {
@@ -212,9 +217,10 @@ export const createDevice = async (deviceData: NewDeviceData): Promise<void> => 
         status: 'offline',
         lastSeen: new Date().toISOString(),
     };
-    await addDoc(collection(firestore, 'devices'), newDevice).catch(serverError => {
+    const colRef = collection(firestore, 'devices');
+    await addDoc(colRef, newDevice).catch(serverError => {
         const permissionError = new FirestorePermissionError({
-            path: 'devices',
+            path: colRef.path,
             operation: 'create',
             requestResourceData: newDevice,
         });
@@ -247,3 +253,17 @@ export const deleteDevice = async (deviceId: string): Promise<void> => {
         throw permissionError;
     });
 };
+
+export const updateOrganizationImage = async (organizationId: string, imageUrl: string): Promise<void> => {
+    const organizationDocRef = doc(firestore, "organizations", organizationId);
+    const updateData = { imageUrl };
+    await updateDoc(organizationDocRef, updateData).catch(serverError => {
+        const permissionError = new FirestorePermissionError({
+            path: organizationDocRef.path,
+            operation: 'update',
+            requestResourceData: updateData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        throw permissionError;
+    });
+}

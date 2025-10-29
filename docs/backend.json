@@ -1,4 +1,5 @@
 
+
 {
   "entities": {
     "SuperAdmin": {
@@ -35,7 +36,8 @@
         "organizationName": { "type": "string" },
         "email": { "type": "string", "format": "email" },
         "createdAt": { "type": "string", "format": "date-time" },
-        "superAdminId": { "type": "string" }
+        "superAdminId": { "type": "string" },
+        "imageUrl": { "type": "string", "format": "uri" }
       },
       "required": ["organizationName", "email", "createdAt", "superAdminId"]
     },
@@ -74,6 +76,19 @@
             "description": { "type": "string" }
         },
         "required": ["name", "location", "type", "status", "lastSeen", "departmentId", "organizationId"]
+    },
+    "SensorReading": {
+      "title": "Sensor Reading",
+      "description": "Represents a single data point from a sensor device.",
+      "type": "object",
+      "properties": {
+          "deviceId": { "type": "string" },
+          "organizationId": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "value": { "type": "number" },
+          "metricType": { "type": "string", "enum": ["temperature", "humidity", "pressure", "vibration"] }
+      },
+      "required": ["deviceId", "organizationId", "timestamp", "value", "metricType"]
     }
   },
   "auth": {
@@ -104,6 +119,10 @@
     "/devices/{deviceId}": {
         "schema": { "$ref": "#/entities/Device" },
         "description": "Stores information about individual devices."
+    },
+    "/sensorReadings/{readingId}": {
+        "schema": { "$ref": "#/entities/SensorReading" },
+        "description": "Stores time-series data from sensor devices."
     }
   }
 }

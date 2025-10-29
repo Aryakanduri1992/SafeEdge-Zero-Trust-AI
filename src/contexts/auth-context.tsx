@@ -29,6 +29,7 @@ type AuthContextType = {
   createDevice: (deviceData: NewDeviceData) => Promise<void>;
   updateDevice: (deviceId: string, deviceData: UpdateDeviceData) => Promise<void>;
   deleteDevice: (deviceId: string) => Promise<void>;
+  updateOrganizationImage: (organizationId: string, imageUrl: string) => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -49,7 +50,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const isLoading = isFirebaseUserLoading || isAuthLoading;
 
-  // This effect handles session restoration on page refresh
   useEffect(() => {
     const handleAuthChange = async () => {
       if (firebaseUser) {
@@ -60,8 +60,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             if (userProfile) {
               setAppUser(userProfile);
             } else {
-               // This means the user is authenticated with Firebase, but has no corresponding profile doc
-               // (e.g., not a superadmin and no organization doc). This is an invalid state.
                console.error("Auth session restoration failed: User profile could not be found or created. Logging out.");
                await authService.logout();
                setAppUser(null);
@@ -85,7 +83,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [firebaseUser, isFirebaseUserLoading]);
 
 
-  // This effect handles redirecting unauthenticated users to the login page
   useEffect(() => {
     if (!isLoading && !appUser) {
         const isAuthProtectedRoute = pathname.startsWith('/admin') || pathname.startsWith('/superadmin');
@@ -99,7 +96,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [pathname, isLoading, appUser, router]);
 
-  // This effect subscribes to data based on user role
   useEffect(() => {
     let orgsUnsubscribe: Unsubscribe | undefined;
     let departmentsUnsubscribe: Unsubscribe | undefined;
@@ -128,21 +124,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             });
         }
         else if (appUser.role === 'admin') {
-            setOrganizations(prevOrgs => {
-                const appUserAsOrg = appUser as Organization;
-                if (!prevOrgs.some(o => o.id === appUserAsOrg.id)) return [appUserAsOrg];
-                const existing = prevOrgs.find(o => o.id === appUserAsOrg.id);
-                if (JSON.stringify(existing) !== JSON.stringify(appUserAsOrg)) {
-                   return prevOrgs.map(o => o.id === appUserAsOrg.id ? appUserAsOrg : o);
+            const orgRef = doc(firestore, 'organizations', appUser.id);
+             orgsUnsubscribe = onSnapshot(orgRef, (doc) => {
+                if (doc.exists()) {
+                    const orgData = { ...doc.data(), id: doc.id, role: 'admin' } as Organization;
+                    setAppUser(orgData); // Keep appUser in sync with DB changes
+                    setOrganizations([orgData]);
                 }
-                return prevOrgs;
+            }, (serverError) => {
+                const permissionError = new FirestorePermissionError({ path: orgRef.path, operation: 'get' });
+                errorEmitter.emit('permission-error', permissionError);
             });
+
             const deptsQuery = query(collection(firestore, 'departments'), where("organizationId", "==", appUser.id));
             departmentsUnsubscribe = onSnapshot(deptsQuery, (snapshot) => {
                 const deptList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Department));
                 setDepartments(deptList);
             }, (serverError) => {
-                 const permissionError = new FirestorePermissionError({ path: `departments where organizationId == ${appUser.id}`, operation: 'list' });
+                 const permissionError = new FirestorePermissionError({ path: deptsQuery.path, operation: 'list' });
                 errorEmitter.emit('permission-error', permissionError);
                 setDepartments([]);
             });
@@ -152,7 +151,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 const deviceList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Device));
                 setDevices(deviceList);
             }, (serverError) => {
-                const permissionError = new FirestorePermissionError({ path: `devices where organizationId == ${appUser.id}`, operation: 'list' });
+                const permissionError = new FirestorePermissionError({ path: devicesQuery.path, operation: 'list' });
                 errorEmitter.emit('permission-error', permissionError);
                 setDevices([]);
             });
@@ -168,7 +167,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (departmentsUnsubscribe) departmentsUnsubscribe();
         if (devicesUnsubscribe) devicesUnsubscribe();
     }
-  }, [appUser, firestore]);
+  }, [appUser?.id, appUser?.role, firestore]);
 
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
     setIsAuthLoading(true);
@@ -183,7 +182,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
         setAppUser(userProfile);
         
-        // Explicitly redirect after successful login and profile fetch
         if (userProfile.role === 'superadmin') {
             router.replace('/superadmin/dashboard');
         } else if (userProfile.role === 'admin') {
@@ -265,6 +263,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await authService.deleteDevice(deviceId);
     toast({ title: "Device Deleted", description: `The device has been removed from the system.` });
   };
+  
+  const updateOrganizationImage = async (organizationId: string, imageUrl: string) => {
+      if (!appUser || (appUser.role !== 'superadmin' && appUser.id !== organizationId)) {
+        throw new Error("Unauthorized to update this organization's image.");
+      }
+      await authService.updateOrganizationImage(organizationId, imageUrl);
+  };
 
   const contextValue = { 
     user: appUser, 
@@ -285,6 +290,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     createDevice,
     updateDevice,
     deleteDevice,
+    updateOrganizationImage,
   };
 
   return (

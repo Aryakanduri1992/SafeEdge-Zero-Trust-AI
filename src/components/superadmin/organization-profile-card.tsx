@@ -20,7 +20,8 @@ export function OrganizationProfileCard({ organization }: OrganizationProfileCar
   const [isImageSelectorOpen, setIsImageSelectorOpen] = useState(false);
 
   const getInitials = (name: string) => {
-    return name.split(' ').map(n => n[0]).join('').slice(0, 2);
+    if (!name) return "??";
+    return name.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase();
   }
 
   return (
@@ -29,14 +30,13 @@ export function OrganizationProfileCard({ organization }: OrganizationProfileCar
           <CardContent className="space-y-6 pt-6">
               <div className="flex flex-col items-center gap-4">
                   <div className="relative group">
-                      <Avatar className="h-24 w-24 border-2 border-primary/20">
+                      <Avatar className="h-24 w-24 border-2 border-primary/20 shadow-md">
                           {organization.imageUrl ? (
-                              <Image src={organization.imageUrl} alt={organization.organizationName} fill className="object-cover" />
-                          ) : (
+                              <AvatarImage src={organization.imageUrl} alt={organization.organizationName} className="object-cover" />
+                          ) : null}
                           <AvatarFallback className="text-3xl bg-muted text-muted-foreground">
                               {getInitials(organization.organizationName)}
                           </AvatarFallback>
-                          )}
                       </Avatar>
                       <Button
                         variant="outline"
@@ -84,7 +84,6 @@ export function OrganizationProfileCard({ organization }: OrganizationProfileCar
       <ImageSelectorDialog
         isOpen={isImageSelectorOpen}
         onOpenChange={setIsImageSelectorOpen}
-        organization={organization}
       />
     </>
   );
