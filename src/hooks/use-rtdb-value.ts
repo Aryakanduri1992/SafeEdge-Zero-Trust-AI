@@ -12,9 +12,9 @@ export default function useRtdbValue(path: string) {
   const app = useFirebaseApp();
 
   useEffect(() => {
-    if (!path) {
+    if (!path || !app) {
         setLoading(false);
-        // This isn't an error, it just means we don't have a path to listen to yet.
+        // This isn't an error, it just means we don't have a path or app to listen to yet.
         setData(null);
         return;
     }

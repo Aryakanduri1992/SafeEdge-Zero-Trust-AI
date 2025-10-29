@@ -4,5 +4,6 @@ export const firebaseConfig = {
   "apiKey": "AIzaSyDxY9Y3RqXM7afAu6eDNMMVBvzswd-ZZ6k",
   "authDomain": "studio-166999217-87cc8.firebaseapp.com",
   "measurementId": "",
-  "messagingSenderId": "813737550175"
+  "messagingSenderId": "813737550175",
+  "databaseURL": "https://studio-166999217-87cc8-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
