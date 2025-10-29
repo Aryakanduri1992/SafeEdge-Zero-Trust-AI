@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { ref, onValue, off, Database } from 'firebase/database';
+import { useState, useEffect } from 'react';
+import { ref, onValue, off } from 'firebase/database';
 import { useRtdb } from '@/firebase/provider';
 import { useAuth } from './use-auth';
 import type { Device } from '@/lib/types';
@@ -20,19 +20,7 @@ export const useRtdbValue = (device?: Device | null) => {
     const rtdb = useRtdb();
     const { updateDeviceStatus } = useAuth();
     
-    // Use a ref to hold the unsubscribe function to prevent re-subscribing on every render
-    const unsubscribeRef = useRef<() => void | undefined>();
-
-    const disconnect = useCallback(() => {
-        if (unsubscribeRef.current) {
-            unsubscribeRef.current();
-            unsubscribeRef.current = undefined;
-        }
-        setData(null);
-        setConnectionStatus('disconnected');
-    }, []);
-
-    const connect = useCallback(() => {
+    useEffect(() => {
         if (!device || !rtdb) {
             setConnectionStatus('disconnected');
             return;
@@ -42,8 +30,6 @@ export const useRtdbValue = (device?: Device | null) => {
             setConnectionStatus('no-path');
             return;
         }
-        
-        disconnect(); // Disconnect any existing listener
 
         setConnectionStatus('connecting');
         const dbRef = ref(rtdb, device.dbPath);
@@ -69,22 +55,19 @@ export const useRtdbValue = (device?: Device | null) => {
         };
 
         const onError = (error: any) => {
-            console.error(`RTDB read failed: ${error.code}`);
+            console.error(`RTDB read failed for path ${device.dbPath}: ${error.code}`);
             setData(null);
             setConnectionStatus('offline');
         };
 
-        // onValue returns the unsubscribe function
-        unsubscribeRef.current = onValue(dbRef, onData, onError);
+        const unsubscribe = onValue(dbRef, onData, onError);
 
-    }, [device, rtdb, disconnect, updateDeviceStatus]);
-
-    // Effect for automatic cleanup when the component unmounts
-    useEffect(() => {
+        // Cleanup function
         return () => {
-            disconnect();
+            off(dbRef, 'value', onData);
+            setConnectionStatus('disconnected');
         };
-    }, [disconnect]);
+    }, [device, rtdb, updateDeviceStatus]); // Re-run effect if device or rtdb instance changes
 
-    return { data, connectionStatus, connect, disconnect };
+    return { data, connectionStatus };
 };

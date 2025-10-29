@@ -22,7 +22,7 @@ export default function DeviceDetailPage() {
     return devices.find(d => d.id === deviceId);
   }, [devices, deviceId]);
 
-  const { data: liveData, connectionStatus, connect, disconnect } = useRtdbValue(device);
+  const { data: liveData, connectionStatus } = useRtdbValue(device);
 
   const isLoading = isAuthLoading || !device;
 
@@ -88,26 +88,14 @@ export default function DeviceDetailPage() {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-                <CardTitle className="flex items-center gap-2">
-                    <RadioTower className="h-5 w-5 text-primary" />
-                    Live Data Feed
-                </CardTitle>
-                <CardDescription>
-                    Real-time data stream from: {device.dbPath || "Not configured"}.
-                </CardDescription>
-            </div>
-            <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={connect} disabled={connectionStatus === 'connecting' || connectionStatus === 'connected' || !device.dbPath}>
-                    <PlayCircle />
-                    Connect
-                </Button>
-                 <Button variant="destructive" size="sm" onClick={disconnect} disabled={connectionStatus === 'disconnected' || connectionStatus === 'connecting'}>
-                    <XCircle />
-                    Disconnect
-                </Button>
-            </div>
+        <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+                <RadioTower className="h-5 w-5 text-primary" />
+                Live Data Feed
+            </CardTitle>
+            <CardDescription>
+                Real-time data stream from: {device.dbPath || "Not configured"}.
+            </CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-center text-center h-48">
           {connectionStatus === 'connecting' ? (
@@ -145,7 +133,7 @@ export default function DeviceDetailPage() {
           ) : (
              <div className="flex flex-col items-center gap-2">
                 <HardDrive className="h-8 w-8 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Press "Connect" to start the live feed.</span>
+                <span className="text-sm text-muted-foreground">Feed disconnected.</span>
              </div>
           )}
         </CardContent>
