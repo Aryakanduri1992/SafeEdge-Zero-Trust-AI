@@ -6,11 +6,9 @@ import { useAuth } from '@/hooks/use-auth';
 import { Device, Department } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, Edit, Trash2, HardDrive, AlertTriangle } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
 import { DeviceForm } from './device-form';
 import { DeleteDeviceDialog } from './delete-device-dialog';
 import {
@@ -20,7 +18,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 
 type DeviceListProps = {

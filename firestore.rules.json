@@ -1,0 +1,36 @@
+
+{
+  "rules": {
+    "roles_super_admin": {
+      ".read": "auth != null && auth.token.email_verified == true",
+      "write": false
+    },
+    "organizations": {
+      "$organizationId": {
+        ".read": "auth != null && (auth.uid == $organizationId || get(/databases/$(database)/documents/roles_super_admin/$(auth.uid)).data != null)",
+        ".write": "auth != null && get(/databases/$(database)/documents/roles_super_admin/$(auth.uid)).data != null"
+      }
+    },
+    "departments": {
+      "$departmentId": {
+        "allow get, update, create": "if get(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid)).data != null",
+        "allow read": "if get(/databases/$(database)/documents/departments/$(departmentId)).data.organizationId == request.auth.uid",
+        "allow list": "if request.query.where.organizationId == request.auth.uid"
+      }
+    },
+    "devices": {
+      "$deviceId": {
+        "allow create": "if request.resource.data.organizationId == request.auth.uid",
+        "allow get": "if get(/databases/$(database)/documents/devices/$(deviceId)).data.organizationId == request.auth.uid",
+        "allow list": "if request.query.where.organizationId == request.auth.uid",
+        "allow update, delete": "if get(/databases/$(database)/documents/devices/$(deviceId)).data.organizationId == request.auth.uid"
+      }
+    },
+    "sensorReadings": {
+      "$readingId": {
+        "allow list": "if request.query.where.organizationId == request.auth.uid || request.query.where.deviceId != null",
+        "allow create, read": "if get(/databases/$(database)/documents/devices/$(request.resource.data.deviceId)).data.organizationId == request.auth.uid"
+      }
+    }
+  }
+}

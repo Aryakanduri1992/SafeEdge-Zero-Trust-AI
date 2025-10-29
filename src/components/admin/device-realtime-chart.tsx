@@ -1,34 +1,42 @@
+
 "use client";
 
 import { useMemo } from "react";
-import { Line, LineChart, CartesianGrid, XAxis, Tooltip, YAxis } from "recharts";
+import { Line, LineChart, CartesianGrid, XAxis, Tooltip, YAxis, Legend } from "recharts";
 import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
 } from "@/components/ui/chart";
 import { useDeviceSensorData } from "@/hooks/use-device-sensor-data";
 import { format } from "date-fns";
 import { AlertTriangle, Loader2 } from "lucide-react";
+import { SensorReading } from "@/lib/types";
 
 const chartConfig = {
   temperature: {
-    label: "Temperature (°C)",
-    color: "hsl(var(--chart-1))",
+    label: "Temperature",
+    color: "hsl(var(--primary))",
   },
   humidity: {
-    label: "Humidity (%)",
+    label: "Humidity",
     color: "hsl(var(--chart-2))",
   },
-  pressure: {
-    label: "Pressure (hPa)",
+   pressure: {
+    label: "Pressure",
     color: "hsl(var(--chart-3))",
   },
   vibration: {
-    label: "Vibration (m/s²)",
+    label: "Vibration",
     color: "hsl(var(--chart-4))",
   },
-};
+  value: {
+      label: 'Value',
+      color: "hsl(var(--primary))",
+  }
+} as const;
 
 type DeviceRealtimeChartProps = {
   deviceId: string;
@@ -37,17 +45,23 @@ type DeviceRealtimeChartProps = {
 export function DeviceRealtimeChart({ deviceId }: DeviceRealtimeChartProps) {
   const { data: sensorData, isLoading } = useDeviceSensorData(deviceId);
 
-  const chartData = useMemo(() => {
-    if (!sensorData) return [];
-    // Sort data and take the last 30 points for a clean view
-    return sensorData
+  const { chartData, activeMetrics } = useMemo(() => {
+    if (!sensorData) return { chartData: [], activeMetrics: [] };
+    
+    const metrics = new Set<keyof typeof chartConfig>();
+    const data = sensorData
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
-      .slice(-30)
-      .map(d => ({
-        ...d,
-        timestamp: new Date(d.timestamp),
-        formattedTimestamp: format(new Date(d.timestamp), "HH:mm:ss"),
-      }));
+      .slice(-50)
+      .map(d => {
+        metrics.add(d.metricType || 'value');
+        return {
+          ...d,
+          timestamp: new Date(d.timestamp),
+          formattedTimestamp: format(new Date(d.timestamp), "HH:mm:ss"),
+        }
+      });
+
+    return { chartData: data, activeMetrics: Array.from(metrics) };
   }, [sensorData]);
 
   if (isLoading) {
@@ -62,18 +76,22 @@ export function DeviceRealtimeChart({ deviceId }: DeviceRealtimeChartProps) {
     return (
       <div className="flex h-[400px] flex-col items-center justify-center text-center">
         <AlertTriangle className="h-12 w-12 text-muted-foreground" />
-        <h3 className="mt-4 text-lg font-semibold">No Sensor Data</h3>
+        <h3 className="mt-4 text-lg font-semibold">No Historical Sensor Data</h3>
         <p className="mt-2 text-sm text-muted-foreground">
-          Waiting for incoming sensor readings for this device...
+          Waiting for incoming sensor readings to be stored in Firestore...
         </p>
       </div>
     );
   }
-
+  
   return (
     <div className="h-[400px] w-full">
       <ChartContainer config={chartConfig} className="h-full w-full">
-        <LineChart data={chartData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+        <LineChart 
+            accessibilityLayer
+            data={chartData} 
+            margin={{ top: 5, right: 20, left: -10, bottom: 5 }}
+        >
           <CartesianGrid vertical={false} strokeDasharray="3 3" />
           <XAxis
             dataKey="formattedTimestamp"
@@ -87,9 +105,9 @@ export function DeviceRealtimeChart({ deviceId }: DeviceRealtimeChartProps) {
             axisLine={false}
             tickMargin={8}
             tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 12 }}
-            tickFormatter={(value) => value.toFixed(1)}
+            tickFormatter={(value) => typeof value === 'number' ? value.toFixed(1) : value}
           />
-          <Tooltip
+          <ChartTooltip
             cursor={{ strokeDasharray: '3 3' }}
             content={
               <ChartTooltipContent
@@ -98,22 +116,22 @@ export function DeviceRealtimeChart({ deviceId }: DeviceRealtimeChartProps) {
                 }}
                 formatter={(value, name) => (
                     <div className="flex flex-col">
-                        <span>{value.toFixed(2)}</span>
-                        <span className="text-xs text-muted-foreground">{chartConfig[name as keyof typeof chartConfig].label}</span>
+                        <span>{typeof value === 'number' ? value.toFixed(2) : value}</span>
                     </div>
                 )}
               />
             }
           />
-          {Object.keys(chartConfig).map((metric) => (
+          <Legend content={<ChartLegendContent />} />
+          {activeMetrics.map((metric) => (
              <Line
                 key={metric}
-                dataKey={(data) => data.metricType === metric ? data.value : null}
+                dataKey={(data: SensorReading) => data.metricType === metric ? data.value : (metric === 'value' && !data.metricType ? data.value : null)}
                 type="monotone"
                 stroke={chartConfig[metric as keyof typeof chartConfig].color}
                 strokeWidth={2}
                 dot={false}
-                name={metric}
+                name={chartConfig[metric as keyof typeof chartConfig].label}
                 connectNulls
             />
           ))}

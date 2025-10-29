@@ -4,7 +4,7 @@ export type Plan = 'Free' | 'Pro' | 'Enterprise';
 export type DepartmentStatus = 'active' | 'inactive';
 export type DeviceType = "Sensor" | "Gateway" | "Actuator" | "Camera" | "PIR" | "LDR" | "DHT22_Temp" | "DHT22_Humidity";
 export type DeviceStatus = "online" | "offline" | "alerting";
-export type MetricType = "temperature" | "humidity" | "pressure" | "vibration";
+export type MetricType = "temperature" | "humidity" | "pressure" | "vibration" | "value";
 
 
 export interface BaseUser {
@@ -107,5 +107,5 @@ export interface SensorReading {
   organizationId: string;
   timestamp: string; // ISO date string
   value: number;
-  metricType: MetricType;
+  metricType?: MetricType;
 }
