@@ -31,9 +31,9 @@ export default function DeviceDetailPage() {
       case 'connecting':
         return { text: `Connecting...`, className: 'text-muted-foreground animate-pulse', icon: <Loader2 className="h-4 w-4 animate-spin"/> };
       case 'connected':
-        return { text: 'Online', className: 'text-green-500 border-green-500/50 bg-green-500/10', icon: <Wifi className="h-4 w-4" /> };
-      case 'offline':
-        return { text: 'Offline', className: 'text-destructive border-destructive/50 bg-destructive/10', icon: <PowerOff className="h-4 w-4" /> };
+        return { text: 'Live Feed', className: 'text-green-500 border-green-500/50 bg-green-500/10', icon: <Wifi className="h-4 w-4" /> };
+      case 'error':
+        return { text: 'Permission Denied', className: 'text-destructive border-destructive/50 bg-destructive/10', icon: <PowerOff className="h-4 w-4" /> };
       case 'no-path':
          return { text: 'No DB Path', className: 'text-amber-500 border-amber-500/50 bg-amber-500/10', icon: <WifiOff className="h-4 w-4" /> };
       case 'disconnected':
@@ -118,11 +118,11 @@ export default function DeviceDetailPage() {
                 <span className="font-semibold text-green-500">Connected</span>
                 <span className="text-sm text-muted-foreground">Waiting for first data point...</span>
              </div>
-          ) : connectionStatus === 'offline' ? (
+          ) : connectionStatus === 'error' ? (
              <div className="flex flex-col items-center gap-2">
-                <AlertTriangle className="h-8 w-8 text-amber-500" />
-                <span className="font-semibold text-amber-500">Data Not Found</span>
-                <span className="text-sm text-muted-foreground">No data found at the specified path. Check your ESP32 code.</span>
+                <AlertTriangle className="h-8 w-8 text-destructive" />
+                <span className="font-semibold text-destructive">Permission Denied</span>
+                <span className="text-sm text-muted-foreground">Check your database rules.</span>
              </div>
           ) : connectionStatus === 'no-path' ? (
             <div className="flex flex-col items-center gap-2">
