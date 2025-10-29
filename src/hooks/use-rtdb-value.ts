@@ -48,14 +48,9 @@ export const useRtdbValue = (path?: string) => {
         queryRef.current = ref(rtdb, path);
 
         timeoutRef.current = setTimeout(() => {
-            // Use a direct status check inside timeout to avoid stale state
-            setConnectionStatus(currentStatus => {
-                if (currentStatus === 'connecting') {
-                    disconnect();
-                    return 'offline';
-                }
-                return currentStatus;
-            });
+            // This timeout fires if no 'onValue' callback has been triggered yet.
+            setConnectionStatus('offline');
+            disconnect();
         }, 10000);
 
         onValue(queryRef.current, (snapshot) => {
@@ -67,9 +62,9 @@ export const useRtdbValue = (path?: string) => {
                 setData(snapshot.val());
                 setConnectionStatus('connected');
             } else {
-                 // The path exists, but has no data. This can also be considered 'offline' or a waiting state.
-                disconnect();
+                 // The path exists, but has no data. Treat as offline.
                 setConnectionStatus('offline');
+                disconnect();
             }
         }, (error) => {
             console.error(`RTDB Error at path: ${path}`, error);
@@ -78,8 +73,8 @@ export const useRtdbValue = (path?: string) => {
                 clearTimeout(timeoutRef.current);
                 timeoutRef.current = null;
             }
-            disconnect();
             setConnectionStatus('offline');
+            disconnect();
         });
 
     }, [path, rtdb, disconnect]);
