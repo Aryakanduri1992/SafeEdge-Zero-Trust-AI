@@ -38,6 +38,7 @@ export async function login(credentials: LoginCredentials): Promise<UserCredenti
 export async function fetchUserProfile(user: FirebaseUser): Promise<SuperAdminUser | Organization | null> {
     const uid = user.uid;
     
+    // Attempt to fetch super admin role
     const superAdminRef = doc(firestore, "roles_super_admin", uid);
     try {
         const superAdminSnap = await getDoc(superAdminRef);
@@ -51,32 +52,35 @@ export async function fetchUserProfile(user: FirebaseUser): Promise<SuperAdminUs
             } as SuperAdminUser;
         }
     } catch (error: any) {
-         // This is an expected "failure" for non-superadmins.
-         // We don't want to throw a global error here, just proceed to the next check.
-         if (error.code === 'permission-denied') {
-            console.log("User is not a super admin. Checking for organization role.");
+        // This is an expected "failure" for non-superadmins.
+        // We log it for debugging but don't re-throw or emit a global error.
+        if (error.code === 'permission-denied') {
+            // This is normal. User is not a super admin. Continue to the next check.
         } else {
-            // For other unexpected errors, we can log them.
             console.warn("Could not check for super admin role due to an unexpected error:", error.message);
         }
     }
 
+    // If not a super admin, check for organization role
     const orgRef = doc(firestore, "organizations", uid);
     try {
         const orgSnap = await getDoc(orgRef);
         if (orgSnap.exists()) {
             return { ...orgSnap.data(), id: uid, role: 'admin' } as Organization;
         }
-    } catch (error) {
+    } catch (error: any) {
+        // A permission error here is a real problem and should be surfaced.
         if (error instanceof Error && (error.message.includes("permission-denied") || error.message.includes("insufficient permissions"))) {
              const permissionError = new FirestorePermissionError({ path: orgRef.path, operation: 'get' });
              errorEmitter.emit('permission-error', permissionError);
         } else {
             console.error("Error fetching organization user profile:", error);
         }
+        // If we fail to get the org profile, we cannot proceed.
         return null;
     }
     
+    // If user is neither a super admin nor an organization user, return null.
     return null;
 }
 
@@ -284,3 +288,5 @@ export const updateDeviceStatus = async (deviceId: string, statusData: UpdateDev
         console.warn(`Could not update device status for ${deviceId}:`, serverError.message);
     });
 };
+
+    
