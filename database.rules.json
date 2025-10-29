@@ -1,9 +1,7 @@
 {
   "rules": {
     "devices": {
-      // Allow public read access for the web client
       ".read": true,
-      // Allow write access only if the client is authenticated with the database secret
       ".write": "auth.uid === 'esp32-device-writer'"
     }
   }
