@@ -39,7 +39,6 @@ export async function fetchUserProfile(user: FirebaseUser): Promise<SuperAdminUs
     const uid = user.uid;
 
     // Check for super admin role first.
-    // This will only succeed if the security rules allow it.
     const superAdminRef = doc(firestore, "roles_super_admin", uid);
     try {
         const superAdminSnap = await getDoc(superAdminRef);
@@ -80,8 +79,10 @@ export async function fetchUserProfile(user: FirebaseUser): Promise<SuperAdminUs
     }
     
     // If user is neither a super admin nor an organization user, return null.
+    console.log(`User with UID ${uid} has no matching profile in roles_super_admin or organizations.`);
     return null;
 }
+
 
 export const logout = async (): Promise<void> => {
   await signOut(auth);
@@ -287,5 +288,3 @@ export const updateDeviceStatus = async (deviceId: string, statusData: UpdateDev
         console.warn(`Could not update device status for ${deviceId}:`, serverError.message);
     });
 };
-
-    
