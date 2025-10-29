@@ -4,19 +4,20 @@
 import { useEffect, useState } from "react";
 import { getDatabase, ref, onValue, off } from "firebase/database";
 import { useFirebaseApp } from "@/firebase";
+import { useAuth } from "./use-auth";
 
-export default function useRtdbValue(path: string) {
+export default function useRtdbValue(path: string, deviceId?: string) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const app = useFirebaseApp();
+  const { updateDeviceStatus, user } = useAuth();
 
   useEffect(() => {
-    if (!path || !app) {
-        setLoading(false);
-        // This isn't an error, it just means we don't have a path or app to listen to yet.
-        setData(null);
-        return;
+    if (!path || !app || !user || user.role !== 'admin') {
+      setLoading(false);
+      setData(null);
+      return;
     }
 
     const db = getDatabase(app);
@@ -27,10 +28,21 @@ export default function useRtdbValue(path: string) {
       dbRef,
       (snapshot) => {
         if (snapshot.exists()) {
-          setData(snapshot.val());
+          const snapshotData = snapshot.val();
+          setData(snapshotData);
           setError(null);
+          
+          if (deviceId && snapshotData.timestamp && snapshotData.value !== undefined) {
+             // Update Firestore with the latest data from RTDB
+            updateDeviceStatus(deviceId, {
+              status: 'online',
+              value: snapshotData.value,
+              timestamp: snapshotData.timestamp,
+              lastSeen: new Date().toISOString(),
+            });
+          }
+
         } else {
-          // Path does not exist in RTDB yet. This is not an error.
           setData(null);
         }
         setLoading(false);
@@ -44,10 +56,9 @@ export default function useRtdbValue(path: string) {
 
     // Cleanup function
     return () => {
-        // Detach the listener when the component unmounts or the path changes
-        off(dbRef, "value", listener);
+      off(dbRef, "value", listener);
     };
-  }, [path, app]);
+  }, [path, app, deviceId, updateDeviceStatus, user]);
 
   return { data, loading, error };
 }

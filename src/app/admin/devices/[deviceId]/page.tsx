@@ -22,7 +22,7 @@ export default function DeviceDetailPage() {
     return devices.find(d => d.id === deviceId);
   }, [devices, deviceId]);
 
-  const { data: liveData, loading: isRtdbLoading, error: rtdbError } = useRtdbValue(device?.dbPath || '');
+  const { data: liveData, loading: isRtdbLoading, error: rtdbError } = useRtdbValue(device?.dbPath || '', deviceId);
 
   const getStatusInfo = (): { text: string; className: string; icon: React.ReactNode } => {
     if (isRtdbLoading) {
@@ -69,6 +69,8 @@ export default function DeviceDetailPage() {
   }
 
   const renderContent = () => {
+    const dataToRender = liveData || { value: device.value, timestamp: device.timestamp };
+
     if (isRtdbLoading) {
       return (
         <div className="flex flex-col items-center gap-2">
@@ -86,15 +88,15 @@ export default function DeviceDetailPage() {
            </div>
         );
     }
-    if (liveData) {
+    if (dataToRender.value !== undefined) {
       const displayValue = () => {
         if (device.type === "PIR") {
-          return liveData.value === 1 ? "Motion Detected" : "No Motion";
+          return dataToRender.value === 1 ? "Motion Detected" : "No Motion";
         }
-        if (typeof liveData.value === 'number') {
-            return liveData.value.toFixed(2);
+        if (typeof dataToRender.value === 'number') {
+            return dataToRender.value.toFixed(2);
         }
-        return String(liveData.value) || 'N/A';
+        return String(dataToRender.value) || 'N/A';
       };
 
       return (
@@ -103,7 +105,7 @@ export default function DeviceDetailPage() {
             {displayValue()}
           </p>
           <p className="text-sm text-muted-foreground">
-            Last updated: {liveData.timestamp ? `${formatDistanceToNow(new Date(liveData.timestamp), { addSuffix: true })}` : 'N/A'}
+            Last updated: {dataToRender.timestamp ? `${formatDistanceToNow(new Date(dataToRender.timestamp), { addSuffix: true })}` : 'N/A'}
           </p>
         </div>
       );
