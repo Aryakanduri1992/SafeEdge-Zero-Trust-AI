@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { ref, onValue, off } from 'firebase/database';
+import { ref, onValue, off, getDatabase } from 'firebase/database';
 import { useRtdb } from '@/firebase/provider';
 import { useAuth } from './use-auth';
 import type { Device } from '@/lib/types';
@@ -15,37 +15,36 @@ interface RtdbData {
 
 type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'no-path' | 'error' | 'stale';
 
-const OFFLINE_TIMEOUT = 15000; // 15 seconds
+const STALE_TIMEOUT_MS = 15000; // 15 seconds
 
 export const useRtdbValue = (device?: Device | null) => {
     const [data, setData] = useState<RtdbData | null>(null);
     const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
     const rtdb = useRtdb();
     const { updateDeviceStatus } = useAuth();
-    const { toast } = useToast();
-    const offlineTimer = useRef<NodeJS.Timeout | null>(null);
+    const staleTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
-        // Cleanup function to clear any running timers and listeners
+        // Cleanup function for listeners and timers
         const cleanup = () => {
-            if (offlineTimer.current) {
-                clearTimeout(offlineTimer.current);
-                offlineTimer.current = null;
+            if (staleTimerRef.current) {
+                clearTimeout(staleTimerRef.current);
+                staleTimerRef.current = null;
             }
         };
 
-        if (!device || !rtdb) {
+        if (!rtdb || !device) {
             setConnectionStatus('disconnected');
             setData(null);
             cleanup();
-            return;
+            return () => {};
         }
 
         if (!device.dbPath) {
             setConnectionStatus('no-path');
             setData(null);
             cleanup();
-            return;
+            return () => {};
         }
 
         setConnectionStatus('connecting');
@@ -53,58 +52,61 @@ export const useRtdbValue = (device?: Device | null) => {
         
         const dbRef = ref(rtdb, device.dbPath);
 
-        const resetOfflineTimer = () => {
-            cleanup(); // Clear existing timer
-            offlineTimer.current = setTimeout(() => {
+        const onDataReceived = (snapshot: any) => {
+            cleanup(); // Clear any existing stale timer
+
+            if (snapshot.exists()) {
+                const liveData = snapshot.val() as RtdbData;
+                setData(liveData);
+                setConnectionStatus('connected');
+                
+                if (device.id) {
+                     updateDeviceStatus(device.id, {
+                        value: liveData.value,
+                        timestamp: liveData.timestamp,
+                        status: 'online',
+                        lastSeen: new Date().toISOString(),
+                    });
+                }
+            } else {
+                setData(null);
+                setConnectionStatus('connected'); // Connected, but waiting for first data point
+            }
+            
+            // Set a new timer. If no new data arrives in time, mark as stale/offline.
+            staleTimerRef.current = setTimeout(() => {
                 setConnectionStatus('stale');
                 if (device.id) {
                     updateDeviceStatus(device.id, { status: 'offline' });
                 }
-            }, OFFLINE_TIMEOUT);
+            }, STALE_TIMEOUT_MS);
         };
 
-        const listener = onValue(
-            dbRef,
-            (snapshot) => {
-                if (snapshot.exists()) {
-                    const liveData = snapshot.val() as RtdbData;
-                    setData(liveData);
-                    setConnectionStatus('connected');
-                    resetOfflineTimer();
-                    
-                    if (device.id && typeof liveData.value === 'number' && liveData.timestamp) {
-                        updateDeviceStatus(device.id, {
-                            value: liveData.value,
-                            timestamp: liveData.timestamp,
-                            status: 'online',
-                            lastSeen: new Date().toISOString(),
-                        });
-                    }
-                } else {
-                    setData(null);
-                    setConnectionStatus('connected'); // Connected, but no data yet
-                    resetOfflineTimer(); // Start timer even if no data, to eventually show as offline if nothing ever comes
-                }
-            },
-            (error) => {
-                console.error(`RTDB read failed for path ${device.dbPath}:`, error);
-                setConnectionStatus('error');
-                setData(null);
-                cleanup();
+        const onError = (error: Error) => {
+            console.error(`RTDB read failed for path ${device.dbPath}:`, error);
+            setConnectionStatus('error');
+            setData(null);
+            cleanup();
+        };
+
+        const listener = onValue(dbRef, onDataReceived, onError);
+
+        // Initial "stale" timer in case we never get any data
+        staleTimerRef.current = setTimeout(() => {
+            setConnectionStatus('stale');
+            if (device.id) {
+                 updateDeviceStatus(device.id, { status: 'offline' });
             }
-        );
+        }, STALE_TIMEOUT_MS);
 
-        // Initial timer start
-        resetOfflineTimer();
-
-        // Final cleanup on unmount or dependency change
+        // This is the final cleanup function when the component unmounts or deps change
         return () => {
             cleanup();
             off(dbRef, 'value', listener);
             setConnectionStatus('disconnected');
         };
 
-    }, [device, rtdb, updateDeviceStatus, toast]);
+    }, [device, rtdb, updateDeviceStatus]);
 
     return { data, connectionStatus };
 };
