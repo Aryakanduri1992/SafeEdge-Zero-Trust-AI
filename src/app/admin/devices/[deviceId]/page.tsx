@@ -88,7 +88,7 @@ export default function DeviceDetailPage() {
            </div>
         );
     }
-    if (dataToRender.value !== undefined) {
+    if (dataToRender.value !== undefined && dataToRender.timestamp !== undefined) {
       const displayValue = () => {
         if (device.type === "PIR") {
           return dataToRender.value === 1 ? "Motion Detected" : "No Motion";
@@ -96,15 +96,23 @@ export default function DeviceDetailPage() {
         if (typeof dataToRender.value === 'number') {
             return dataToRender.value.toFixed(2);
         }
-        return String(dataToRender.value) || 'N/A';
+        return String(dataToRender.value);
       };
 
       const formatTimestamp = (timestamp: string): string => {
-        const date = new Date(timestamp);
-        if (isFuture(date)) {
-          return `Future date: ${format(date, "PPpp")}`;
+        try {
+            const date = new Date(timestamp);
+            // Check if the date is invalid
+            if (isNaN(date.getTime())) {
+                return "Invalid date";
+            }
+            if (isFuture(date)) {
+                return `Future date: ${format(date, "PPpp")}`;
+            }
+            return formatDistanceToNow(date, { addSuffix: true });
+        } catch (e) {
+            return "Invalid date format";
         }
-        return formatDistanceToNow(date, { addSuffix: true });
       };
 
       return (
@@ -113,7 +121,7 @@ export default function DeviceDetailPage() {
             {displayValue()}
           </p>
           <p className="text-sm text-muted-foreground">
-            Last updated: {dataToRender.timestamp ? formatTimestamp(dataToRender.timestamp) : 'N/A'}
+            Last updated: {formatTimestamp(dataToRender.timestamp)}
           </p>
         </div>
       );
