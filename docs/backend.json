@@ -1,5 +1,4 @@
 
-
 {
   "entities": {
     "SuperAdmin": {
@@ -68,14 +67,17 @@
         "properties": {
             "name": { "type": "string" },
             "location": { "type": "string" },
-            "type": { "type": "string", "enum": ["Sensor", "Gateway", "Actuator", "Camera"] },
+            "type": { "type": "string", "enum": ["Sensor", "Gateway", "Actuator", "Camera", "PIR", "LDR", "DHT22_Temp", "DHT22_Humidity"] },
             "status": { "type": "string", "enum": ["online", "offline", "alerting"] },
             "lastSeen": { "type": "string", "format": "date-time" },
             "departmentId": { "type": "string" },
             "organizationId": { "type": "string" },
-            "description": { "type": "string" }
+            "description": { "type": "string" },
+            "dbPath": { "type": "string", "description": "Path to the data in the Realtime Database." },
+            "value": { "type": "number", "description": "The latest sensor reading value." },
+            "timestamp": { "type": "string", "format": "date-time", "description": "Timestamp of the latest reading." }
         },
-        "required": ["name", "location", "type", "status", "lastSeen", "departmentId", "organizationId"]
+        "required": ["name", "location", "type", "status", "lastSeen", "departmentId", "organizationId", "dbPath"]
     },
     "SensorReading": {
       "title": "Sensor Reading",
@@ -118,11 +120,7 @@
     },
     "/devices/{deviceId}": {
         "schema": { "$ref": "#/entities/Device" },
-        "description": "Stores information about individual devices."
-    },
-    "/sensorReadings/{readingId}": {
-        "schema": { "$ref": "#/entities/SensorReading" },
-        "description": "Stores time-series data from sensor devices."
+        "description": "Stores information about individual devices, including their latest sensor readings."
     }
   }
 }

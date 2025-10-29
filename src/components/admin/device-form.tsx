@@ -19,7 +19,8 @@ const formSchema = z.object({
   name: z.string().min(1, 'Device name is required.'),
   departmentId: z.string().min(1, 'Please select a department.'),
   location: z.string().min(1, 'Location is required.'),
-  type: z.enum(["Sensor", "Gateway", "Actuator", "Camera"]),
+  type: z.enum(["Sensor", "Gateway", "Actuator", "Camera", "PIR", "LDR", "DHT22_Temp", "DHT22_Humidity"]),
+  dbPath: z.string().min(1, 'Realtime DB Path is required.'),
   description: z.string().optional(),
 });
 
@@ -48,6 +49,7 @@ export function DeviceForm({ deviceToEdit, onFinished }: DeviceFormProps) {
       departmentId: deviceToEdit?.departmentId || '',
       location: deviceToEdit?.location || '',
       type: deviceToEdit?.type || 'Sensor',
+      dbPath: deviceToEdit?.dbPath || '',
       description: deviceToEdit?.description || '',
     },
   });
@@ -155,8 +157,25 @@ export function DeviceForm({ deviceToEdit, onFinished }: DeviceFormProps) {
                   <SelectItem value="Gateway">Gateway</SelectItem>
                   <SelectItem value="Actuator">Actuator</SelectItem>
                   <SelectItem value="Camera">Camera</SelectItem>
+                  <SelectItem value="PIR">PIR</SelectItem>
+                  <SelectItem value="LDR">LDR</SelectItem>
+                  <SelectItem value="DHT22_Temp">DHT22 Temp</SelectItem>
+                  <SelectItem value="DHT22_Humidity">DHT22 Humidity</SelectItem>
                 </SelectContent>
               </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+         <FormField
+          control={form.control}
+          name="dbPath"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Realtime DB Path</FormLabel>
+              <FormControl>
+                <Input placeholder="e.g., SensorData/PIR_Sensor" {...field} />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}

@@ -2,9 +2,9 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { RealtimeChart } from "@/components/admin/realtime-chart";
 import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AlertTriangle, HardDrive } from "lucide-react";
 
 const LoadingSkeleton = () => (
     <div className="space-y-8">
@@ -18,19 +18,24 @@ const LoadingSkeleton = () => (
           <Skeleton className="h-4 w-64" />
         </CardHeader>
         <CardContent>
-          <Skeleton className="h-[400px] w-full" />
+          <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+           </div>
         </CardContent>
       </Card>
     </div>
 )
 
-
 export default function AlertsPage() {
-  const { user, isLoading } = useAuth();
+  const { user, devices, isLoading } = useAuth();
 
   if (isLoading || !user) {
     return <LoadingSkeleton />;
   }
+
+  const alertingDevices = devices.filter(d => d.status === 'alerting');
 
   return (
     <div className="space-y-8">
@@ -43,13 +48,39 @@ export default function AlertsPage() {
 
       <Card>
         <CardHeader>
-            <CardTitle>Live Sensor Feed</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-destructive" />
+                Active Alerts
+            </CardTitle>
             <CardDescription>
-                Real-time data stream from active sensors across the organization.
+                The following devices are currently in an 'alerting' state.
             </CardDescription>
         </CardHeader>
         <CardContent>
-          <RealtimeChart organizationId={user.id} />
+          {alertingDevices.length > 0 ? (
+            <div className="space-y-4">
+              {alertingDevices.map(device => (
+                <div key={device.id} className="flex items-center justify-between p-4 rounded-lg border border-destructive/50 bg-destructive/10">
+                  <div>
+                    <p className="font-semibold">{device.name}</p>
+                    <p className="text-sm text-muted-foreground">{device.location}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="font-bold text-destructive">{device.value?.toFixed(2) || 'N/A'}</p>
+                    <p className="text-xs text-muted-foreground">Last reading</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+             <div className="flex h-[200px] flex-col items-center justify-center text-center text-muted-foreground">
+                <HardDrive className="h-12 w-12" />
+                <h3 className="mt-4 text-lg font-semibold">All Systems Normal</h3>
+                <p className="mt-2 text-sm">
+                  There are no devices currently in an alerting state.
+                </p>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

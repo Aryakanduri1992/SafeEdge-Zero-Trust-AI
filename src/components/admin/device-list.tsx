@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -83,7 +84,7 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
             <Card className="shadow-lg">
                 <CardHeader>
                     <CardTitle>Registered Devices</CardTitle>
-                    <CardDescription>A list of all devices registered to your organization. Click a device name to see live data.</CardDescription>
+                    <CardDescription>A list of all devices registered to your organization. Click a device name to see its live data.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {devices.length > 0 ? (
@@ -93,9 +94,8 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
                                     <TableRow>
                                         <TableHead>Device Name</TableHead>
                                         <TableHead className="hidden sm:table-cell">Department</TableHead>
-                                        <TableHead className="hidden md:table-cell">Location</TableHead>
-                                        <TableHead className="hidden lg:table-cell">Type</TableHead>
-                                        <TableHead className="hidden lg:table-cell">Last Seen</TableHead>
+                                        <TableHead>Latest Value</TableHead>
+                                        <TableHead className="hidden lg:table-cell">Last Updated</TableHead>
                                         <TableHead className="text-center">Status</TableHead>
                                         <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
@@ -110,9 +110,12 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
                                                 <div className="text-xs text-muted-foreground sm:hidden">{getDepartmentName(device.departmentId)}</div>
                                             </TableCell>
                                             <TableCell className="hidden sm:table-cell">{getDepartmentName(device.departmentId)}</TableCell>
-                                            <TableCell className="hidden md:table-cell">{device.location}</TableCell>
-                                            <TableCell className="hidden lg:table-cell">{device.type}</TableCell>
-                                            <TableCell className="hidden lg:table-cell">{format(parseISO(device.lastSeen), 'PPpp')}</TableCell>
+                                            <TableCell>
+                                                {typeof device.value === 'number' ? device.value.toFixed(2) : 'N/A'}
+                                            </TableCell>
+                                            <TableCell className="hidden lg:table-cell">
+                                                {device.timestamp ? format(parseISO(device.timestamp), 'PPpp') : 'N/A'}
+                                            </TableCell>
                                             <TableCell className="text-center">
                                                 <Badge variant={statusVariant(device.status)} className={statusColor(device.status)}>
                                                     {device.status.charAt(0).toUpperCase() + device.status.slice(1)}

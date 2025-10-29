@@ -13,7 +13,7 @@ import {
   getIdTokenResult
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, updateDoc, writeBatch, collection, addDoc, deleteDoc } from 'firebase/firestore';
-import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData, NewDeviceData, UpdateDeviceData } from './types';
+import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData, NewDeviceData, UpdateDeviceData, Device } from './types';
 import { initializeFirebase, FirestorePermissionError, errorEmitter } from '@/firebase';
 
 const { firestore, auth } = initializeFirebase();
@@ -212,7 +212,7 @@ export const activateDepartment = async (departmentId: string) => {
 };
 
 export const createDevice = async (deviceData: NewDeviceData): Promise<void> => {
-    const newDevice = {
+    const newDevice: Omit<Device, 'id'> = {
         ...deviceData,
         status: 'offline',
         lastSeen: new Date().toISOString(),

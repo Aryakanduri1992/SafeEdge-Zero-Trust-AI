@@ -1,14 +1,15 @@
+
 'use client';
 
 import { useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
-import { DeviceRealtimeChart } from '@/components/admin/device-realtime-chart';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { HardDrive, ArrowLeft } from 'lucide-react';
+import { HardDrive, ArrowLeft, RadioTower } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 export default function DeviceDetailPage() {
   const params = useParams();
@@ -24,7 +25,7 @@ export default function DeviceDetailPage() {
       <div className="space-y-4">
         <Skeleton className="h-8 w-48" />
         <Skeleton className="h-6 w-72" />
-        <Skeleton className="h-[450px] w-full" />
+        <Skeleton className="h-[200px] w-full" />
       </div>
     );
   }
@@ -44,6 +45,16 @@ export default function DeviceDetailPage() {
       </div>
     );
   }
+  
+    const statusColor = (status: string) => {
+        switch (status) {
+            case 'online': return 'text-green-500 border-green-500/50 bg-green-500/10';
+            case 'offline': return 'text-muted-foreground';
+            case 'alerting': return 'text-destructive border-destructive/50 bg-destructive/10';
+            default: return 'text-muted-foreground';
+        }
+    };
+
 
   return (
     <div className="space-y-8">
@@ -63,14 +74,29 @@ export default function DeviceDetailPage() {
       </div>
 
       <Card>
-        <CardHeader>
-            <CardTitle>Live Sensor Feed</CardTitle>
-            <CardDescription>
-                Real-time data stream from device: {device.name}.
-            </CardDescription>
+        <CardHeader className="flex flex-row items-center justify-between">
+            <div>
+                <CardTitle className="flex items-center gap-2">
+                    <RadioTower className="h-5 w-5 text-primary" />
+                    Live Data Feed
+                </CardTitle>
+                <CardDescription>
+                    Real-time data stream from device: {device.name}.
+                </CardDescription>
+            </div>
+            <Badge variant="outline" className={statusColor(device.status)}>
+              {device.status}
+            </Badge>
         </CardHeader>
-        <CardContent>
-          <DeviceRealtimeChart deviceId={deviceId} />
+        <CardContent className="flex items-center justify-center text-center h-48">
+          <div>
+            <p className="text-6xl font-bold tracking-tighter">
+                {typeof device.value === 'number' ? device.value.toFixed(2) : 'N/A'}
+            </p>
+            <p className="text-sm text-muted-foreground">
+                Last updated: {device.timestamp ? new Date(device.timestamp).toLocaleString() : 'N/A'}
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>

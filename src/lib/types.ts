@@ -1,9 +1,8 @@
 
-
 export type UserRole = 'admin' | 'superadmin';
 export type Plan = 'Free' | 'Pro' | 'Enterprise';
 export type DepartmentStatus = 'active' | 'inactive';
-export type DeviceType = "Sensor" | "Gateway" | "Actuator" | "Camera";
+export type DeviceType = "Sensor" | "Gateway" | "Actuator" | "Camera" | "PIR" | "LDR" | "DHT22_Temp" | "DHT22_Humidity";
 export type DeviceStatus = "online" | "offline" | "alerting";
 export type MetricType = "temperature" | "humidity" | "pressure" | "vibration";
 
@@ -87,9 +86,12 @@ export interface Device {
   departmentId: string; // The ID of the department it belongs to
   organizationId: string;
   description?: string;
+  dbPath: string; // Path to Realtime DB
+  value?: number;
+  timestamp?: string; // ISO date string
 }
 
-export type NewDeviceData = Omit<Device, 'id' | 'lastSeen' | 'status'>;
+export type NewDeviceData = Omit<Device, 'id' | 'lastSeen' | 'status' | 'value' | 'timestamp'>;
 export type UpdateDeviceData = Partial<Omit<Device, 'id' | 'organizationId'>>;
 
 export interface SensorReading {
