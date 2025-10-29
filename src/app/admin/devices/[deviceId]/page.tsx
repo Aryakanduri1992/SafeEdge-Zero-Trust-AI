@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { HardDrive, ArrowLeft, RadioTower, Loader2, PlayCircle, XCircle, PowerOff } from 'lucide-react';
+import { HardDrive, ArrowLeft, RadioTower, Loader2, PlayCircle, XCircle, PowerOff, WifiOff } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -34,6 +34,8 @@ export default function DeviceDetailPage() {
         return { text: 'Online', className: 'text-green-500 border-green-500/50 bg-green-500/10' };
       case 'offline':
         return { text: 'Offline', className: 'text-destructive border-destructive/50 bg-destructive/10' };
+      case 'no-path':
+         return { text: 'No DB Path', className: 'text-amber-500 border-amber-500/50 bg-amber-500/10' };
       case 'disconnected':
       default:
         return { text: 'Disconnected', className: '' };
@@ -93,11 +95,11 @@ export default function DeviceDetailPage() {
                     Live Data Feed
                 </CardTitle>
                 <CardDescription>
-                    Real-time data stream from: {device.dbPath}.
+                    Real-time data stream from: {device.dbPath || "Not configured"}.
                 </CardDescription>
             </div>
             <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={connect} disabled={connectionStatus === 'connecting' || connectionStatus === 'connected'}>
+                <Button variant="outline" size="sm" onClick={connect} disabled={connectionStatus === 'connecting' || connectionStatus === 'connected' || !device.dbPath}>
                     <PlayCircle />
                     Connect
                 </Button>
@@ -134,6 +136,12 @@ export default function DeviceDetailPage() {
                 <span className="font-semibold text-destructive">Device is offline</span>
                 <span className="text-sm text-muted-foreground">No data is being received at this path.</span>
              </div>
+          ) : connectionStatus === 'no-path' ? (
+            <div className="flex flex-col items-center gap-2">
+              <WifiOff className="h-8 w-8 text-amber-500" />
+              <span className="font-semibold text-amber-500">No Database Path</span>
+              <span className="text-sm text-muted-foreground">Edit this device to set its Realtime DB Path.</span>
+            </div>
           ) : (
              <div className="flex flex-col items-center gap-2">
                 <HardDrive className="h-8 w-8 text-muted-foreground" />
