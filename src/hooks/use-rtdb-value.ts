@@ -31,7 +31,7 @@ export const useRtdbValue = (device?: Device | null) => {
         statusRef.current = connectionStatus;
     }, [connectionStatus]);
 
-    const clearTimers = () => {
+    const clearTimers = useCallback(() => {
         if (timeoutRef.current) {
             clearTimeout(timeoutRef.current);
             timeoutRef.current = null;
@@ -40,7 +40,7 @@ export const useRtdbValue = (device?: Device | null) => {
             clearInterval(intervalRef.current);
             intervalRef.current = null;
         }
-    };
+    }, []);
 
     const disconnect = useCallback(() => {
         if (queryRef.current) {
@@ -50,7 +50,7 @@ export const useRtdbValue = (device?: Device | null) => {
         clearTimers();
         setConnectionStatus('disconnected');
         setData(null);
-    }, []);
+    }, [clearTimers]);
 
     const connect = useCallback(() => {
         if (!device?.dbPath || !rtdb || !device.id) {
@@ -68,7 +68,7 @@ export const useRtdbValue = (device?: Device | null) => {
         intervalRef.current = setInterval(() => {
             setCountdown(prev => {
                 if (prev <= 1) {
-                    clearInterval(intervalRef.current!);
+                    if (intervalRef.current) clearInterval(intervalRef.current);
                     return 0;
                 }
                 return prev - 1;
@@ -84,14 +84,13 @@ export const useRtdbValue = (device?: Device | null) => {
 
         queryRef.current = ref(rtdb, device.dbPath);
 
-        onValue(queryRef.current, (snapshot) => {
+        const handleValue = (snapshot: any) => {
             clearTimers();
             if (snapshot.exists()) {
                 const liveData = snapshot.val() as RtdbData;
                 setData(liveData);
                 setConnectionStatus('connected');
                 
-                // Automatically update Firestore
                 if (device.id && liveData.value !== undefined && liveData.timestamp) {
                     const statusUpdate: UpdateDeviceStatusData = {
                         value: liveData.value,
@@ -106,15 +105,19 @@ export const useRtdbValue = (device?: Device | null) => {
                 setConnectionStatus('offline');
                 disconnect();
             }
-        }, (error) => {
+        };
+
+        const handleError = (error: Error) => {
             console.error(`RTDB Error at path: ${device.dbPath}`, error);
             setError(error);
             clearTimers();
             setConnectionStatus('offline');
             disconnect();
-        });
+        };
 
-    }, [device, rtdb, disconnect, updateDeviceStatus]);
+        onValue(queryRef.current, handleValue, handleError);
+
+    }, [device, rtdb, disconnect, updateDeviceStatus, clearTimers]);
 
     useEffect(() => {
         return () => {
