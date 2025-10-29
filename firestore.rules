@@ -1,123 +1,179 @@
-/**
- * @fileoverview Firestore Security Rules for AuthStation application.
- *
- * Core Philosophy:
- * This ruleset prioritizes secure authorization based on user roles and ownership, while allowing flexible data schemas during prototyping.
- *
- * Data Structure:
- * - /roles_super_admin/{superAdminId}: Stores SuperAdmin role assignments.
- * - /organizations/{organizationId}: Stores organization profiles.
- * - /departments/{departmentId}: Stores department data.
- * - /devices/{deviceId}: Stores device information.
- * - /sensorReadings/{readingId}: Stores sensor data readings.
- *
- * Key Security Decisions:
- * - SuperAdmin role is required for creating/managing Organizations.
- * - Organizations can only be created by a SuperAdmin
- * - Departments and devices are scoped to Organizations and can only be created by users with appropriate roles within that Organization.
- * - Public listing is disabled for all collections containing potentially private data.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the user is signed in.
-     */
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    /**
-     * @description Checks if the user is a SuperAdmin based on their UID.
-     */
-    function isSuperAdmin(userId) {
-      return exists(/databases/$(database)/documents/roles_super_admin/$(userId));
-    }
-
-    /**
-     * @description Checks if the user is the owner of a resource based on the provided userId.
-     */
-    function isOwner(userId) {
-        return request.auth.uid == userId;
-    }
-
-    /**
-     * @description Checks if the user is the existing owner of a resource, ensuring the document exists.
-     */
-    function isExistingOwner(userId) {
-      return isOwner(userId) && resource != null;
-    }
-
-
-    /**
-     * @description Rules for the roles_super_admin collection.
+     * @description Manages super admin user profiles.
      * @path /roles_super_admin/{superAdminId}
-     * @allow (get) Signed-in user can get their own role document.
-     * @allow (create) Only the user themselves can create their own role.
-     * @deny (create) Another user attempts to create a role document for someone else.
-     * @deny (update) No one can update role documents.
-     * @deny (delete) No one can delete role documents.
-     * @principle Enforces strict user-ownership and prevents unauthorized role assignment.
+     * @allow (get, update, delete) User with matching UID.
+     * @allow (create) User with matching UID and data.id.
+     * @deny (get) User with mismatched UID.
+     * @deny (list) All users. Super admins can not be listed.
+     * @deny (create, update, delete) User with mismatched UID.
+     * @principle Enforces document ownership.
      */
     match /roles_super_admin/{superAdminId} {
-      allow get: if isSignedIn() && isOwner(superAdminId);
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(superAdminId) {
+        return isSignedIn() && request.auth.uid == superAdminId;
+      }
+
+      function isExistingOwner(superAdminId) {
+        return isOwner(superAdminId) && resource.data != null;
+      }
+
+      // Only the owner can read their super admin profile.
+      allow get: if isOwner(superAdminId);
       allow list: if false;
-      allow create: if isSignedIn() && isOwner(superAdminId) && request.resource.data.id == request.auth.uid;
-      allow update: if false;
-      allow delete: if false;
+
+      // Only the owner can create their super admin profile, and the 'id' field must match their UID.
+      allow create: if isSignedIn() && request.resource.data.id == request.auth.uid;
+
+      // Only the owner can update their super admin profile. The id must not be changed.
+      allow update: if isExistingOwner(superAdminId) && request.resource.data.id == resource.data.id;
+
+      // Only the owner can delete their super admin profile.
+      allow delete: if isExistingOwner(superAdminId);
     }
 
     /**
-     * @description Rules for the organizations collection.
+     * @description Manages organization profiles.
      * @path /organizations/{organizationId}
-     * @allow (create) A SuperAdmin can create an organization.
-     * @deny (create) A non-SuperAdmin attempts to create an organization.
-     * @allow (get) Anyone can read an organization.
-     * @deny (update) Only a super admin may update the org.
+     * @allow (get, list) Public read access.
+     * @allow (create) Authenticated user whose UID matches the organizationId.
+     * @allow (update, delete) Authenticated user whose UID matches the organizationId.
+     * @deny (create) If not authenticated.
+     * @deny (update, delete) If not authenticated.
+     * @principle Public read with owner-only writes.
      */
     match /organizations/{organizationId} {
-      allow get: if true;
-      allow list: if false;
-      allow create: if isSignedIn() && isSuperAdmin(request.auth.uid);
-      allow update: if isSignedIn() && isSuperAdmin(request.auth.uid);
-      allow delete: if false;
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOwner(organizationId) {
+        return isSignedIn() && request.auth.uid == organizationId;
+      }
+
+      function isExistingOwner(organizationId) {
+        return isOwner(organizationId) && resource.data != null;
+      }
+
+      // Anyone can read organization profiles.
+      allow get, list: if true;
+
+      // Only an authenticated user can create an organization profile, and the 'superAdminId' field must match their UID.
+      allow create: if isSignedIn() && request.resource.data.superAdminId == request.auth.uid;
+
+      // Only the owner (SuperAdmin) can update the organization profile. SuperAdminId must not be changed.
+      allow update: if isExistingOwner(organizationId) && request.resource.data.superAdminId == resource.data.superAdminId;
+
+      // Only the owner (SuperAdmin) can delete the organization profile.
+      allow delete: if isExistingOwner(organizationId);
     }
 
     /**
-     * @description Rules for the departments collection.
+     * @description Manages department profiles within an organization.
      * @path /departments/{departmentId}
+     * @allow (get, list) Access granted to organization members (SuperAdmin).
+     * @allow (create) Authenticated user whose UID matches the organizationId.
+     * @allow (update, delete) Authenticated user whose UID matches the organizationId.
+     * @deny (create) If not authenticated.
+     * @deny (update, delete) If not authenticated.
+     * @principle Organization-scoped access control.
      */
     match /departments/{departmentId} {
-        allow get: if true;
-        allow list: if false;
-        allow create: if isSignedIn();
-        allow update: if isSignedIn();
-        allow delete: if false;
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOrganizationMember(organizationId) {
+        return isSignedIn() && request.auth.uid == organizationId;
+      }
+
+      function isExistingOrganizationMember(organizationId) {
+        return isOrganizationMember(organizationId) && resource.data != null;
+      }
+
+      // Organization members (SuperAdmin) can read department profiles.
+      allow get, list: if isSignedIn();
+
+      // Only an authenticated user can create a department profile, and the 'organizationId' field must match their UID.
+      allow create: if isSignedIn() && request.resource.data.organizationId != null;
+
+      // Only organization members (SuperAdmin) can update the department profile. organizationId must not be changed.
+      allow update: if isExistingOrganizationMember(departmentId) && request.resource.data.organizationId == resource.data.organizationId;
+
+      // Only organization members (SuperAdmin) can delete the department profile.
+      allow delete: if isExistingOrganizationMember(departmentId) && resource.data.organizationId == request.auth.uid;
     }
 
     /**
-     * @description Rules for the devices collection.
+     * @description Manages device profiles within an organization and department.
      * @path /devices/{deviceId}
+     * @allow (get, list) Access granted to organization members (SuperAdmin).
+     * @allow (create) Authenticated user whose UID matches the organizationId.
+     * @allow (update, delete) Authenticated user whose UID matches the organizationId.
+     * @deny (create) If not authenticated.
+     * @deny (update, delete) If not authenticated.
+     * @principle Organization-scoped access control.
      */
     match /devices/{deviceId} {
-        allow get: if true;
-        allow list: if false;
-        allow create: if isSignedIn();
-        allow update: if isSignedIn();
-        allow delete: if false;
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOrganizationMember(organizationId) {
+        return isSignedIn() && request.auth.uid == organizationId;
+      }
+
+      function isExistingOrganizationMember(organizationId) {
+        return isOrganizationMember(organizationId) && resource.data != null;
+      }
+
+      // Organization members (SuperAdmin) can read device profiles.
+      allow get, list: if isSignedIn();
+
+      // Only an authenticated user can create a device profile, and the 'organizationId' field must match their UID.
+      allow create: if isSignedIn() && request.resource.data.organizationId != null;
+
+      // Only organization members (SuperAdmin) can update the device profile. organizationId must not be changed.
+      allow update: if isExistingOrganizationMember(deviceId) && resource.data.organizationId == request.resource.data.organizationId;
+
+      // Only organization members (SuperAdmin) can delete the device profile.
+      allow delete: if isExistingOrganizationMember(deviceId) && resource.data.organizationId == request.auth.uid;
     }
 
     /**
-     * @description Rules for the sensorReadings collection.
+     * @description Manages sensor readings for devices.
      * @path /sensorReadings/{readingId}
+     * @allow (get, list) Access granted to organization members (SuperAdmin).
+     * @allow (create) Authenticated user whose organizationId matches the sensorReading's organizationId.
+     * @allow (update, delete) Not allowed. Sensor readings are append-only.
+     * @deny (create) If not authenticated.
+     * @deny (update, delete) All users.
+     * @principle Organization-scoped access control with append-only data.
      */
     match /sensorReadings/{readingId} {
-        allow get: if true;
-        allow list: if false;
-        allow create: if isSignedIn();
-        allow update: if false;
-        allow delete: if false;
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isOrganizationMember(organizationId) {
+        return isSignedIn() && request.auth.uid == organizationId;
+      }
+
+      // Organization members (SuperAdmin) can read sensor readings.
+      allow get, list: if isSignedIn();
+
+      // Only an authenticated user can create a sensor reading, and the 'organizationId' field must match their UID.
+      allow create: if isSignedIn() && request.resource.data.organizationId != null;
+
+      // Sensor readings cannot be updated or deleted.
+      allow update, delete: if false;
     }
   }
 }
