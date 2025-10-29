@@ -37,8 +37,9 @@ export async function login(credentials: LoginCredentials): Promise<UserCredenti
 
 export async function fetchUserProfile(user: FirebaseUser): Promise<SuperAdminUser | Organization | null> {
     const uid = user.uid;
-    
-    // Attempt to fetch super admin role
+
+    // Check for super admin role first.
+    // This will only succeed if the security rules allow it.
     const superAdminRef = doc(firestore, "roles_super_admin", uid);
     try {
         const superAdminSnap = await getDoc(superAdminRef);
@@ -52,16 +53,14 @@ export async function fetchUserProfile(user: FirebaseUser): Promise<SuperAdminUs
             } as SuperAdminUser;
         }
     } catch (error: any) {
-        // This is an expected "failure" for non-superadmins.
-        // We log it for debugging but don't re-throw or emit a global error.
-        if (error.code === 'permission-denied') {
-            // This is normal. User is not a super admin. Continue to the next check.
-        } else {
-            console.warn("Could not check for super admin role due to an unexpected error:", error.message);
+        // A 'permission-denied' error is expected for non-superadmins.
+        // We can safely ignore it and proceed to the next check.
+        if (error.code !== 'permission-denied') {
+            console.warn("An unexpected error occurred while checking for super admin role:", error);
         }
     }
 
-    // If not a super admin, check for organization role
+    // If not a super admin, check for organization role.
     const orgRef = doc(firestore, "organizations", uid);
     try {
         const orgSnap = await getDoc(orgRef);
