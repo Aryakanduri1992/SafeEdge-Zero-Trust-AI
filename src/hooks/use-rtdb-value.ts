@@ -21,12 +21,14 @@ export const useRtdbValue = (device?: Device | null) => {
     const rtdb = useRtdb();
     const { updateDeviceStatus } = useAuth();
     const dbRef = useRef<DatabaseReference | null>(null);
+    const listenerActive = useRef(false);
 
     const disconnect = useCallback(() => {
         if (dbRef.current) {
             off(dbRef.current);
             dbRef.current = null;
         }
+        listenerActive.current = false;
         setConnectionStatus('disconnected');
         setData(null);
     }, []);
@@ -41,10 +43,13 @@ export const useRtdbValue = (device?: Device | null) => {
         disconnect();
         setConnectionStatus('connecting');
         setError(null);
+        listenerActive.current = true;
 
         dbRef.current = ref(rtdb, device.dbPath);
 
         const handleValue = (snapshot: any) => {
+            if (!listenerActive.current) return;
+            
             if (snapshot.exists()) {
                 const liveData = snapshot.val() as RtdbData;
                 setData(liveData);
@@ -59,18 +64,19 @@ export const useRtdbValue = (device?: Device | null) => {
                     });
                 }
             } else {
-                // If the path doesn't exist in RTDB
                 setConnectionStatus('offline');
             }
         };
 
         const handleError = (error: Error) => {
+            if (!listenerActive.current) return;
+
             console.error(`RTDB Error at path: ${device.dbPath}`, error);
             setError(error);
             setConnectionStatus('offline');
             disconnect();
         };
-
+        
         onValue(dbRef.current, handleValue, handleError);
 
     }, [device, rtdb, disconnect, updateDeviceStatus]);
