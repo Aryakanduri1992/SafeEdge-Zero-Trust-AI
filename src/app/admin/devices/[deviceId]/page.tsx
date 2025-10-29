@@ -102,14 +102,14 @@ export default function DeviceDetailPage() {
       const formatTimestamp = (timestamp: string): string => {
         try {
             const date = new Date(timestamp);
-            // Check if the date is invalid
             if (isNaN(date.getTime())) {
                 return "Invalid date";
             }
-            if (isFuture(date)) {
-                return `Future date: ${format(date, "PPpp")}`;
-            }
-            return formatDistanceToNow(date, { addSuffix: true });
+            // Format to a readable UTC string to match the database value
+            const utcString = date.toISOString(); // e.g., 2025-10-29T23:49:29.000Z
+            const formattedDate = utcString.slice(0, 10);
+            const formattedTime = utcString.slice(11, 19);
+            return `${formattedDate} ${formattedTime} UTC`;
         } catch (e) {
             return "Invalid date format";
         }
