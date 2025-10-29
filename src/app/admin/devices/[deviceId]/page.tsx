@@ -22,7 +22,7 @@ export default function DeviceDetailPage() {
     return devices.find(d => d.id === deviceId);
   }, [devices, deviceId]);
 
-  const { data: liveData, connectionStatus, countdown, connect, disconnect } = useRtdbValue(device?.dbPath, device?.id);
+  const { data: liveData, connectionStatus, countdown, connect, disconnect } = useRtdbValue(device);
 
   const isLoading = isAuthLoading || !device;
 
