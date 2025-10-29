@@ -40,7 +40,7 @@ export const useRtdbValue = (path?: string) => {
             return;
         }
 
-        disconnect(); // Ensure any previous listener is cleared
+        disconnect(); 
         setConnectionStatus('connecting');
         setError(null);
         setData(null);
@@ -48,10 +48,14 @@ export const useRtdbValue = (path?: string) => {
         queryRef.current = ref(rtdb, path);
 
         timeoutRef.current = setTimeout(() => {
-             if (connectionStatus === 'connecting') {
-                disconnect();
-                setConnectionStatus('offline');
-            }
+            // Use a direct status check inside timeout to avoid stale state
+            setConnectionStatus(currentStatus => {
+                if (currentStatus === 'connecting') {
+                    disconnect();
+                    return 'offline';
+                }
+                return currentStatus;
+            });
         }, 10000);
 
         onValue(queryRef.current, (snapshot) => {
@@ -62,18 +66,23 @@ export const useRtdbValue = (path?: string) => {
             if (snapshot.exists()) {
                 setData(snapshot.val());
                 setConnectionStatus('connected');
+            } else {
+                 // The path exists, but has no data. This can also be considered 'offline' or a waiting state.
+                disconnect();
+                setConnectionStatus('offline');
             }
         }, (error) => {
             console.error(`RTDB Error at path: ${path}`, error);
             setError(error);
-            setConnectionStatus('offline');
             if (timeoutRef.current) {
                 clearTimeout(timeoutRef.current);
                 timeoutRef.current = null;
             }
+            disconnect();
+            setConnectionStatus('offline');
         });
 
-    }, [path, rtdb, disconnect, connectionStatus]);
+    }, [path, rtdb, disconnect]);
 
     // Cleanup on unmount
     useEffect(() => {
