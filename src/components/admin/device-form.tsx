@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -54,6 +54,15 @@ export function DeviceForm({ deviceToEdit, onFinished }: DeviceFormProps) {
     },
   });
 
+  const deviceName = form.watch('name');
+
+  useEffect(() => {
+    if (!deviceToEdit && deviceName) {
+      const suggestedPath = `devices/${deviceName.replace(/\s+/g, '_')}`;
+      form.setValue('dbPath', suggestedPath);
+    }
+  }, [deviceName, deviceToEdit, form]);
+
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user) return;
 
@@ -97,7 +106,7 @@ export function DeviceForm({ deviceToEdit, onFinished }: DeviceFormProps) {
             <FormItem>
               <FormLabel>Device Name</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., Main Entrance Camera" {...field} />
+                <Input placeholder="e.g., PIR Sensor" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -174,7 +183,7 @@ export function DeviceForm({ deviceToEdit, onFinished }: DeviceFormProps) {
             <FormItem>
               <FormLabel>Realtime DB Path</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., SensorData/PIR_Sensor" {...field} />
+                <Input placeholder="e.g., devices/PIR_Sensor" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
