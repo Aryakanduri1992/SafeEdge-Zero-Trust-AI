@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -20,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import Link from 'next/link';
 
 type DeviceListProps = {
     devices: Device[];
@@ -83,7 +83,7 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
             <Card className="shadow-lg">
                 <CardHeader>
                     <CardTitle>Registered Devices</CardTitle>
-                    <CardDescription>A list of all devices registered to your organization.</CardDescription>
+                    <CardDescription>A list of all devices registered to your organization. Click a device name to see live data.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     {devices.length > 0 ? (
@@ -104,7 +104,9 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
                                     {filteredDevices.map((device) => (
                                         <TableRow key={device.id}>
                                             <TableCell className="font-medium">
-                                                {device.name}
+                                                <Link href={`/admin/devices/${device.id}`} className="hover:underline transition-all">
+                                                    {device.name}
+                                                </Link>
                                                 <div className="text-xs text-muted-foreground sm:hidden">{getDepartmentName(device.departmentId)}</div>
                                             </TableCell>
                                             <TableCell className="hidden sm:table-cell">{getDepartmentName(device.departmentId)}</TableCell>
@@ -190,5 +192,3 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
         </>
     );
 }
-
-    
