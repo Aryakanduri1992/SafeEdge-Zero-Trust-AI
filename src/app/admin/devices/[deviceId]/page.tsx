@@ -122,6 +122,12 @@ export default function DeviceDetailPage() {
                   Last updated: {liveData.timestamp ? `${formatDistanceToNow(new Date(liveData.timestamp), { addSuffix: true })}` : 'N/A'}
                 </p>
               </div>
+          ) : connectionStatus === 'connected' && !liveData ? (
+             <div className="flex flex-col items-center gap-2">
+                <RadioTower className="h-8 w-8 text-green-500" />
+                <span className="font-semibold text-green-500">Connected</span>
+                <span className="text-sm text-muted-foreground">Waiting for first data point...</span>
+             </div>
           ) : connectionStatus === 'offline' ? (
              <div className="flex flex-col items-center gap-2">
                 <PowerOff className="h-8 w-8 text-destructive" />
