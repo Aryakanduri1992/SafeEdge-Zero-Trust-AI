@@ -21,6 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 
 type DeviceListProps = {
     devices: Device[];
@@ -29,6 +30,7 @@ type DeviceListProps = {
 
 export function DeviceList({ devices, departments }: DeviceListProps) {
     const { deleteDevice, globalSearchTerm } = useAuth();
+    const router = useRouter();
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
@@ -41,12 +43,14 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
         });
     }, [devices, departments, globalSearchTerm]);
 
-    const handleEditClick = (device: Device) => {
+    const handleEditClick = (e: React.MouseEvent, device: Device) => {
+        e.stopPropagation();
         setSelectedDevice(device);
         setIsEditDialogOpen(true);
     };
 
-    const handleDeleteClick = (device: Device) => {
+    const handleDeleteClick = (e: React.MouseEvent, device: Device) => {
+        e.stopPropagation();
         setSelectedDevice(device);
         setIsDeleteDialogOpen(true);
     };
@@ -57,6 +61,10 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
             setIsDeleteDialogOpen(false);
             setSelectedDevice(null);
         }
+    };
+    
+    const handleRowClick = (deviceId: string) => {
+        router.push(`/admin/devices/${deviceId}`);
     };
 
     const getDepartmentName = (departmentId: string) => {
@@ -83,15 +91,13 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
                                 </TableHeader>
                                 <TableBody>
                                     {filteredDevices.map((device) => (
-                                        <TableRow key={device.id}>
+                                        <TableRow key={device.id} onClick={() => handleRowClick(device.id)} className="cursor-pointer">
                                             <TableCell className="font-medium">
-                                                <Link href={`/admin/devices/${device.id}`} className="hover:underline transition-all">
-                                                    {device.name}
-                                                </Link>
+                                                {device.name}
                                                 <div className="text-xs text-muted-foreground sm:hidden">{getDepartmentName(device.departmentId)}</div>
                                             </TableCell>
                                             <TableCell className="hidden sm:table-cell">{getDepartmentName(device.departmentId)}</TableCell>
-                                            <TableCell className="text-right">
+                                            <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
                                                         <Button variant="ghost" className="h-8 w-8 p-0">
@@ -100,11 +106,11 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem onClick={() => handleEditClick(device)}>
+                                                        <DropdownMenuItem onClick={(e) => handleEditClick(e, device)}>
                                                             <Edit className="mr-2 h-4 w-4" />
                                                             <span>Edit</span>
                                                         </DropdownMenuItem>
-                                                        <DropdownMenuItem onClick={() => handleDeleteClick(device)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
+                                                        <DropdownMenuItem onClick={(e) => handleDeleteClick(e, device)} className="text-destructive focus:text-destructive focus:bg-destructive/10">
                                                             <Trash2 className="mr-2 h-4 w-4" />
                                                             <span>Delete</span>
                                                         </DropdownMenuItem>
