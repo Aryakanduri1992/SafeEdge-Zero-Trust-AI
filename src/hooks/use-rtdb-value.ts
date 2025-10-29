@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
-import { ref, onValue, off } from 'firebase/database';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { ref, onValue, off, DatabaseReference } from 'firebase/database';
 import { useRtdb } from '@/firebase/provider';
 
 interface RtdbData {
@@ -10,40 +10,77 @@ interface RtdbData {
     timestamp: string;
 }
 
+type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'offline';
+
 export const useRtdbValue = (path?: string) => {
     const [data, setData] = useState<RtdbData | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
     const [error, setError] = useState<Error | null>(null);
     const rtdb = useRtdb();
+    const queryRef = useRef<DatabaseReference | null>(null);
+    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-    useEffect(() => {
+    const disconnect = useCallback(() => {
+        if (queryRef.current) {
+            off(queryRef.current);
+            queryRef.current = null;
+        }
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+        }
+        setConnectionStatus('disconnected');
+        setData(null);
+    }, []);
+
+    const connect = useCallback(() => {
         if (!path || !rtdb) {
-            setIsLoading(false);
-            setData(null);
+            setError(new Error("RTDB path or service not available."));
+            setConnectionStatus('offline');
             return;
         }
 
-        setIsLoading(true);
-        const queryRef = ref(rtdb, path);
+        disconnect(); // Ensure any previous listener is cleared
+        setConnectionStatus('connecting');
+        setError(null);
+        setData(null);
 
-        const handleValue = onValue(queryRef, (snapshot) => {
+        queryRef.current = ref(rtdb, path);
+
+        timeoutRef.current = setTimeout(() => {
+             if (connectionStatus === 'connecting') {
+                disconnect();
+                setConnectionStatus('offline');
+            }
+        }, 10000);
+
+        onValue(queryRef.current, (snapshot) => {
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+            }
             if (snapshot.exists()) {
                 setData(snapshot.val());
-            } else {
-                setData(null);
+                setConnectionStatus('connected');
             }
-            setIsLoading(false);
         }, (error) => {
             console.error(`RTDB Error at path: ${path}`, error);
             setError(error);
-            setIsLoading(false);
+            setConnectionStatus('offline');
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+                timeoutRef.current = null;
+            }
         });
 
-        // Detach the listener when the component unmounts
-        return () => {
-            off(queryRef, 'value', handleValue);
-        };
-    }, [path, rtdb]);
+    }, [path, rtdb, disconnect, connectionStatus]);
 
-    return { data, isLoading, error };
+    // Cleanup on unmount
+    useEffect(() => {
+        return () => {
+            disconnect();
+        };
+    }, [disconnect]);
+
+    return { data, connectionStatus, error, connect, disconnect };
 };

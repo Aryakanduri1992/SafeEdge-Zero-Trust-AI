@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { HardDrive, ArrowLeft, RadioTower, Loader2 } from 'lucide-react';
+import { HardDrive, ArrowLeft, RadioTower, Loader2, PlayCircle, XCircle, PowerOff } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -22,18 +22,25 @@ export default function DeviceDetailPage() {
     return devices.find(d => d.id === deviceId);
   }, [devices, deviceId]);
 
-  const { data: liveData, isLoading: isRtdbLoading } = useRtdbValue(device?.dbPath);
+  const { data: liveData, connectionStatus, connect, disconnect } = useRtdbValue(device?.dbPath);
 
   const isLoading = isAuthLoading || !device;
 
-  const getStatus = (): { status: string, color: string } => {
-    if (isRtdbLoading && !liveData) return { status: 'Connecting...', color: 'text-muted-foreground' };
-    if (!liveData) return { status: 'Offline', color: 'text-muted-foreground' };
-    if (device?.status === 'alerting') return { status: 'Alerting', color: 'text-destructive border-destructive/50 bg-destructive/10' };
-    return { status: 'Online', color: 'text-green-500 border-green-500/50 bg-green-500/10' };
-  }
+  const getStatusBadge = (): { text: string; className: string } => {
+    switch (connectionStatus) {
+      case 'connecting':
+        return { text: 'Connecting...', className: 'text-muted-foreground' };
+      case 'connected':
+        return { text: 'Online', className: 'text-green-500 border-green-500/50 bg-green-500/10' };
+      case 'offline':
+        return { text: 'Offline', className: 'text-destructive border-destructive/50 bg-destructive/10' };
+      case 'disconnected':
+      default:
+        return { text: 'Disconnected', className: '' };
+    }
+  };
 
-  const { status, color } = getStatus();
+  const { text: statusText, className: statusClassName } = getStatusBadge();
 
   if (isLoading) {
     return (
@@ -79,7 +86,7 @@ export default function DeviceDetailPage() {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
                 <CardTitle className="flex items-center gap-2">
                     <RadioTower className="h-5 w-5 text-primary" />
@@ -89,17 +96,24 @@ export default function DeviceDetailPage() {
                     Real-time data stream from: {device.dbPath}.
                 </CardDescription>
             </div>
-            <Badge variant="outline" className={color}>
-              {status}
-            </Badge>
+            <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={connect} disabled={connectionStatus === 'connecting' || connectionStatus === 'connected'}>
+                    <PlayCircle />
+                    Connect
+                </Button>
+                 <Button variant="destructive" size="sm" onClick={disconnect} disabled={connectionStatus === 'disconnected' || connectionStatus === 'offline'}>
+                    <XCircle />
+                    Disconnect
+                </Button>
+            </div>
         </CardHeader>
         <CardContent className="flex items-center justify-center text-center h-48">
-          {isRtdbLoading && !liveData ? (
+          {connectionStatus === 'connecting' ? (
              <div className="flex flex-col items-center gap-2">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Connecting to device...</span>
              </div>
-          ) : liveData ? (
+          ) : connectionStatus === 'connected' && liveData ? (
               <div>
                 <p className="text-6xl font-bold tracking-tighter">
                   {typeof liveData.value === 'number' ? liveData.value.toFixed(2) : 'N/A'}
@@ -108,13 +122,24 @@ export default function DeviceDetailPage() {
                   Last updated: {liveData.timestamp ? `${formatDistanceToNow(new Date(liveData.timestamp), { addSuffix: true })}` : 'N/A'}
                 </p>
               </div>
+          ) : connectionStatus === 'offline' ? (
+             <div className="flex flex-col items-center gap-2">
+                <PowerOff className="h-8 w-8 text-destructive" />
+                <span className="font-semibold text-destructive">Device is offline</span>
+                <span className="text-sm text-muted-foreground">No data received after 10 seconds.</span>
+             </div>
           ) : (
              <div className="flex flex-col items-center gap-2">
                 <HardDrive className="h-8 w-8 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Waiting for data...</span>
+                <span className="text-sm text-muted-foreground">Press "Connect" to start the live feed.</span>
              </div>
           )}
         </CardContent>
+         <div className="p-4 border-t flex items-center justify-end">
+            <Badge variant="outline" className={statusClassName}>
+              {statusText}
+            </Badge>
+        </div>
       </Card>
     </div>
   );
