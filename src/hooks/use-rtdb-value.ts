@@ -34,13 +34,12 @@ export const useRtdbValue = (device?: Device | null) => {
         setConnectionStatus('connecting');
         const dbRef = ref(rtdb, device.dbPath);
 
-        const handleValueChange = (snapshot: any) => {
+        const unsubscribe = onValue(dbRef, (snapshot) => {
             if (snapshot.exists()) {
                 const liveData = snapshot.val() as RtdbData;
                 setData(liveData);
                 setConnectionStatus('connected');
                 
-                // This update is a background task. It should not block the UI.
                 if (device.id && typeof liveData.value !== 'undefined' && liveData.timestamp) {
                     updateDeviceStatus(device.id, {
                         value: liveData.value,
@@ -53,23 +52,17 @@ export const useRtdbValue = (device?: Device | null) => {
                 setData(null);
                 setConnectionStatus('offline');
             }
-        };
-
-        const handleError = (error: any) => {
+        }, (error) => {
             console.error(`RTDB read failed for path ${device.dbPath}: ${error.code}`);
             setData(null);
             setConnectionStatus('offline');
-        };
+        });
 
-        const unsubscribe = onValue(dbRef, handleValueChange, handleError);
-
-        // Cleanup function to detach the listener when the component unmounts
-        // or when the dependencies (device, rtdb) change.
         return () => {
-            off(dbRef, 'value', handleValueChange);
+            unsubscribe();
             setConnectionStatus('disconnected');
         };
-    }, [device, rtdb, updateDeviceStatus]); // Effect dependencies
+    }, [device, rtdb, updateDeviceStatus]);
 
     return { data, connectionStatus };
 };
