@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import useRtdbValue from '@/hooks/use-rtdb-value';
-import { formatDistanceToNow } from 'date-fns';
+import { format, formatDistanceToNow, isFuture } from 'date-fns';
 
 export default function DeviceDetailPage() {
   const params = useParams();
@@ -99,13 +99,21 @@ export default function DeviceDetailPage() {
         return String(dataToRender.value) || 'N/A';
       };
 
+      const formatTimestamp = (timestamp: string): string => {
+        const date = new Date(timestamp);
+        if (isFuture(date)) {
+          return `Future date: ${format(date, "PPpp")}`;
+        }
+        return formatDistanceToNow(date, { addSuffix: true });
+      };
+
       return (
         <div>
           <p className="text-6xl font-bold tracking-tighter">
             {displayValue()}
           </p>
           <p className="text-sm text-muted-foreground">
-            Last updated: {dataToRender.timestamp ? `${formatDistanceToNow(new Date(dataToRender.timestamp), { addSuffix: true })}` : 'N/A'}
+            Last updated: {dataToRender.timestamp ? formatTimestamp(dataToRender.timestamp) : 'N/A'}
           </p>
         </div>
       );
