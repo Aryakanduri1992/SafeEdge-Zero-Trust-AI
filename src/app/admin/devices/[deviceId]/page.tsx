@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { HardDrive, ArrowLeft, RadioTower, Loader2, Wifi, WifiOff, PowerOff } from 'lucide-react';
+import { HardDrive, ArrowLeft, RadioTower, Loader2, Wifi, WifiOff, PowerOff, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -120,9 +120,9 @@ export default function DeviceDetailPage() {
              </div>
           ) : connectionStatus === 'offline' ? (
              <div className="flex flex-col items-center gap-2">
-                <PowerOff className="h-8 w-8 text-destructive" />
-                <span className="font-semibold text-destructive">Device is offline</span>
-                <span className="text-sm text-muted-foreground">No data is being received at this path.</span>
+                <AlertTriangle className="h-8 w-8 text-amber-500" />
+                <span className="font-semibold text-amber-500">Data Not Found</span>
+                <span className="text-sm text-muted-foreground">No data found at the specified path. Check your ESP32 code.</span>
              </div>
           ) : connectionStatus === 'no-path' ? (
             <div className="flex flex-col items-center gap-2">

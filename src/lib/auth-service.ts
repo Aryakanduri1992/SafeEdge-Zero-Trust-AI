@@ -270,9 +270,13 @@ export const updateOrganizationImage = async (organizationId: string, imageUrl: 
 
 export const updateDeviceStatus = async (deviceId: string, statusData: UpdateDeviceStatusData): Promise<void> => {
     const deviceRef = doc(firestore, 'devices', deviceId);
-    await updateDoc(deviceRef, statusData).catch(serverError => {
-        // We don't throw a permission error here because this is an automatic background update.
-        // Failing silently is acceptable if the user doesn't have permission to update the status.
-        console.warn(`Could not update device status for ${deviceId}:`, serverError.message);
+    // This is a background task. We don't want to show errors to the user if it fails.
+    // Instead, we log a warning to the console.
+    updateDoc(deviceRef, statusData).catch(serverError => {
+        if (serverError.code === 'permission-denied') {
+            console.warn(`Permission denied when trying to update device status for ${deviceId}. Make sure your Firestore rules allow this operation.`);
+        } else {
+            console.warn(`Could not update device status for ${deviceId}:`, serverError.message);
+        }
     });
 };

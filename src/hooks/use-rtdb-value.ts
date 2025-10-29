@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { ref, onValue, off } from 'firebase/database';
+import { ref, onValue, off, get } from 'firebase/database';
 import { useRtdb } from '@/firebase/provider';
 import { useAuth } from './use-auth';
 import type { Device } from '@/lib/types';
@@ -18,10 +18,10 @@ export const useRtdbValue = (device?: Device | null) => {
     const [data, setData] = useState<RtdbData | null>(null);
     const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
     const rtdb = useRtdb();
-    const { updateDeviceStatus } = useAuth();
+    const { updateDeviceStatus, user } = useAuth();
     
     useEffect(() => {
-        if (!device || !rtdb) {
+        if (!device || !rtdb || !user) {
             setConnectionStatus('disconnected');
             return;
         }
@@ -34,13 +34,14 @@ export const useRtdbValue = (device?: Device | null) => {
         setConnectionStatus('connecting');
         const dbRef = ref(rtdb, device.dbPath);
 
-        const unsubscribe = onValue(dbRef, (snapshot) => {
+        const handleData = (snapshot: any) => {
             if (snapshot.exists()) {
                 const liveData = snapshot.val() as RtdbData;
                 setData(liveData);
                 setConnectionStatus('connected');
                 
-                if (device.id && typeof liveData.value !== 'undefined' && liveData.timestamp) {
+                if (device.id && typeof liveData.value === 'number' && liveData.timestamp) {
+                    // Update Firestore in the background
                     updateDeviceStatus(device.id, {
                         value: liveData.value,
                         timestamp: liveData.timestamp,
@@ -52,17 +53,26 @@ export const useRtdbValue = (device?: Device | null) => {
                 setData(null);
                 setConnectionStatus('offline');
             }
-        }, (error) => {
+        };
+
+        const handleError = (error: any) => {
             console.error(`RTDB read failed for path ${device.dbPath}: ${error.code}`);
             setData(null);
             setConnectionStatus('offline');
-        });
+        };
 
+        // Check the initial value once
+        get(dbRef).then(handleData).catch(handleError);
+
+        // Then, set up the realtime listener
+        const unsubscribe = onValue(dbRef, handleData, handleError);
+
+        // Cleanup on unmount
         return () => {
             unsubscribe();
             setConnectionStatus('disconnected');
         };
-    }, [device, rtdb, updateDeviceStatus]);
+    }, [device?.id, device?.dbPath, rtdb, updateDeviceStatus, user]); // Depend on specific device properties
 
     return { data, connectionStatus };
 };
