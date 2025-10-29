@@ -28,48 +28,58 @@ export const useRtdbValue = (device?: Device | null) => {
         }
 
         setConnectionStatus('connecting');
-        const dbRef = ref(rtdb, device.dbPath);
+        const dataRef = ref(rtdb, device.dbPath);
 
-        let staleTimeout: NodeJS.Timeout;
+        let staleTimeoutId: NodeJS.Timeout | null = null;
 
-        const listener = onValue(dbRef, (snapshot) => {
-            clearTimeout(staleTimeout);
+        const listener = onValue(
+          dataRef,
+          (snapshot) => {
+            if (staleTimeoutId) {
+              clearTimeout(staleTimeoutId);
+            }
 
             if (snapshot.exists()) {
-                const liveData = snapshot.val() as RtdbData;
-                setData(liveData);
-                setConnectionStatus('online');
+              const liveData = snapshot.val() as RtdbData;
+              setData(liveData);
+              setConnectionStatus('online');
 
-                updateDeviceStatus(device.id, {
-                    value: liveData.value,
-                    timestamp: liveData.timestamp,
-                    status: 'online',
-                    lastSeen: new Date().toISOString(),
-                });
+              // Update Firestore with the latest status
+              updateDeviceStatus(device.id, {
+                value: liveData.value,
+                timestamp: liveData.timestamp,
+                status: 'online',
+                lastSeen: new Date().toISOString(),
+              });
 
-                // Set a timeout to mark the device as stale/offline if no new data arrives
-                staleTimeout = setTimeout(() => {
-                    setConnectionStatus('stale');
-                    updateDeviceStatus(device.id, { status: 'offline' });
-                }, 15000); // 15 seconds
+              // Set a new timeout to detect if the device goes offline
+              staleTimeoutId = setTimeout(() => {
+                setConnectionStatus('stale');
+                updateDeviceStatus(device.id, { status: 'offline' });
+              }, 15000); // 15 seconds threshold
 
             } else {
-                setConnectionStatus('error'); // Path exists but no data
-                setData(null);
+              setConnectionStatus('error');
+              setData(null);
             }
-        }, (error) => {
+          },
+          (error) => {
             console.error(`RTDB read failed for path ${device.dbPath}:`, error);
             setConnectionStatus('error');
             setData(null);
-        });
+          }
+        );
 
-        // Cleanup function
+        // Cleanup function to be called on component unmount or when dependencies change
         return () => {
-            clearTimeout(staleTimeout);
-            off(dbRef, 'value', listener);
+            if (staleTimeoutId) {
+                clearTimeout(staleTimeoutId);
+            }
+            // Detach the listener
+            off(dataRef, 'value', listener);
         };
 
-    }, [device, rtdb, updateDeviceStatus]);
+    }, [device, rtdb, updateDeviceStatus]); // Effect dependencies
 
     return { data, connectionStatus };
 };

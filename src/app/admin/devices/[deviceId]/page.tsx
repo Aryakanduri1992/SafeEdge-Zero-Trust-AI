@@ -24,7 +24,7 @@ export default function DeviceDetailPage() {
 
   const { data: liveData, connectionStatus } = useRtdbValue(device);
 
-  const isLoading = isAuthLoading || !device;
+  const isLoading = isAuthLoading || (connectionStatus === 'connecting' && !liveData);
 
   const getStatusInfo = (): { text: string; className: string; icon?: React.ReactNode } => {
     switch (connectionStatus) {
@@ -46,7 +46,7 @@ export default function DeviceDetailPage() {
 
   const { text: statusText, className: statusClassName, icon: statusIcon } = getStatusInfo();
 
-  if (isLoading) {
+  if (isAuthLoading || !device) {
     return (
       <div className="space-y-4">
         <Skeleton className="h-8 w-48" />
