@@ -25,42 +25,47 @@ const LoadingSkeleton = () => (
       <Skeleton className="h-9 w-72 mb-2" />
       <Skeleton className="h-5 w-96" />
     </div>
-    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <Skeleton className="h-[108px] w-full" />
-      <Skeleton className="h-[108px] w-full" />
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2">
       <Skeleton className="h-[108px] w-full" />
       <Skeleton className="h-[108px] w-full" />
     </div>
+     <Card>
+        <CardHeader>
+          <Skeleton className="h-6 w-48" />
+          <Skeleton className="h-4 w-64" />
+        </CardHeader>
+        <CardContent>
+           <div className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+           </div>
+        </CardContent>
+      </Card>
   </div>
 );
 
 
 export default function AdminDashboardPage() {
-  const { user, departments, devices } = useAuth();
+  const { user, departments, devices, isLoading } = useAuth();
   const orgUser = user as Organization;
-  
-  const isLoading = departments.length === 0 && !user;
 
-  if (isLoading) {
+  if (isLoading || !orgUser) {
     return <LoadingSkeleton />;
-  }
-  
-  if (!orgUser) {
-    return null;
   }
 
   const totalDepartments = departments.length;
   const totalDeviceQuota = departments.reduce((acc, dept) => acc + dept.devices, 0);
   const usedDevices = devices.length;
   const remainingDevices = Math.max(0, totalDeviceQuota - usedDevices);
-  const usagePercentage = totalDeviceQuota > 0 ? Math.min(100, (usedDevices / totalDeviceQuota) * 100) : 0;
+  const usagePercentage = totalDeviceQuota > 0 ? Math.round((usedDevices / totalDeviceQuota) * 100) : 0;
 
 
   return (
     <div className="flex flex-col gap-8">
       <div>
         <h1 className="font-headline text-3xl font-bold tracking-tight">Organization Dashboard</h1>
-        <p className="text-muted-foreground">Welcome back, {user?.organizationName}. Here is the real-time status of your protected assets.</p>
+        <p className="text-muted-foreground">Welcome back, {orgUser.organizationName}. Here is the real-time status of your protected assets.</p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-2">
