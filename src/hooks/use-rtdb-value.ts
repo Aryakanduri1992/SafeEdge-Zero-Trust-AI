@@ -92,13 +92,15 @@ export const useRtdbValue = (path?: string, deviceId?: string) => {
                 setConnectionStatus('connected');
                 
                 // Automatically update Firestore
-                const statusUpdate: UpdateDeviceStatusData = {
-                    value: liveData.value,
-                    timestamp: liveData.timestamp,
-                    status: 'online',
-                    lastSeen: new Date().toISOString(),
-                };
-                updateDeviceStatus(deviceId, statusUpdate);
+                if (deviceId && liveData.value !== undefined && liveData.timestamp) {
+                    const statusUpdate: UpdateDeviceStatusData = {
+                        value: liveData.value,
+                        timestamp: liveData.timestamp,
+                        status: 'online',
+                        lastSeen: new Date().toISOString(),
+                    };
+                    updateDeviceStatus(deviceId, statusUpdate);
+                }
 
             } else {
                 setConnectionStatus('offline');
