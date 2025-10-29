@@ -7,7 +7,7 @@ import * as authService from '@/lib/auth-service';
 import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData, NewDeviceData, UpdateDeviceData, Device } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useFirestore, FirestorePermissionError, errorEmitter } from '@/firebase';
-import { collection, onSnapshot, Unsubscribe, query, where } from 'firebase/firestore';
+import { collection, onSnapshot, Unsubscribe, query, where, doc } from 'firebase/firestore';
 import { User, getIdTokenResult } from 'firebase/auth';
 
 type AuthContextType = {
@@ -141,7 +141,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 const deptList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Department));
                 setDepartments(deptList);
             }, (serverError) => {
-                 const permissionError = new FirestorePermissionError({ path: deptsQuery.path, operation: 'list' });
+                 const permissionError = new FirestorePermissionError({ path: `departments where organizationId == ${appUser.id}`, operation: 'list' });
                 errorEmitter.emit('permission-error', permissionError);
                 setDepartments([]);
             });
@@ -151,7 +151,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 const deviceList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Device));
                 setDevices(deviceList);
             }, (serverError) => {
-                const permissionError = new FirestorePermissionError({ path: devicesQuery.path, operation: 'list' });
+                const permissionError = new FirestorePermissionError({ path: `devices where organizationId == ${appUser.id}`, operation: 'list' });
                 errorEmitter.emit('permission-error', permissionError);
                 setDevices([]);
             });
