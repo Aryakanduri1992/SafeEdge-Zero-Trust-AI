@@ -26,7 +26,7 @@ export default function DeviceDetailPage() {
 
   const isLoading = isAuthLoading || !device;
 
-  const getStatusBadge = (): { text: string; className: string; icon?: React.ReactNode } => {
+  const getStatusInfo = (): { text: string; className: string; icon?: React.ReactNode } => {
     switch (connectionStatus) {
       case 'connecting':
         return { text: `Connecting...`, className: 'text-muted-foreground animate-pulse', icon: <Loader2 className="h-4 w-4 animate-spin"/> };
@@ -44,7 +44,7 @@ export default function DeviceDetailPage() {
     }
   };
 
-  const { text: statusText, className: statusClassName, icon: statusIcon } = getStatusBadge();
+  const { text: statusText, className: statusClassName, icon: statusIcon } = getStatusInfo();
 
   if (isLoading) {
     return (
@@ -71,6 +71,69 @@ export default function DeviceDetailPage() {
       </div>
     );
   }
+
+  const renderContent = () => {
+    switch (connectionStatus) {
+      case 'connecting':
+        return (
+          <div className="flex flex-col items-center gap-2">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            <span className="text-sm text-muted-foreground">Connecting...</span>
+          </div>
+        );
+      case 'connected':
+        if (liveData) {
+          return (
+            <div>
+              <p className="text-6xl font-bold tracking-tighter">
+                {typeof liveData.value === 'number' ? liveData.value.toFixed(2) : 'N/A'}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Last updated: {liveData.timestamp ? `${formatDistanceToNow(new Date(liveData.timestamp), { addSuffix: true })}` : 'N/A'}
+              </p>
+            </div>
+          );
+        }
+        return (
+           <div className="flex flex-col items-center gap-2">
+              <Wifi className="h-8 w-8 text-green-500" />
+              <span className="font-semibold text-green-500">Connected</span>
+              <span className="text-sm text-muted-foreground">Waiting for first data point...</span>
+           </div>
+        );
+      case 'stale':
+         return (
+            <div className="flex flex-col items-center gap-2">
+                <TimerOff className="h-8 w-8 text-amber-500" />
+                <span className="font-semibold text-amber-500">Signal Lost</span>
+                <span className="text-sm text-muted-foreground">No data received recently. Device may be offline.</span>
+            </div>
+          );
+      case 'error':
+        return (
+           <div className="flex flex-col items-center gap-2">
+              <AlertTriangle className="h-8 w-8 text-destructive" />
+              <span className="font-semibold text-destructive">Permission Denied</span>
+              <span className="text-sm text-muted-foreground">Check your database rules.</span>
+           </div>
+        );
+      case 'no-path':
+        return (
+          <div className="flex flex-col items-center gap-2">
+            <WifiOff className="h-8 w-8 text-amber-500" />
+            <span className="font-semibold text-amber-500">No Database Path</span>
+            <span className="text-sm text-muted-foreground">Edit this device to set its Realtime DB Path.</span>
+          </div>
+        );
+      default:
+        return (
+           <div className="flex flex-col items-center gap-2">
+              <WifiOff className="h-8 w-8 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Feed disconnected.</span>
+           </div>
+        );
+    }
+  };
 
   return (
     <div className="space-y-8">
@@ -100,50 +163,7 @@ export default function DeviceDetailPage() {
             </CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-center text-center h-48">
-          {connectionStatus === 'connecting' ? (
-             <div className="flex flex-col items-center gap-2">
-                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Connecting...</span>
-             </div>
-          ) : connectionStatus === 'connected' && liveData ? (
-              <div>
-                <p className="text-6xl font-bold tracking-tighter">
-                  {typeof liveData.value === 'number' ? liveData.value.toFixed(2) : 'N/A'}
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Last updated: {liveData.timestamp ? `${formatDistanceToNow(new Date(liveData.timestamp), { addSuffix: true })}` : 'N/A'}
-                </p>
-              </div>
-          ) : connectionStatus === 'connected' && !liveData ? (
-             <div className="flex flex-col items-center gap-2">
-                <Wifi className="h-8 w-8 text-green-500" />
-                <span className="font-semibold text-green-500">Connected</span>
-                <span className="text-sm text-muted-foreground">Waiting for first data point...</span>
-             </div>
-          ) : connectionStatus === 'error' ? (
-             <div className="flex flex-col items-center gap-2">
-                <AlertTriangle className="h-8 w-8 text-destructive" />
-                <span className="font-semibold text-destructive">Permission Denied</span>
-                <span className="text-sm text-muted-foreground">Check your database rules.</span>
-             </div>
-          ) : connectionStatus === 'no-path' ? (
-            <div className="flex flex-col items-center gap-2">
-              <WifiOff className="h-8 w-8 text-amber-500" />
-              <span className="font-semibold text-amber-500">No Database Path</span>
-              <span className="text-sm text-muted-foreground">Edit this device to set its Realtime DB Path.</span>
-            </div>
-          ) : connectionStatus === 'stale' ? (
-            <div className="flex flex-col items-center gap-2">
-                <TimerOff className="h-8 w-8 text-amber-500" />
-                <span className="font-semibold text-amber-500">Signal Lost</span>
-                <span className="text-sm text-muted-foreground">No data received recently. Device may be offline.</span>
-            </div>
-          ) : (
-             <div className="flex flex-col items-center gap-2">
-                <WifiOff className="h-8 w-8 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Feed disconnected.</span>
-             </div>
-          )}
+          {renderContent()}
         </CardContent>
          <div className="p-4 border-t flex items-center justify-end">
             <Badge variant="outline" className={statusClassName}>

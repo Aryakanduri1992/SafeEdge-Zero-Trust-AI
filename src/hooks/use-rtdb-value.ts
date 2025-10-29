@@ -2,11 +2,10 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
-import { ref, onValue, off, getDatabase } from 'firebase/database';
+import { ref, onValue, off } from 'firebase/database';
 import { useRtdb } from '@/firebase/provider';
 import { useAuth } from './use-auth';
 import type { Device } from '@/lib/types';
-import { useToast } from './use-toast';
 
 interface RtdbData {
     value: number;
@@ -15,7 +14,7 @@ interface RtdbData {
 
 type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'no-path' | 'error' | 'stale';
 
-const STALE_TIMEOUT_MS = 15000; // 15 seconds
+const STALE_TIMEOUT_MS = 15000; // 15 seconds before marking as stale/offline
 
 export const useRtdbValue = (device?: Device | null) => {
     const [data, setData] = useState<RtdbData | null>(null);
@@ -25,7 +24,7 @@ export const useRtdbValue = (device?: Device | null) => {
     const staleTimerRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
-        // Cleanup function for listeners and timers
+        // Full cleanup function
         const cleanup = () => {
             if (staleTimerRef.current) {
                 clearTimeout(staleTimerRef.current);
@@ -33,33 +32,38 @@ export const useRtdbValue = (device?: Device | null) => {
             }
         };
 
+        // If no device or RTDB instance, do nothing.
         if (!rtdb || !device) {
             setConnectionStatus('disconnected');
             setData(null);
             cleanup();
-            return () => {};
+            return;
         }
 
+        // If the device has no configured path in Firestore.
         if (!device.dbPath) {
             setConnectionStatus('no-path');
             setData(null);
             cleanup();
-            return () => {};
+            return;
         }
-
+        
+        // Start the connection process
         setConnectionStatus('connecting');
         setData(null);
         
         const dbRef = ref(rtdb, device.dbPath);
 
-        const onDataReceived = (snapshot: any) => {
-            cleanup(); // Clear any existing stale timer
+        const handleData = (snapshot: any) => {
+            // New data arrived, so clear any existing stale timer.
+            cleanup();
 
             if (snapshot.exists()) {
                 const liveData = snapshot.val() as RtdbData;
                 setData(liveData);
                 setConnectionStatus('connected');
                 
+                // Update Firestore to mark the device as 'online'
                 if (device.id) {
                      updateDeviceStatus(device.id, {
                         value: liveData.value,
@@ -70,10 +74,11 @@ export const useRtdbValue = (device?: Device | null) => {
                 }
             } else {
                 setData(null);
-                setConnectionStatus('connected'); // Connected, but waiting for first data point
+                setConnectionStatus('stale'); // Connected, but no data exists at path.
             }
             
-            // Set a new timer. If no new data arrives in time, mark as stale/offline.
+            // Set a new timer. If no data arrives within the timeout period,
+            // we'll consider the device offline.
             staleTimerRef.current = setTimeout(() => {
                 setConnectionStatus('stale');
                 if (device.id) {
@@ -82,31 +87,25 @@ export const useRtdbValue = (device?: Device | null) => {
             }, STALE_TIMEOUT_MS);
         };
 
-        const onError = (error: Error) => {
+        const handleError = (error: Error) => {
             console.error(`RTDB read failed for path ${device.dbPath}:`, error);
             setConnectionStatus('error');
             setData(null);
             cleanup();
         };
 
-        const listener = onValue(dbRef, onDataReceived, onError);
+        // Attach the listener.
+        const listener = onValue(dbRef, handleData, handleError);
 
-        // Initial "stale" timer in case we never get any data
-        staleTimerRef.current = setTimeout(() => {
-            setConnectionStatus('stale');
-            if (device.id) {
-                 updateDeviceStatus(device.id, { status: 'offline' });
-            }
-        }, STALE_TIMEOUT_MS);
-
-        // This is the final cleanup function when the component unmounts or deps change
+        // This is the primary cleanup function for the effect.
+        // It runs when the component unmounts or when `device` changes.
         return () => {
-            cleanup();
-            off(dbRef, 'value', listener);
+            cleanup(); // Clear any pending timers.
+            off(dbRef, 'value', listener); // Detach the Firebase listener.
             setConnectionStatus('disconnected');
         };
 
-    }, [device, rtdb, updateDeviceStatus]);
+    }, [device, rtdb, updateDeviceStatus]); // Re-run effect if these dependencies change.
 
     return { data, connectionStatus };
 };
