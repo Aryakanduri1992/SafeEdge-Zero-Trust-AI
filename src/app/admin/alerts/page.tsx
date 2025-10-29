@@ -3,8 +3,11 @@
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { RealtimeChart } from "@/components/admin/realtime-chart";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function AlertsPage() {
+  const { user } = useAuth();
+
   return (
     <div className="space-y-8">
       <div>
@@ -22,7 +25,7 @@ export default function AlertsPage() {
             </CardDescription>
         </CardHeader>
         <CardContent>
-          <RealtimeChart />
+          <RealtimeChart organizationId={user?.id} />
         </CardContent>
       </Card>
     </div>

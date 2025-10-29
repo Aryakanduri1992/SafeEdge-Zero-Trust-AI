@@ -11,7 +11,6 @@ import {
 import { useSensorData } from "@/hooks/use-sensor-data";
 import { format } from "date-fns";
 import { AlertTriangle, Loader2 } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
 
 const chartConfig = {
   temperature: {
@@ -32,9 +31,12 @@ const chartConfig = {
   },
 };
 
-export function RealtimeChart() {
-  const { user } = useAuth();
-  const { data: sensorData, isLoading } = useSensorData(user?.id);
+type RealtimeChartProps = {
+    organizationId?: string;
+}
+
+export function RealtimeChart({ organizationId }: RealtimeChartProps) {
+  const { data: sensorData, isLoading } = useSensorData(organizationId);
 
   const chartData = useMemo(() => {
     if (!sensorData) return [];
