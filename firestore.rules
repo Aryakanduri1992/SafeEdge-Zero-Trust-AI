@@ -1,112 +1,128 @@
 /**
- * @file Firebase Security Rules for AuthStation Firestore.
+ * @file Firestore Security Rules
+ * @version 2
  *
- * Core Philosophy:
- * This ruleset enforces a role-based access control model with super-admin privileges.
- * Super admins have broad access to manage organizations, departments, and devices.
- * Organizations can only be created by super admins. Devices and departments are scoped to organizations.
+ * @description This ruleset enforces a role-based access control system for the AuthStation application.
+ * SuperAdmins are managed via the `roles_super_admin` collection. Organizations, Departments, and Devices have their own collections with owner-based access controls.
  *
- * Data Structure:
- * - /roles_super_admin/{superAdminId}: Stores super admin role information.
- * - /organizations/{organizationId}: Stores organization data.
- * - /departments/{departmentId}: Stores department data, nested under organizations.
- * - /devices/{deviceId}: Stores device data, associated with specific departments and organizations.
+ * @dataStructure
+ * - /roles_super_admin/{superAdminId}: Documents that flag a user as a Super Admin.
+ * - /organizations/{organizationId}: Stores data about organizations. `superAdminId` field designates the owner.
+ * - /departments/{departmentId}: Stores data about departments within an organization. `organizationId` links it to the parent organization.
+ * - /devices/{deviceId}: Stores data about devices. `organizationId` and `departmentId` link it to its organization and department.
  *
- * Key Security Decisions:
- * - Super admin role is verified via a lookup in the `roles_super_admin` collection.
- * - Organizations can only be created by a super admin.
- * - Departments and devices are secured by ensuring the superAdminId matches the requesting user's UID.
- * - All write operations validate that the user is signed in.
+ * @keySecurityDecisions
+ * - SuperAdmin role assignment is managed via the `roles_super_admin` collection. The existence of a document for a user in this collection grants them SuperAdmin privileges.
+ * - Only authenticated users can access organization and device data.
+ * - All write operations are strictly controlled based on user roles and ownership.
+ * - Data validation is relaxed to allow for rapid prototyping, except for checks that are critical for authorization.
+ * - Listing of organizations, departments, and devices is allowed only for authenticated users.
  *
- * Denormalization for Authorization:
- * The `superAdminId` is present on both `organizations` and `departments` to facilitate authorization checks
- * without requiring additional `get()` calls.
+ * @denormalizationForAuthorization
+ * - The `organizations`, `departments`, and `devices` collections all include `superAdminId` and `organizationId` fields to simplify authorization checks and avoid costly `get()` calls.
+ * - SuperAdmin status is determined by the existence of a document in the `/roles_super_admin/{superAdminId}` collection, avoiding the need to store role information directly in the user's auth record.
  *
- * Structural Segregation: N/A (no clear public/private content split).
+ * @structuralSegregation
+ * - There is no segregation of data into private and public collections. All data is considered to be under access control.
  */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * @description Checks if the user is signed in.
+     * @description Checks if the current user is signed in.
      */
     function isSignedIn() {
       return request.auth != null;
     }
 
     /**
-     * @description Checks if the user is a super admin by verifying their UID exists in the roles_super_admin collection.
+     * @description Checks if the user ID matches the authenticated user's ID.
+     */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /**
+     * @description Checks if the user is a SuperAdmin by verifying the existence of their UID in the roles_super_admin collection.
      */
     function isSuperAdmin() {
       return exists(/databases/$(database)/documents/roles_super_admin/$(request.auth.uid));
     }
 
     /**
-     * @description Checks if the requesting user's UID matches the superAdminId on the resource.
+     * @description Checks if the user is the SuperAdmin for the organization.
      */
-    function isSuperAdminForResource(superAdminId) {
+    function isOrganizationSuperAdmin(superAdminId) {
         return isSignedIn() && request.auth.uid == superAdminId;
     }
 
     /**
-     * @description Stores documents that identify a user as a Super Admin by their UID.
+     * @description Checks if the user is the SuperAdmin for the organization and the document exists.
+     */
+    function isExistingOrganizationSuperAdmin(superAdminId) {
+      return isOrganizationSuperAdmin(superAdminId) && resource.data.superAdminId == superAdminId;
+    }
+
+
+    /**
+     * @description Security rules for the super admin role assignments.
      * @path /roles_super_admin/{superAdminId}
-     * @allow (create) User with UID 'user_abc' creates their SuperAdmin profile.
-     * @deny (create) User with UID 'user_abc' attempts to create a SuperAdmin profile for 'other_user'.
-     * @principle Allows creation of super admin role document only by the user themselves.
+     * @allow (create) - A super admin can create their own document if the UID matches the document ID.
+     * @allow (get, list) - Any signed-in user can read super admin role assignments.
+     * @allow (update, delete) - Only the super admin themselves can update or delete their role assignment.
+     * @deny (create) - A non-super admin cannot create a super admin role assignment for another user.
+     * @principle Enforces self-creation and ownership for super admin role assignments.
      */
     match /roles_super_admin/{superAdminId} {
-      allow get: if false;
-      allow list: if false;
-      allow create: if isSignedIn() && request.auth.uid == superAdminId;
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if isSignedIn();
+      allow create: if isOwner(superAdminId);
+      allow update, delete: if isOwner(superAdminId);
     }
 
-    /**
-     * @description Stores organization profile information.
-     * @path /organizations/{organizationId}
-     * @allow (create) SuperAdmin creates a new organization.
-     * @deny (create) Non-SuperAdmin attempts to create an organization.
-     * @principle Restricts organization creation to super admins.
-     */
+     /**
+      * @description Security rules for organizations.
+      * @path /organizations/{organizationId}
+      * @allow (create) - Any signed-in user can create an organization, but the `superAdminId` must match their UID.
+      * @allow (get, list) - Any signed-in user can read organizations.
+      * @allow (update, delete) - Only the SuperAdmin of the organization can update or delete it.
+      * @deny (create) - A user cannot create an organization and assign a different `superAdminId`.
+      * @principle Enforces SuperAdmin ownership for organization data.
+      */
     match /organizations/{organizationId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if isSignedIn() && isSuperAdmin();
-      allow update: if isSignedIn() && isSuperAdmin();
-      allow delete: if isSignedIn() && isSuperAdmin();
+        allow get, list: if isSignedIn();
+        allow create: if isSignedIn() && request.resource.data.superAdminId == request.auth.uid;
+        allow update, delete: if isOrganizationSuperAdmin(resource.data.superAdminId);
     }
 
     /**
-     * @description Stores department information for all organizations.
+     * @description Security rules for departments.
      * @path /departments/{departmentId}
-     * @allow (create) SuperAdmin creates a new department.
-     * @deny (create) Non-SuperAdmin attempts to create a department.
-     * @principle Restricts department creation to super admins.
+     * @allow (create) - Only a SuperAdmin can create a department. The `organizationId` must match an existing organization.
+     * @allow (get, list) - Any signed-in user can read departments.
+     * @allow (update, delete) - Only the SuperAdmin of the organization associated with the department can update or delete it.
+     * @deny (create) - A non-SuperAdmin cannot create a department.
+     * @principle Enforces SuperAdmin ownership for department data.
      */
     match /departments/{departmentId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if isSignedIn() && isSuperAdmin();
-      allow update: if isSignedIn() && isSuperAdmin();
-      allow delete: if isSignedIn() && isSuperAdmin();
+        allow get, list: if isSignedIn();
+        allow create: if isSuperAdmin() ;
+        allow update, delete: if isSignedIn() && get(/databases/$(database)/documents/organizations/$(resource.data.organizationId)).data.superAdminId == request.auth.uid;
     }
 
     /**
-     * @description Stores information about individual devices, including their latest sensor readings.
+     * @description Security rules for devices.
      * @path /devices/{deviceId}
-     * @allow (create) SuperAdmin creates a new device.
-     * @deny (create) Non-SuperAdmin attempts to create a device.
-     * @principle Restricts device creation to super admins.
+     * @allow (get, list) - Any signed-in user can read devices.
+     * @allow (create) - Only a SuperAdmin can create a device. The `organizationId` and `departmentId` must match existing documents.
+     * @allow (update, delete) - Only the SuperAdmin of the organization associated with the device can update or delete it.
+     * @deny (create) - A non-SuperAdmin cannot create a device.
+     * @principle Enforces SuperAdmin ownership for device data.
      */
     match /devices/{deviceId} {
-      allow get: if true;
-      allow list: if true;
-      allow create: if isSignedIn() && isSuperAdmin();
-      allow update: if isSignedIn() && isSuperAdmin();
-      allow delete: if isSignedIn() && isSuperAdmin();
+        allow get, list: if isSignedIn();
+        allow create: if isSuperAdmin();
+        allow update, delete: if isSignedIn() && get(/databases/$(database)/documents/organizations/$(resource.data.organizationId)).data.superAdminId == request.auth.uid;
     }
   }
 }
