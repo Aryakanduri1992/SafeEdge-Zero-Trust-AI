@@ -20,12 +20,13 @@ export const useRtdbValue = (device?: Device | null) => {
     const rtdb = useRtdb();
     const { updateDeviceStatus } = useAuth();
     
-    const listenerRef = useRef<() => void>();
+    // Use a ref to hold the unsubscribe function to prevent re-subscribing on every render
+    const unsubscribeRef = useRef<() => void | undefined>();
 
     const disconnect = useCallback(() => {
-        if (listenerRef.current) {
-            listenerRef.current();
-            listenerRef.current = undefined;
+        if (unsubscribeRef.current) {
+            unsubscribeRef.current();
+            unsubscribeRef.current = undefined;
         }
         setData(null);
         setConnectionStatus('disconnected');
@@ -42,19 +43,17 @@ export const useRtdbValue = (device?: Device | null) => {
             return;
         }
         
-        disconnect();
+        disconnect(); // Disconnect any existing listener
 
         setConnectionStatus('connecting');
-        
         const dbRef = ref(rtdb, device.dbPath);
 
-        const unsubscribe = onValue(dbRef, (snapshot) => {
+        const onData = (snapshot: any) => {
             if (snapshot.exists()) {
                 const liveData = snapshot.val() as RtdbData;
                 setData(liveData);
                 setConnectionStatus('connected');
                 
-                // Update Firestore with the latest status
                 if (device.id && typeof liveData.value !== 'undefined' && liveData.timestamp) {
                     updateDeviceStatus(device.id, {
                         value: liveData.value,
@@ -67,18 +66,21 @@ export const useRtdbValue = (device?: Device | null) => {
                 setData(null);
                 setConnectionStatus('offline');
             }
-        }, (error) => {
+        };
+
+        const onError = (error: any) => {
             console.error(`RTDB read failed: ${error.code}`);
-            setConnectionStatus('offline');
             setData(null);
-        });
-        
-        listenerRef.current = unsubscribe;
+            setConnectionStatus('offline');
+        };
+
+        // onValue returns the unsubscribe function
+        unsubscribeRef.current = onValue(dbRef, onData, onError);
 
     }, [device, rtdb, disconnect, updateDeviceStatus]);
 
+    // Effect for automatic cleanup when the component unmounts
     useEffect(() => {
-        // Cleanup listener on component unmount
         return () => {
             disconnect();
         };

@@ -26,10 +26,10 @@ export default function DeviceDetailPage() {
 
   const isLoading = isAuthLoading || !device;
 
-  const getStatusBadge = (): { text: string; className: string } => {
+  const getStatusBadge = (): { text: string; className: string; icon?: React.ReactNode } => {
     switch (connectionStatus) {
       case 'connecting':
-        return { text: `Connecting...`, className: 'text-muted-foreground animate-pulse' };
+        return { text: `Connecting...`, className: 'text-muted-foreground animate-pulse', icon: <Loader2 className="h-4 w-4 animate-spin"/> };
       case 'connected':
         return { text: 'Online', className: 'text-green-500 border-green-500/50 bg-green-500/10' };
       case 'offline':
@@ -42,7 +42,7 @@ export default function DeviceDetailPage() {
     }
   };
 
-  const { text: statusText, className: statusClassName } = getStatusBadge();
+  const { text: statusText, className: statusClassName, icon: statusIcon } = getStatusBadge();
 
   if (isLoading) {
     return (
@@ -151,6 +151,7 @@ export default function DeviceDetailPage() {
         </CardContent>
          <div className="p-4 border-t flex items-center justify-end">
             <Badge variant="outline" className={statusClassName}>
+              {statusIcon}
               {statusText}
             </Badge>
         </div>
