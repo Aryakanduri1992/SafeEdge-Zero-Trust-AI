@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { ref, onValue, off, DatabaseReference } from 'firebase/database';
 import { useRtdb } from '@/firebase/provider';
 import { useAuth } from './use-auth';
-import type { Device, UpdateDeviceStatusData } from '@/lib/types';
+import type { Device } from '@/lib/types';
 
 interface RtdbData {
     value: number;
@@ -20,17 +20,13 @@ export const useRtdbValue = (device?: Device | null) => {
     const rtdb = useRtdb();
     const { updateDeviceStatus } = useAuth();
     
-    const listenerRef = useRef<DatabaseReference | null>(null);
-    const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+    // Using a ref to hold the unsubscribe function
+    const unsubscribeRef = useRef<() => void | undefined>();
 
     const disconnect = useCallback(() => {
-        if (listenerRef.current) {
-            off(listenerRef.current);
-            listenerRef.current = null;
-        }
-        if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
+        if (unsubscribeRef.current) {
+            unsubscribeRef.current();
+            unsubscribeRef.current = undefined;
         }
         setData(null);
         setConnectionStatus('disconnected');
@@ -42,61 +38,41 @@ export const useRtdbValue = (device?: Device | null) => {
             return;
         }
         
-        disconnect(); // Ensure any old listeners are cleared
+        disconnect(); // Clear any previous listener
 
         setConnectionStatus('connecting');
         
         const dbRef = ref(rtdb, device.dbPath);
-        listenerRef.current = dbRef;
 
-        // Set a timeout to prevent getting stuck in "connecting" state
-        timeoutRef.current = setTimeout(() => {
-             if (connectionStatus === 'connecting') {
-                console.warn(`RTDB connection to ${device.dbPath} timed out.`);
-                setConnectionStatus('offline');
-                disconnect();
-             }
-        }, 10000); // 10-second timeout
-
-        onValue(dbRef, (snapshot) => {
-            // If we get any response (even null), we're connected.
-            if (timeoutRef.current) {
-                clearTimeout(timeoutRef.current);
-                timeoutRef.current = null;
-            }
+        const unsubscribe = onValue(dbRef, (snapshot) => {
             setConnectionStatus('connected');
-
             if (snapshot.exists()) {
                 const liveData = snapshot.val() as RtdbData;
                 setData(liveData);
                 
                 if (device.id && typeof liveData.value !== 'undefined' && liveData.timestamp) {
-                    const statusUpdate: UpdateDeviceStatusData = {
+                    updateDeviceStatus(device.id, {
                         value: liveData.value,
                         timestamp: liveData.timestamp,
                         status: 'online',
                         lastSeen: new Date().toISOString(),
-                    };
-                    updateDeviceStatus(device.id, statusUpdate);
+                    });
                 }
             } else {
-                // Path exists but has no data. This is a valid connected state.
-                setData(null);
+                setData(null); // Path exists but has no data.
             }
         }, (error) => {
             console.error(`RTDB Error at path: ${device.dbPath}`, error);
-            if (timeoutRef.current) {
-                clearTimeout(timeoutRef.current);
-                timeoutRef.current = null;
-            }
             setConnectionStatus('offline');
             disconnect();
         });
+        
+        unsubscribeRef.current = unsubscribe;
 
-    }, [device, rtdb, disconnect, updateDeviceStatus, connectionStatus]);
+    }, [device, rtdb, disconnect, updateDeviceStatus]);
 
+    // Effect to auto-disconnect when the component unmounts
     useEffect(() => {
-        // Cleanup on unmount
         return () => {
             disconnect();
         };

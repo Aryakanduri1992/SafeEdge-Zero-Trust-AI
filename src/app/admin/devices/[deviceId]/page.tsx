@@ -29,7 +29,7 @@ export default function DeviceDetailPage() {
   const getStatusBadge = (): { text: string; className: string } => {
     switch (connectionStatus) {
       case 'connecting':
-        return { text: `Connecting...`, className: 'text-muted-foreground' };
+        return { text: `Connecting...`, className: 'text-muted-foreground animate-pulse' };
       case 'connected':
         return { text: 'Online', className: 'text-green-500 border-green-500/50 bg-green-500/10' };
       case 'offline':
