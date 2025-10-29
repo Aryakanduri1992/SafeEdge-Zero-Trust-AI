@@ -63,22 +63,6 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
         return departments.find(d => d.id === departmentId)?.departmentName || 'Unknown';
     };
     
-    const statusVariant = (status: Device['status']) => {
-        switch (status) {
-            case 'online': return 'outline';
-            case 'offline': return 'secondary';
-            case 'alerting': return 'destructive';
-        }
-    };
-    
-    const statusColor = (status: Device['status']) => {
-        switch (status) {
-            case 'online': return 'text-green-500 border-green-500/50 bg-green-500/10';
-            case 'offline': return 'text-muted-foreground';
-            case 'alerting': return '';
-        }
-    };
-
     return (
         <>
             <Card className="shadow-lg">
@@ -94,9 +78,6 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
                                     <TableRow>
                                         <TableHead>Device Name</TableHead>
                                         <TableHead className="hidden sm:table-cell">Department</TableHead>
-                                        <TableHead>Latest Value</TableHead>
-                                        <TableHead className="hidden lg:table-cell">Last Updated</TableHead>
-                                        <TableHead className="text-center">Status</TableHead>
                                         <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -110,17 +91,6 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
                                                 <div className="text-xs text-muted-foreground sm:hidden">{getDepartmentName(device.departmentId)}</div>
                                             </TableCell>
                                             <TableCell className="hidden sm:table-cell">{getDepartmentName(device.departmentId)}</TableCell>
-                                            <TableCell>
-                                                {typeof device.value === 'number' ? device.value.toFixed(2) : 'N/A'}
-                                            </TableCell>
-                                            <TableCell className="hidden lg:table-cell">
-                                                {device.timestamp ? format(parseISO(device.timestamp), 'PPpp') : 'N/A'}
-                                            </TableCell>
-                                            <TableCell className="text-center">
-                                                <Badge variant={statusVariant(device.status)} className={statusColor(device.status)}>
-                                                    {device.status.charAt(0).toUpperCase() + device.status.slice(1)}
-                                                </Badge>
-                                            </TableCell>
                                             <TableCell className="text-right">
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
@@ -145,7 +115,7 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
                                     ))}
                                     {filteredDevices.length === 0 && (
                                         <TableRow>
-                                            <TableCell colSpan={7} className="h-24 text-center">
+                                            <TableCell colSpan={3} className="h-24 text-center">
                                                 No devices found matching your criteria.
                                             </TableCell>
                                         </TableRow>
