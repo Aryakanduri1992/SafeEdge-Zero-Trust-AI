@@ -1,89 +1,48 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
-import { ref, onValue, off } from 'firebase/database';
-import { useRtdb } from '@/firebase/provider';
-import { useAuth } from './use-auth';
-import type { Device } from '@/lib/types';
+import { useEffect, useState } from "react";
+import { getDatabase, ref, onValue, off } from "firebase/database";
+import { useFirebaseApp } from "@/firebase";
 
-interface RtdbData {
-    value: number;
-    timestamp: string;
-}
+export default function useRtdbValue(path: string) {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const app = useFirebaseApp();
 
-type ConnectionStatus = 'disconnected' | 'connecting' | 'online' | 'stale' | 'no-path' | 'error';
+  useEffect(() => {
+    if (!path) {
+        setLoading(false);
+        setError("No database path provided.");
+        return;
+    }
 
-export const useRtdbValue = (device?: Device | null) => {
-    const [data, setData] = useState<RtdbData | null>(null);
-    const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
-    const rtdb = useRtdb();
-    const { updateDeviceStatus } = useAuth();
+    const db = getDatabase(app);
+    const dbRef = ref(db, path);
+    setLoading(true);
 
-    useEffect(() => {
-        if (!rtdb || !device || !device.dbPath) {
-            setConnectionStatus(device?.dbPath ? 'disconnected' : 'no-path');
-            setData(null);
-            return;
+    const listener = onValue(
+      dbRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          setData(snapshot.val());
+          setError(null);
+        } else {
+          setData(null);
+          // Don't set an error, the path just might not have data yet.
         }
+        setLoading(false);
+      },
+      (err) => {
+        console.error("RTDB Error:", err);
+        setError(err.message);
+        setLoading(false);
+      }
+    );
 
-        setConnectionStatus('connecting');
-        const dataRef = ref(rtdb, device.dbPath);
-        
-        let staleTimeoutId: NodeJS.Timeout | null = null;
-        let listenerActive = true;
+    return () => off(dbRef, "value", listener);
+  }, [path, app]);
 
-        const listener = onValue(
-          dataRef,
-          (snapshot) => {
-            if (!listenerActive) return;
-
-            if (staleTimeoutId) {
-              clearTimeout(staleTimeoutId);
-            }
-
-            if (snapshot.exists()) {
-              const liveData = snapshot.val() as RtdbData;
-              setData(liveData);
-              setConnectionStatus('online');
-
-              updateDeviceStatus(device.id, {
-                value: liveData.value,
-                timestamp: liveData.timestamp,
-                status: 'online',
-                lastSeen: new Date().toISOString(),
-              });
-              
-              staleTimeoutId = setTimeout(() => {
-                if (listenerActive) {
-                    setConnectionStatus('stale');
-                    updateDeviceStatus(device.id, { status: 'offline' });
-                }
-              }, 15000); // 15 seconds threshold
-
-            } else {
-              setConnectionStatus('error');
-              setData(null);
-            }
-          },
-          (error) => {
-            console.error(`RTDB read failed for path ${device.dbPath}:`, error);
-            if (listenerActive) {
-                setConnectionStatus('error');
-                setData(null);
-            }
-          }
-        );
-
-        return () => {
-            listenerActive = false;
-            if (staleTimeoutId) {
-                clearTimeout(staleTimeoutId);
-            }
-            off(dataRef, 'value', listener);
-        };
-
-    }, [device, rtdb, updateDeviceStatus]);
-
-    return { data, connectionStatus };
-};
+  return { data, loading, error };
+}

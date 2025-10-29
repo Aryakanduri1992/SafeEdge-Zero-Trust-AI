@@ -6,11 +6,11 @@ import { useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { HardDrive, ArrowLeft, RadioTower, Loader2, Wifi, WifiOff, AlertTriangle, TimerOff } from 'lucide-react';
+import { HardDrive, ArrowLeft, RadioTower, Loader2, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { useRtdbValue } from '@/hooks/use-rtdb-value';
+import useRtdbValue from '@/hooks/use-rtdb-value';
 import { formatDistanceToNow } from 'date-fns';
 
 export default function DeviceDetailPage() {
@@ -22,24 +22,22 @@ export default function DeviceDetailPage() {
     return devices.find(d => d.id === deviceId);
   }, [devices, deviceId]);
 
-  const { data: liveData, connectionStatus } = useRtdbValue(device);
+  const { data: liveData, loading: isRtdbLoading, error: rtdbError } = useRtdbValue(device?.dbPath || '');
 
-  const getStatusInfo = (): { text: string; className: string; icon?: React.ReactNode } => {
-    switch (connectionStatus) {
-      case 'connecting':
-        return { text: `Connecting...`, className: 'text-muted-foreground animate-pulse', icon: <Loader2 className="h-4 w-4 animate-spin"/> };
-      case 'online':
-        return { text: 'Live Feed', className: 'text-green-500 border-green-500/50 bg-green-500/10', icon: <Wifi className="h-4 w-4" /> };
-      case 'stale':
-         return { text: 'Signal Lost', className: 'text-amber-500 border-amber-500/50 bg-amber-500/10', icon: <TimerOff className="h-4 w-4" /> };
-      case 'error':
-        return { text: 'Permission Denied', className: 'text-destructive border-destructive/50 bg-destructive/10', icon: <AlertTriangle className="h-4 w-4" /> };
-      case 'no-path':
-         return { text: 'No DB Path', className: 'text-amber-500 border-amber-500/50 bg-amber-500/10', icon: <WifiOff className="h-4 w-4" /> };
-      case 'disconnected':
-      default:
-        return { text: 'Disconnected', className: '', icon: <WifiOff className="h-4 w-4" /> };
+  const getStatusInfo = (): { text: string; className: string; icon: React.ReactNode } => {
+    if (isRtdbLoading) {
+      return { text: 'Connecting...', className: 'text-muted-foreground animate-pulse', icon: <Loader2 className="h-4 w-4 animate-spin" /> };
     }
+    if (rtdbError) {
+      return { text: 'Connection Error', className: 'text-destructive border-destructive/50 bg-destructive/10', icon: <AlertTriangle className="h-4 w-4" /> };
+    }
+    if (liveData) {
+      return { text: 'Live Feed', className: 'text-green-500 border-green-500/50 bg-green-500/10', icon: <Wifi className="h-4 w-4" /> };
+    }
+    if (!device?.dbPath) {
+        return { text: 'No DB Path', className: 'text-amber-500 border-amber-500/50 bg-amber-500/10', icon: <WifiOff className="h-4 w-4" /> };
+    }
+    return { text: 'Awaiting Data', className: '', icon: <WifiOff className="h-4 w-4" /> };
   };
 
   const { text: statusText, className: statusClassName, icon: statusIcon } = getStatusInfo();
@@ -71,66 +69,41 @@ export default function DeviceDetailPage() {
   }
 
   const renderContent = () => {
-    switch (connectionStatus) {
-      case 'connecting':
-        return (
-          <div className="flex flex-col items-center gap-2">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            <span className="text-sm text-muted-foreground">Connecting to Realtime DB...</span>
-          </div>
-        );
-      case 'online':
-        if (liveData) {
-          return (
-            <div>
-              <p className="text-6xl font-bold tracking-tighter">
-                {typeof liveData.value === 'number' ? liveData.value.toFixed(2) : 'N/A'}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Last updated: {liveData.timestamp ? `${formatDistanceToNow(new Date(liveData.timestamp), { addSuffix: true })}` : 'N/A'}
-              </p>
-            </div>
-          );
-        }
-        return (
-           <div className="flex flex-col items-center gap-2">
-              <Wifi className="h-8 w-8 text-green-500" />
-              <span className="font-semibold text-green-500">Connected</span>
-              <span className="text-sm text-muted-foreground">Waiting for first data point...</span>
-           </div>
-        );
-      case 'stale':
-        return (
-          <div className="flex flex-col items-center gap-2">
-            <TimerOff className="h-8 w-8 text-amber-500" />
-            <span className="font-semibold text-amber-500">Signal Lost</span>
-            <span className="text-sm text-muted-foreground">Device may be offline. Last value: {liveData?.value?.toFixed(2) ?? '--'}</span>
-          </div>
-        );
-      case 'error':
-        return (
+    if (isRtdbLoading) {
+      return (
+        <div className="flex flex-col items-center gap-2">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">Connecting to Realtime DB...</span>
+        </div>
+      );
+    }
+    if (rtdbError) {
+       return (
            <div className="flex flex-col items-center gap-2">
               <AlertTriangle className="h-8 w-8 text-destructive" />
               <span className="font-semibold text-destructive">Connection Error</span>
-              <span className="text-sm text-muted-foreground">Check Realtime Database rules or path.</span>
-           </div>
-        );
-      case 'no-path':
-        return (
-          <div className="flex flex-col items-center gap-2">
-            <WifiOff className="h-8 w-8 text-amber-500" />
-            <span className="font-semibold text-amber-500">No Database Path</span>
-            <span className="text-sm text-muted-foreground">Edit this device to set its Realtime DB Path.</span>
-          </div>
-        );
-      default:
-        return (
-           <div className="flex flex-col items-center gap-2">
-              <WifiOff className="h-8 w-8 text-muted-foreground" />
-              <span className="text-sm text-muted-foreground">Feed disconnected.</span>
+              <span className="text-sm text-muted-foreground">{rtdbError}</span>
            </div>
         );
     }
+    if (liveData) {
+      return (
+        <div>
+          <p className="text-6xl font-bold tracking-tighter">
+            {typeof liveData.value === 'number' ? liveData.value.toFixed(2) : String(liveData.value) || 'N/A'}
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Last updated: {liveData.timestamp ? `${formatDistanceToNow(new Date(liveData.timestamp), { addSuffix: true })}` : 'N/A'}
+          </p>
+        </div>
+      );
+    }
+     return (
+       <div className="flex flex-col items-center gap-2">
+          <WifiOff className="h-8 w-8 text-muted-foreground" />
+          <span className="text-sm text-muted-foreground">Waiting for first data point...</span>
+       </div>
+    );
   };
 
   return (
