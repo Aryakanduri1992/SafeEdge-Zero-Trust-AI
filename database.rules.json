@@ -2,7 +2,7 @@
   "rules": {
     "devices": {
       ".read": true,
-      ".write": "auth.uid === 'esp32-device-writer'"
+      ".write": "auth != null"
     }
   }
 }
