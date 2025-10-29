@@ -16,19 +16,30 @@ export const useRtdbValue = (path?: string) => {
     const [data, setData] = useState<RtdbData | null>(null);
     const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
     const [error, setError] = useState<Error | null>(null);
+    const [countdown, setCountdown] = useState(10);
     const rtdb = useRtdb();
+
     const queryRef = useRef<DatabaseReference | null>(null);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+    const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+    const clearTimers = () => {
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+            timeoutRef.current = null;
+        }
+        if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+            intervalRef.current = null;
+        }
+    };
 
     const disconnect = useCallback(() => {
         if (queryRef.current) {
             off(queryRef.current);
             queryRef.current = null;
         }
-        if (timeoutRef.current) {
-            clearTimeout(timeoutRef.current);
-            timeoutRef.current = null;
-        }
+        clearTimers();
         setConnectionStatus('disconnected');
         setData(null);
     }, []);
@@ -44,35 +55,40 @@ export const useRtdbValue = (path?: string) => {
         setConnectionStatus('connecting');
         setError(null);
         setData(null);
+        setCountdown(10);
 
-        queryRef.current = ref(rtdb, path);
+        // Start countdown timer
+        intervalRef.current = setInterval(() => {
+            setCountdown(prev => {
+                if (prev <= 1) {
+                    clearInterval(intervalRef.current!);
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
 
+        // Start timeout for connection
         timeoutRef.current = setTimeout(() => {
-            // This timeout fires if no 'onValue' callback has been triggered yet.
             setConnectionStatus('offline');
             disconnect();
         }, 10000);
 
+        queryRef.current = ref(rtdb, path);
+
         onValue(queryRef.current, (snapshot) => {
-            if (timeoutRef.current) {
-                clearTimeout(timeoutRef.current);
-                timeoutRef.current = null;
-            }
+            clearTimers();
             if (snapshot.exists()) {
                 setData(snapshot.val());
                 setConnectionStatus('connected');
             } else {
-                 // The path exists, but has no data. Treat as offline.
                 setConnectionStatus('offline');
                 disconnect();
             }
         }, (error) => {
             console.error(`RTDB Error at path: ${path}`, error);
             setError(error);
-            if (timeoutRef.current) {
-                clearTimeout(timeoutRef.current);
-                timeoutRef.current = null;
-            }
+            clearTimers();
             setConnectionStatus('offline');
             disconnect();
         });
@@ -86,5 +102,5 @@ export const useRtdbValue = (path?: string) => {
         };
     }, [disconnect]);
 
-    return { data, connectionStatus, error, connect, disconnect };
+    return { data, connectionStatus, error, countdown, connect, disconnect };
 };

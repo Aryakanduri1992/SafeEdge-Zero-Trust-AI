@@ -22,14 +22,14 @@ export default function DeviceDetailPage() {
     return devices.find(d => d.id === deviceId);
   }, [devices, deviceId]);
 
-  const { data: liveData, connectionStatus, connect, disconnect } = useRtdbValue(device?.dbPath);
+  const { data: liveData, connectionStatus, countdown, connect, disconnect } = useRtdbValue(device?.dbPath);
 
   const isLoading = isAuthLoading || !device;
 
   const getStatusBadge = (): { text: string; className: string } => {
     switch (connectionStatus) {
       case 'connecting':
-        return { text: 'Connecting...', className: 'text-muted-foreground' };
+        return { text: `Connecting... (${countdown}s)`, className: 'text-muted-foreground' };
       case 'connected':
         return { text: 'Online', className: 'text-green-500 border-green-500/50 bg-green-500/10' };
       case 'offline':
@@ -111,7 +111,7 @@ export default function DeviceDetailPage() {
           {connectionStatus === 'connecting' ? (
              <div className="flex flex-col items-center gap-2">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Connecting to device...</span>
+                <span className="text-sm text-muted-foreground">Connecting... ({countdown}s)</span>
              </div>
           ) : connectionStatus === 'connected' && liveData ? (
               <div>
