@@ -14,7 +14,8 @@ export default function useRtdbValue(path: string) {
   useEffect(() => {
     if (!path) {
         setLoading(false);
-        setError("No database path provided.");
+        // This isn't an error, it just means we don't have a path to listen to yet.
+        setData(null);
         return;
     }
 
@@ -29,8 +30,8 @@ export default function useRtdbValue(path: string) {
           setData(snapshot.val());
           setError(null);
         } else {
+          // Path does not exist in RTDB yet. This is not an error.
           setData(null);
-          // Don't set an error, the path just might not have data yet.
         }
         setLoading(false);
       },
@@ -41,7 +42,11 @@ export default function useRtdbValue(path: string) {
       }
     );
 
-    return () => off(dbRef, "value", listener);
+    // Cleanup function
+    return () => {
+        // Detach the listener when the component unmounts or the path changes
+        off(dbRef, "value", listener);
+    };
   }, [path, app]);
 
   return { data, loading, error };

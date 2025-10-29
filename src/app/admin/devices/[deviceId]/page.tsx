@@ -87,10 +87,20 @@ export default function DeviceDetailPage() {
         );
     }
     if (liveData) {
+      const displayValue = () => {
+        if (device.type === "PIR") {
+          return liveData.value === 1 ? "Motion Detected" : "No Motion";
+        }
+        if (typeof liveData.value === 'number') {
+            return liveData.value.toFixed(2);
+        }
+        return String(liveData.value) || 'N/A';
+      };
+
       return (
         <div>
           <p className="text-6xl font-bold tracking-tighter">
-            {typeof liveData.value === 'number' ? liveData.value.toFixed(2) : String(liveData.value) || 'N/A'}
+            {displayValue()}
           </p>
           <p className="text-sm text-muted-foreground">
             Last updated: {liveData.timestamp ? `${formatDistanceToNow(new Date(liveData.timestamp), { addSuffix: true })}` : 'N/A'}
