@@ -12,77 +12,57 @@ interface RtdbData {
     timestamp: string;
 }
 
-type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'no-path' | 'error' | 'stale';
-
-const STALE_TIMEOUT_MS = 30000; // 30 seconds
+type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'no-path' | 'error';
 
 export const useRtdbValue = (device?: Device | null) => {
     const [data, setData] = useState<RtdbData | null>(null);
     const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
     const rtdb = useRtdb();
     const { updateDeviceStatus } = useAuth();
-    const staleTimerRef = useRef<NodeJS.Timeout | null>(null);
-    const hasConnectedOnceRef = useRef(false);
+    
+    // To prevent spamming updates, we track the last known online status
+    const lastReportedStatusRef = useRef<"online" | "offline">("offline");
 
     useEffect(() => {
         if (!rtdb || !device || !device.dbPath) {
             setConnectionStatus(device?.dbPath ? 'disconnected' : 'no-path');
             setData(null);
-            hasConnectedOnceRef.current = false;
-            if (staleTimerRef.current) clearTimeout(staleTimerRef.current);
             return;
         }
 
         setConnectionStatus('connecting');
         const dbRef = ref(rtdb, device.dbPath);
 
-        const handleValueChange = (snapshot: any) => {
-            if (staleTimerRef.current) {
-                clearTimeout(staleTimerRef.current);
-            }
-
+        const listener = onValue(dbRef, (snapshot) => {
             if (snapshot.exists()) {
                 const liveData = snapshot.val() as RtdbData;
                 setData(liveData);
                 setConnectionStatus('connected');
-                hasConnectedOnceRef.current = true;
-
-                if (device.status !== 'online' || device.value !== liveData.value) {
+                
+                // Only update Firestore if the status has actually changed
+                if (lastReportedStatusRef.current === 'offline') {
                     updateDeviceStatus(device.id, {
                         value: liveData.value,
                         timestamp: liveData.timestamp,
                         status: 'online',
                         lastSeen: new Date().toISOString(),
                     });
+                    lastReportedStatusRef.current = 'online';
                 }
+
             } else {
-                 // Path exists, but no data yet. If we've connected before, it might be an issue.
-                setConnectionStatus(hasConnectedOnceRef.current ? 'stale' : 'connected');
+                setConnectionStatus('error'); // Path exists but no data
                 setData(null);
             }
-
-            staleTimerRef.current = setTimeout(() => {
-                setConnectionStatus('stale');
-                if (device.status !== 'offline') {
-                    updateDeviceStatus(device.id, { status: 'offline' });
-                }
-            }, STALE_TIMEOUT_MS);
-        };
-
-        const handleError = (error: Error) => {
+        }, (error) => {
             console.error(`RTDB read failed for path ${device.dbPath}:`, error);
             setConnectionStatus('error');
             setData(null);
-            if (staleTimerRef.current) clearTimeout(staleTimerRef.current);
-        };
-        
-        onValue(dbRef, handleValueChange, handleError);
+        });
 
+        // Cleanup function
         return () => {
-            if (staleTimerRef.current) {
-                clearTimeout(staleTimerRef.current);
-            }
-            off(dbRef, 'value', handleValueChange);
+            off(dbRef, 'value', listener);
         };
 
     }, [device, rtdb, updateDeviceStatus]);
