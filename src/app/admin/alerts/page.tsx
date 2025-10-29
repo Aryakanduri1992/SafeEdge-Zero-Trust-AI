@@ -1,15 +1,8 @@
+
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { ShieldAlert } from "lucide-react";
-
-const EmptyState = () => (
-    <div className="flex flex-col items-center justify-center text-center p-10 sm:p-16">
-        <ShieldAlert className="h-16 w-16 text-green-500 mb-4" />
-        <h3 className="font-semibold text-xl">All Systems Green</h3>
-        <p className="text-muted-foreground text-sm mt-2">There are no active alerts to display at this time.</p>
-    </div>
-);
+import { RealtimeChart } from "@/components/admin/realtime-chart";
 
 export default function AlertsPage() {
   return (
@@ -23,13 +16,13 @@ export default function AlertsPage() {
 
       <Card>
         <CardHeader>
-            <CardTitle>Live Alert Feed</CardTitle>
+            <CardTitle>Live Sensor Feed</CardTitle>
             <CardDescription>
-                No active alerts.
+                Real-time data stream from active sensors across the organization.
             </CardDescription>
         </CardHeader>
         <CardContent>
-          <EmptyState />
+          <RealtimeChart />
         </CardContent>
       </Card>
     </div>

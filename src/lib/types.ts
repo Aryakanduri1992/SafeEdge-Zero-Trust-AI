@@ -5,6 +5,7 @@ export type Plan = 'Free' | 'Pro' | 'Enterprise';
 export type DepartmentStatus = 'active' | 'inactive';
 export type DeviceType = "Sensor" | "Gateway" | "Actuator" | "Camera";
 export type DeviceStatus = "online" | "offline" | "alerting";
+export type MetricType = "temperature" | "humidity" | "pressure" | "vibration";
 
 
 export interface BaseUser {
@@ -89,3 +90,12 @@ export interface Device {
 
 export type NewDeviceData = Omit<Device, 'id' | 'lastSeen' | 'status'>;
 export type UpdateDeviceData = Partial<Omit<Device, 'id' | 'organizationId'>>;
+
+export interface SensorReading {
+  id: string;
+  deviceId: string;
+  organizationId: string;
+  timestamp: string; // ISO date string
+  value: number;
+  metricType: MetricType;
+}
