@@ -29,12 +29,15 @@ export const useRtdbValue = (device?: Device | null) => {
 
         setConnectionStatus('connecting');
         const dataRef = ref(rtdb, device.dbPath);
-
+        
         let staleTimeoutId: NodeJS.Timeout | null = null;
+        let listenerActive = true;
 
         const listener = onValue(
           dataRef,
           (snapshot) => {
+            if (!listenerActive) return;
+
             if (staleTimeoutId) {
               clearTimeout(staleTimeoutId);
             }
@@ -44,18 +47,18 @@ export const useRtdbValue = (device?: Device | null) => {
               setData(liveData);
               setConnectionStatus('online');
 
-              // Update Firestore with the latest status
               updateDeviceStatus(device.id, {
                 value: liveData.value,
                 timestamp: liveData.timestamp,
                 status: 'online',
                 lastSeen: new Date().toISOString(),
               });
-
-              // Set a new timeout to detect if the device goes offline
+              
               staleTimeoutId = setTimeout(() => {
-                setConnectionStatus('stale');
-                updateDeviceStatus(device.id, { status: 'offline' });
+                if (listenerActive) {
+                    setConnectionStatus('stale');
+                    updateDeviceStatus(device.id, { status: 'offline' });
+                }
               }, 15000); // 15 seconds threshold
 
             } else {
@@ -65,21 +68,22 @@ export const useRtdbValue = (device?: Device | null) => {
           },
           (error) => {
             console.error(`RTDB read failed for path ${device.dbPath}:`, error);
-            setConnectionStatus('error');
-            setData(null);
+            if (listenerActive) {
+                setConnectionStatus('error');
+                setData(null);
+            }
           }
         );
 
-        // Cleanup function to be called on component unmount or when dependencies change
         return () => {
+            listenerActive = false;
             if (staleTimeoutId) {
                 clearTimeout(staleTimeoutId);
             }
-            // Detach the listener
             off(dataRef, 'value', listener);
         };
 
-    }, [device, rtdb, updateDeviceStatus]); // Effect dependencies
+    }, [device, rtdb, updateDeviceStatus]);
 
     return { data, connectionStatus };
 };
