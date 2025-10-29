@@ -6,19 +6,34 @@ import { useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { HardDrive, ArrowLeft, RadioTower } from 'lucide-react';
+import { HardDrive, ArrowLeft, RadioTower, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { useRtdbValue } from '@/hooks/use-rtdb-value';
+import { formatDistanceToNow } from 'date-fns';
 
 export default function DeviceDetailPage() {
   const params = useParams();
   const deviceId = params.deviceId as string;
-  const { devices, isLoading } = useAuth();
+  const { devices, isLoading: isAuthLoading } = useAuth();
 
   const device = useMemo(() => {
     return devices.find(d => d.id === deviceId);
   }, [devices, deviceId]);
+
+  const { data: liveData, isLoading: isRtdbLoading } = useRtdbValue(device?.dbPath);
+
+  const isLoading = isAuthLoading || !device;
+
+  const getStatus = (): { status: string, color: string } => {
+    if (isRtdbLoading && !liveData) return { status: 'Connecting...', color: 'text-muted-foreground' };
+    if (!liveData) return { status: 'Offline', color: 'text-muted-foreground' };
+    if (device?.status === 'alerting') return { status: 'Alerting', color: 'text-destructive border-destructive/50 bg-destructive/10' };
+    return { status: 'Online', color: 'text-green-500 border-green-500/50 bg-green-500/10' };
+  }
+
+  const { status, color } = getStatus();
 
   if (isLoading) {
     return (
@@ -45,16 +60,6 @@ export default function DeviceDetailPage() {
       </div>
     );
   }
-  
-    const statusColor = (status: string) => {
-        switch (status) {
-            case 'online': return 'text-green-500 border-green-500/50 bg-green-500/10';
-            case 'offline': return 'text-muted-foreground';
-            case 'alerting': return 'text-destructive border-destructive/50 bg-destructive/10';
-            default: return 'text-muted-foreground';
-        }
-    };
-
 
   return (
     <div className="space-y-8">
@@ -81,22 +86,34 @@ export default function DeviceDetailPage() {
                     Live Data Feed
                 </CardTitle>
                 <CardDescription>
-                    Real-time data stream from device: {device.name}.
+                    Real-time data stream from: {device.dbPath}.
                 </CardDescription>
             </div>
-            <Badge variant="outline" className={statusColor(device.status)}>
-              {device.status}
+            <Badge variant="outline" className={color}>
+              {status}
             </Badge>
         </CardHeader>
         <CardContent className="flex items-center justify-center text-center h-48">
-          <div>
-            <p className="text-6xl font-bold tracking-tighter">
-                {typeof device.value === 'number' ? device.value.toFixed(2) : 'N/A'}
-            </p>
-            <p className="text-sm text-muted-foreground">
-                Last updated: {device.timestamp ? new Date(device.timestamp).toLocaleString() : 'N/A'}
-            </p>
-          </div>
+          {isRtdbLoading && !liveData ? (
+             <div className="flex flex-col items-center gap-2">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Connecting to device...</span>
+             </div>
+          ) : liveData ? (
+              <div>
+                <p className="text-6xl font-bold tracking-tighter">
+                  {typeof liveData.value === 'number' ? liveData.value.toFixed(2) : 'N/A'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Last updated: {liveData.timestamp ? `${formatDistanceToNow(new Date(liveData.timestamp), { addSuffix: true })}` : 'N/A'}
+                </p>
+              </div>
+          ) : (
+             <div className="flex flex-col items-center gap-2">
+                <HardDrive className="h-8 w-8 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Waiting for data...</span>
+             </div>
+          )}
         </CardContent>
       </Card>
     </div>
