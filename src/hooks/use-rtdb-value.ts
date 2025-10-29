@@ -11,18 +11,23 @@ export default function useRtdbValue(path: string, deviceId?: string) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const app = useFirebaseApp();
-  const { updateDeviceStatus, user } = useAuth();
+  const { user } = useAuth();
 
   useEffect(() => {
-    if (!path || !app || !user || user.role !== 'admin') {
+    if (!path || !app || !user) {
       setLoading(false);
       setData(null);
+      if (user) {
+         // Only set an error if we expected a path but didn't get one.
+         setError("Realtime Database path is not configured for this device.");
+      }
       return;
     }
 
     const db = getDatabase(app);
     const dbRef = ref(db, path);
     setLoading(true);
+    setError(null);
 
     const listener = onValue(
       dbRef,
@@ -31,19 +36,9 @@ export default function useRtdbValue(path: string, deviceId?: string) {
           const snapshotData = snapshot.val();
           setData(snapshotData);
           setError(null);
-          
-          if (deviceId && snapshotData.timestamp && snapshotData.value !== undefined) {
-             // Update Firestore with the latest data from RTDB
-            updateDeviceStatus(deviceId, {
-              status: 'online',
-              value: snapshotData.value,
-              timestamp: snapshotData.timestamp,
-              lastSeen: new Date().toISOString(),
-            });
-          }
-
         } else {
           setData(null);
+          // Don't set an error here, it might just be that no data has arrived yet.
         }
         setLoading(false);
       },
@@ -58,7 +53,7 @@ export default function useRtdbValue(path: string, deviceId?: string) {
     return () => {
       off(dbRef, "value", listener);
     };
-  }, [path, app, deviceId, updateDeviceStatus, user]);
+  }, [path, app, user]);
 
   return { data, loading, error };
 }
