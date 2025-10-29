@@ -22,14 +22,14 @@ export default function DeviceDetailPage() {
     return devices.find(d => d.id === deviceId);
   }, [devices, deviceId]);
 
-  const { data: liveData, connectionStatus, countdown, connect, disconnect } = useRtdbValue(device);
+  const { data: liveData, connectionStatus, connect, disconnect } = useRtdbValue(device);
 
   const isLoading = isAuthLoading || !device;
 
   const getStatusBadge = (): { text: string; className: string } => {
     switch (connectionStatus) {
       case 'connecting':
-        return { text: `Connecting... (${countdown}s)`, className: 'text-muted-foreground' };
+        return { text: `Connecting...`, className: 'text-muted-foreground' };
       case 'connected':
         return { text: 'Online', className: 'text-green-500 border-green-500/50 bg-green-500/10' };
       case 'offline':
@@ -101,7 +101,7 @@ export default function DeviceDetailPage() {
                     <PlayCircle />
                     Connect
                 </Button>
-                 <Button variant="destructive" size="sm" onClick={disconnect} disabled={connectionStatus === 'disconnected' || connectionStatus === 'offline'}>
+                 <Button variant="destructive" size="sm" onClick={disconnect} disabled={connectionStatus === 'disconnected'}>
                     <XCircle />
                     Disconnect
                 </Button>
@@ -111,7 +111,7 @@ export default function DeviceDetailPage() {
           {connectionStatus === 'connecting' ? (
              <div className="flex flex-col items-center gap-2">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">Connecting... ({countdown}s)</span>
+                <span className="text-sm text-muted-foreground">Connecting...</span>
              </div>
           ) : connectionStatus === 'connected' && liveData ? (
               <div>
@@ -126,7 +126,7 @@ export default function DeviceDetailPage() {
              <div className="flex flex-col items-center gap-2">
                 <PowerOff className="h-8 w-8 text-destructive" />
                 <span className="font-semibold text-destructive">Device is offline</span>
-                <span className="text-sm text-muted-foreground">No data received after 10 seconds.</span>
+                <span className="text-sm text-muted-foreground">No data is being received at this path.</span>
              </div>
           ) : (
              <div className="flex flex-col items-center gap-2">
