@@ -94,6 +94,13 @@ export interface Device {
 export type NewDeviceData = Omit<Device, 'id' | 'lastSeen' | 'status' | 'value' | 'timestamp'>;
 export type UpdateDeviceData = Partial<Omit<Device, 'id' | 'organizationId'>>;
 
+export type UpdateDeviceStatusData = {
+  value: number;
+  timestamp: string; // ISO date string
+  status: 'online';
+  lastSeen: string;
+};
+
 export interface SensorReading {
   id: string;
   deviceId: string;

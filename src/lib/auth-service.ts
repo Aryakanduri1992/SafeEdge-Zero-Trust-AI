@@ -13,7 +13,7 @@ import {
   getIdTokenResult
 } from 'firebase/auth';
 import { getFirestore, doc, setDoc, getDoc, updateDoc, writeBatch, collection, addDoc, deleteDoc } from 'firebase/firestore';
-import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData, NewDeviceData, UpdateDeviceData, Device } from './types';
+import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData, NewDeviceData, UpdateDeviceData, Device, UpdateDeviceStatusData } from './types';
 import { initializeFirebase, FirestorePermissionError, errorEmitter } from '@/firebase';
 
 const { firestore, auth } = initializeFirebase();
@@ -267,3 +267,12 @@ export const updateOrganizationImage = async (organizationId: string, imageUrl: 
         throw permissionError;
     });
 }
+
+export const updateDeviceStatus = async (deviceId: string, statusData: UpdateDeviceStatusData): Promise<void> => {
+    const deviceRef = doc(firestore, 'devices', deviceId);
+    await updateDoc(deviceRef, statusData).catch(serverError => {
+        // We don't throw a permission error here because this is an automatic background update.
+        // Failing silently is acceptable if the user doesn't have permission to update the status.
+        console.warn(`Could not update device status for ${deviceId}:`, serverError.message);
+    });
+};

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo } from 'react';
@@ -21,7 +22,7 @@ export default function DeviceDetailPage() {
     return devices.find(d => d.id === deviceId);
   }, [devices, deviceId]);
 
-  const { data: liveData, connectionStatus, countdown, connect, disconnect } = useRtdbValue(device?.dbPath);
+  const { data: liveData, connectionStatus, countdown, connect, disconnect } = useRtdbValue(device?.dbPath, device?.id);
 
   const isLoading = isAuthLoading || !device;
 

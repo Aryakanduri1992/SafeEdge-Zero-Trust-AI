@@ -4,6 +4,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { ref, onValue, off, DatabaseReference } from 'firebase/database';
 import { useRtdb } from '@/firebase/provider';
+import { useAuth } from './use-auth';
+import type { UpdateDeviceStatusData } from '@/lib/types';
 
 interface RtdbData {
     value: number;
@@ -12,16 +14,22 @@ interface RtdbData {
 
 type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'offline';
 
-export const useRtdbValue = (path?: string) => {
+export const useRtdbValue = (path?: string, deviceId?: string) => {
     const [data, setData] = useState<RtdbData | null>(null);
     const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
     const [error, setError] = useState<Error | null>(null);
     const [countdown, setCountdown] = useState(10);
     const rtdb = useRtdb();
+    const { updateDeviceStatus } = useAuth();
 
     const queryRef = useRef<DatabaseReference | null>(null);
     const timeoutRef = useRef<NodeJS.Timeout | null>(null);
     const intervalRef = useRef<NodeJS.Timeout | null>(null);
+    const statusRef = useRef(connectionStatus);
+
+    useEffect(() => {
+        statusRef.current = connectionStatus;
+    }, [connectionStatus]);
 
     const clearTimers = () => {
         if (timeoutRef.current) {
@@ -45,8 +53,8 @@ export const useRtdbValue = (path?: string) => {
     }, []);
 
     const connect = useCallback(() => {
-        if (!path || !rtdb) {
-            setError(new Error("RTDB path or service not available."));
+        if (!path || !rtdb || !deviceId) {
+            setError(new Error("RTDB path, device ID, or service not available."));
             setConnectionStatus('offline');
             return;
         }
@@ -57,7 +65,6 @@ export const useRtdbValue = (path?: string) => {
         setData(null);
         setCountdown(10);
 
-        // Start countdown timer
         intervalRef.current = setInterval(() => {
             setCountdown(prev => {
                 if (prev <= 1) {
@@ -68,10 +75,11 @@ export const useRtdbValue = (path?: string) => {
             });
         }, 1000);
 
-        // Start timeout for connection
         timeoutRef.current = setTimeout(() => {
-            setConnectionStatus('offline');
-            disconnect();
+            if (statusRef.current === 'connecting') {
+                setConnectionStatus('offline');
+                disconnect();
+            }
         }, 10000);
 
         queryRef.current = ref(rtdb, path);
@@ -79,8 +87,19 @@ export const useRtdbValue = (path?: string) => {
         onValue(queryRef.current, (snapshot) => {
             clearTimers();
             if (snapshot.exists()) {
-                setData(snapshot.val());
+                const liveData = snapshot.val() as RtdbData;
+                setData(liveData);
                 setConnectionStatus('connected');
+                
+                // Automatically update Firestore
+                const statusUpdate: UpdateDeviceStatusData = {
+                    value: liveData.value,
+                    timestamp: liveData.timestamp,
+                    status: 'online',
+                    lastSeen: new Date().toISOString(),
+                };
+                updateDeviceStatus(deviceId, statusUpdate);
+
             } else {
                 setConnectionStatus('offline');
                 disconnect();
@@ -93,9 +112,8 @@ export const useRtdbValue = (path?: string) => {
             disconnect();
         });
 
-    }, [path, rtdb, disconnect]);
+    }, [path, rtdb, deviceId, disconnect, updateDeviceStatus]);
 
-    // Cleanup on unmount
     useEffect(() => {
         return () => {
             disconnect();

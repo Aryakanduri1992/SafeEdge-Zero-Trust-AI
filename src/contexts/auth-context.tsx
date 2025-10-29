@@ -4,7 +4,7 @@
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import * as authService from '@/lib/auth-service';
-import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData, NewDeviceData, UpdateDeviceData, Device } from '@/lib/types';
+import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData, NewDeviceData, UpdateDeviceData, Device, UpdateDeviceStatusData } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { useFirebase, useFirestore, FirestorePermissionError, errorEmitter } from '@/firebase';
 import { collection, onSnapshot, Unsubscribe, query, where, doc } from 'firebase/firestore';
@@ -30,6 +30,7 @@ type AuthContextType = {
   updateDevice: (deviceId: string, deviceData: UpdateDeviceData) => Promise<void>;
   deleteDevice: (deviceId: string) => Promise<void>;
   updateOrganizationImage: (organizationId: string, imageUrl: string) => Promise<void>;
+  updateDeviceStatus: (deviceId: string, statusData: UpdateDeviceStatusData) => Promise<void>;
 };
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -271,6 +272,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       await authService.updateOrganizationImage(organizationId, imageUrl);
   };
 
+  const updateDeviceStatus = async (deviceId: string, statusData: UpdateDeviceStatusData) => {
+    if (!appUser || appUser.role !== 'admin') {
+      // Silently fail if not an admin, as this is an automatic background task.
+      return;
+    }
+    await authService.updateDeviceStatus(deviceId, statusData);
+  };
+
   const contextValue = { 
     user: appUser, 
     organizations,
@@ -291,6 +300,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     updateDevice,
     deleteDevice,
     updateOrganizationImage,
+    updateDeviceStatus,
   };
 
   return (
