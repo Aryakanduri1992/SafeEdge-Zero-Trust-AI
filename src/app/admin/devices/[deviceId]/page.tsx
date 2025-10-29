@@ -101,7 +101,7 @@ export default function DeviceDetailPage() {
                     <PlayCircle />
                     Connect
                 </Button>
-                 <Button variant="destructive" size="sm" onClick={disconnect} disabled={connectionStatus === 'disconnected'}>
+                 <Button variant="destructive" size="sm" onClick={disconnect} disabled={connectionStatus === 'disconnected' || connectionStatus === 'connecting'}>
                     <XCircle />
                     Disconnect
                 </Button>
