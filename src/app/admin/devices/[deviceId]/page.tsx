@@ -6,7 +6,7 @@ import { useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { HardDrive, ArrowLeft, RadioTower, Loader2, PlayCircle, XCircle, PowerOff, WifiOff } from 'lucide-react';
+import { HardDrive, ArrowLeft, RadioTower, Loader2, Wifi, WifiOff, PowerOff } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -31,14 +31,14 @@ export default function DeviceDetailPage() {
       case 'connecting':
         return { text: `Connecting...`, className: 'text-muted-foreground animate-pulse', icon: <Loader2 className="h-4 w-4 animate-spin"/> };
       case 'connected':
-        return { text: 'Online', className: 'text-green-500 border-green-500/50 bg-green-500/10' };
+        return { text: 'Online', className: 'text-green-500 border-green-500/50 bg-green-500/10', icon: <Wifi className="h-4 w-4" /> };
       case 'offline':
-        return { text: 'Offline', className: 'text-destructive border-destructive/50 bg-destructive/10' };
+        return { text: 'Offline', className: 'text-destructive border-destructive/50 bg-destructive/10', icon: <PowerOff className="h-4 w-4" /> };
       case 'no-path':
-         return { text: 'No DB Path', className: 'text-amber-500 border-amber-500/50 bg-amber-500/10' };
+         return { text: 'No DB Path', className: 'text-amber-500 border-amber-500/50 bg-amber-500/10', icon: <WifiOff className="h-4 w-4" /> };
       case 'disconnected':
       default:
-        return { text: 'Disconnected', className: '' };
+        return { text: 'Disconnected', className: '', icon: <WifiOff className="h-4 w-4" /> };
     }
   };
 
@@ -114,7 +114,7 @@ export default function DeviceDetailPage() {
               </div>
           ) : connectionStatus === 'connected' && !liveData ? (
              <div className="flex flex-col items-center gap-2">
-                <RadioTower className="h-8 w-8 text-green-500" />
+                <Wifi className="h-8 w-8 text-green-500" />
                 <span className="font-semibold text-green-500">Connected</span>
                 <span className="text-sm text-muted-foreground">Waiting for first data point...</span>
              </div>
@@ -132,7 +132,7 @@ export default function DeviceDetailPage() {
             </div>
           ) : (
              <div className="flex flex-col items-center gap-2">
-                <HardDrive className="h-8 w-8 text-muted-foreground" />
+                <WifiOff className="h-8 w-8 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Feed disconnected.</span>
              </div>
           )}
