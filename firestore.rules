@@ -1,3 +1,4 @@
+
 /**
  * @file Firestore Security Rules
  * @core_philosophy This ruleset enforces a strict role-based access control,
@@ -46,7 +47,7 @@ service cloud.firestore {
     function isExistingOwner(userId) {
         return isOwner(userId) && resource != null;
     }
-
+    
     /**
      * @description Rules for super admin role assignments.
      * @path /roles_super_admin/{superAdminId}
@@ -101,14 +102,15 @@ service cloud.firestore {
      * @allow (create) Only super admins can create devices.
      * @deny (create) Non-super admins cannot create devices.
      * @allow (get, list) Anyone can read device information.
-     * @allow (update, delete) Only super admins can update or delete devices.
+     * @allow (update) An organization admin can update their own device.
+     * @allow (delete) An organization admin can delete their own device.
      * @principle Restricts device creation to super admins and enforces ownership for updates and deletes.
      */
     match /devices/{deviceId} {
         allow get, list: if true;
         allow create: if isSignedIn();
-        allow update: if false;
-        allow delete: if false;
+        allow update: if isSignedIn() && resource.data.organizationId == request.auth.uid;
+        allow delete: if isSignedIn() && resource.data.organizationId == request.auth.uid;
     }
   }
 }
