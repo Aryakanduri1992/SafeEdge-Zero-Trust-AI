@@ -78,19 +78,6 @@
             "timestamp": { "type": "string", "format": "date-time", "description": "Timestamp of the latest reading." }
         },
         "required": ["name", "location", "type", "status", "lastSeen", "departmentId", "organizationId", "dbPath"]
-    },
-    "SensorReading": {
-      "title": "Sensor Reading",
-      "description": "Represents a single data point from a sensor device.",
-      "type": "object",
-      "properties": {
-          "deviceId": { "type": "string" },
-          "organizationId": { "type": "string" },
-          "timestamp": { "type": "string", "format": "date-time" },
-          "value": { "type": "number" },
-          "metricType": { "type": "string", "enum": ["temperature", "humidity", "pressure", "vibration"] }
-      },
-      "required": ["deviceId", "organizationId", "timestamp", "value", "metricType"]
     }
   },
   "auth": {

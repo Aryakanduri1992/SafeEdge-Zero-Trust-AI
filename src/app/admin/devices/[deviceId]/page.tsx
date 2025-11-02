@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import useRtdbValue from '@/hooks/use-rtdb-value';
 import { format } from 'date-fns';
-import { DeviceRealtimeChart } from '@/components/admin/device-realtime-chart';
 
 export default function DeviceDetailPage() {
   const params = useParams();
@@ -172,15 +171,6 @@ export default function DeviceDetailPage() {
         </div>
       </Card>
 
-      <Card>
-        <CardHeader>
-            <CardTitle>Sensor History</CardTitle>
-            <CardDescription>A real-time chart of the most recent sensor readings from Firestore.</CardDescription>
-        </CardHeader>
-        <CardContent>
-            <DeviceRealtimeChart deviceId={deviceId} />
-        </CardContent>
-      </Card>
     </div>
   );
 }
