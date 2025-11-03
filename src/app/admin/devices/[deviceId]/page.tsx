@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import useRtdbValue from '@/hooks/use-rtdb-value';
-import { format } from 'date-fns';
+import { decryptData } from '@/lib/crypto-service';
 
 export default function DeviceDetailPage() {
   const params = useParams();
@@ -68,8 +68,6 @@ export default function DeviceDetailPage() {
   }
 
   const renderContent = () => {
-    const dataToRender = liveData || { value: device.value, timestamp: device.timestamp };
-
     if (isRtdbLoading) {
       return (
         <div className="flex flex-col items-center gap-2">
@@ -87,25 +85,25 @@ export default function DeviceDetailPage() {
            </div>
         );
     }
-    if (dataToRender.value !== undefined && dataToRender.timestamp !== undefined) {
+    if (liveData && liveData.encrypted_value && liveData.timestamp) {
+      const decryptedValue = decryptData(liveData.encrypted_value);
+      const numericValue = parseFloat(decryptedValue);
+
       const displayValue = () => {
         if (device.type === "PIR") {
-          return dataToRender.value === 1 ? "Motion Detected" : "No Motion";
+          return numericValue === 1 ? "Motion Detected" : "No Motion";
         }
-        if (typeof dataToRender.value === 'number') {
-            return dataToRender.value.toFixed(2);
+        if (!isNaN(numericValue)) {
+            return numericValue.toFixed(2);
         }
-        return String(dataToRender.value);
+        return "Invalid Data";
       };
-
+      
       const formatTimestamp = (timestamp: string): string => {
         try {
             const date = new Date(timestamp);
-            if (isNaN(date.getTime())) {
-                return "Invalid date";
-            }
-            // Format to a readable UTC string to match the database value
-            const utcString = date.toISOString(); // e.g., 2025-10-29T23:49:29.000Z
+            if (isNaN(date.getTime())) return "Invalid date";
+            const utcString = date.toISOString();
             const formattedDate = utcString.slice(0, 10);
             const formattedTime = utcString.slice(11, 19);
             return `${formattedDate} ${formattedTime} UTC`;
@@ -120,7 +118,7 @@ export default function DeviceDetailPage() {
             {displayValue()}
           </p>
           <p className="text-sm text-muted-foreground">
-            Last updated: {formatTimestamp(dataToRender.timestamp)}
+            Last updated: {formatTimestamp(liveData.timestamp)}
           </p>
         </div>
       );
@@ -157,7 +155,7 @@ export default function DeviceDetailPage() {
                 Live Data Feed
             </CardTitle>
             <CardDescription>
-                Real-time data stream from: {device.dbPath || "Not configured"}.
+                Real-time data stream from: {device.dbPath || "Not configured"}. Data is end-to-end encrypted.
             </CardDescription>
         </CardHeader>
         <CardContent className="flex items-center justify-center text-center h-48">
