@@ -1,11 +1,3 @@
-// -------------------------------------------------------------------------------- /
-//  AuthStation - ESP32 Secure Sensor Data Uploader
-//  - Uses dummy data for testing without hardware.
-//  - Establishes a secure TLS connection using a Root CA certificate.
-//  - Robust time synchronization with NTP and HTTP fallback.
-//  - Halts on critical errors for easier debugging.
-// -------------------------------------------------------------------------------- /
-
 #define FIREBASE_DISABLE_ALL_LOGS
 #include <WiFi.h>
 #include <Firebase_ESP_Client.h>
@@ -30,35 +22,39 @@
 #define DHT_PATH "devices/DHT22_Sensor"
 
 // ============ Root CA Certificate ============
-// Google's Global Trust Services (GTS) Root R1 certificate.
-const char* root_ca_cert =
-    "-----BEGIN CERTIFICATE-----\n"
-    "MIIDdTCCAl2gAwIBAgILCgAAAAA0AAAAFzANBgkqhkiG9w0BAQsFADBYMQswCQYD\n"
-    "VQQGEwJCRTEZMBcGA1UEChMQR2xvYmFsU2lnbiBudi1zYTEQMA4GA1UECxMHUm9v\n"
-    "dCBDQTEbMBkGA1UEAxMSR2xvYmFsU2lnbiBSb290IENBMB4XDTE0MDYyOTEwMDAw\n"
-    "MFoXDTI4MDEyODEwMDAwMFowWDELMAkGA1UEBhMCQkUxGTAXBgNVBAoTEEdsb2Jh\n"
-    "bFNpZ24gbnYtc2ExEDAOBgNVBAsTB1Jvb3QgQ0ExGzAZBgNVBAMTEkdsb2JhbFNp\n"
-    "Z24gUm9vdCBDQTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAJwwL2oN\n"
-    "pMofdoA29iDo7Soo+VnU4yDve3xBAEtal14J6A7sQy/YDBr8oA2N2aTLTj5pQv/+\n"
-    "j8vj4iOEV4d2YIeC/1yfx6vI2M9v2uM1Fk2dgc4Yn82VJEa4aE8n0mB2yM+3yr72\n"
-    "u4j7gMc/A4y/3Vf4cWf0s8P6A/RLjI4/9p513a9g3B3XN136xi2c3v4exsyO22n3\n"
-    "D2tT5je8Gqj3yVeyA2sfrr/m2g/uJg8dpOaQP3S/v2d4jC42H/MTL3MUr3u4Cns4\n"
-    "d2Q3jbfDNEPjIeuwnZpPco9o2v3GvGOM6Zl962NqLWAIIS/grUpZWcSGjnTKwIAy\n"
-    "Xk9LPjP2g6p2KywH3iJvWd3nWNYVyA8T+CsKeJtTEiHWir8C12P/t9W2wo4a3GZo\n"
-    "eEWdYDMcsDmt3J6p0+p8h9YT8I28u3Qf432t3d5cW0AnE/g/sC2gM1aYmXo5T8Ie\n"
-    "w8wB3C3a+l/sZpL9ePGeJ25C/fKPg8VtzE5W757EBL20fCqK9sEy4lV1oAd4pI3d\n"
-    "agVvS2yf8Xq7DVfM/I6M05v1eAFBwXg1VfHBhJ/pQDBVQy6C3rD6M7p3d5xK68fm\n"
-    "gRe/Zn1aCgtg+pBAv5jG1V1YvU/0vRfqD321+MHasA0P82yJupVfyTjDAy8G9ks2\n"
-    "v9DDtQpFkFNu4p3QcMyyC+g8o2C/Tpf47M/vA5F/eDqfT3jZeyIZzAjGfd8b2eS2\n"
-    "c8v35p5TzQvfPU5qFMFnB1Pq0+3aP7J3qYI9wloJ7u4iC+ag1ql9Fz8m/3cbLqNL\n"
-    "gGlU35OANep54v/0NV0t2yjwB9lJEcdaeEKgQd2Anz+0k9/5LIQ5071I8N2F+A/+\n"
-    "w3wRfgfPs7l3yuzA28i1+6cQwns1tXv3+3d9gpprY2+Afv9gCT8qg8B47C5sC2o/\n"
-    "oY0IQY3x2Wqfwsx5HhAyNBr5T20o+29i40tO+lPAy2aQSLk34PxYt41mQn+v/+gq\n"
-    "h5a2xL3AnE2X2pcn+vQ/IagYnzA1ePEl144x9v05Glf+RN+3j6Jj8Mxyg2h/sWZh\n"
-    "dvyct3fQySFrx4o3m2t6zz62J1w0P4Vfsx7b4sXq95yVaBfr8YJ2BNCS99+4zB9p\n"
-    "E3f3fJ6NZj92v6yXl7a9eT93A/g6z64u9qJzVn553eMA31y9G+o5/93x+3j9Cj/s\n"
-    "/w==\n"
-    "-----END CERTIFICATE-----\n";
+// Google's Global Trust Services (GTS) Root R1 certificate. Valid until 2035.
+const char* root_ca_cert = R"EOF(
+-----BEGIN CERTIFICATE-----
+MIIFazCCA1OgAwIBAgIQDU8baVtF5z0A8piD+v8EJjANBgkqhkiG9w0BAQsFADBH
+MQswCQYDVQQGEwJVUzEWMBQGA1UEChMNR29vZ2xlIExMQy4xGDAWBgNVBAMTD0dU
+UyBSb290IFIxMB4XDTIwMDkwOTE3NDQwMFoXDTM1MDkwOTE3NDQwMFowRzELMAkG
+A1UEBhMCVVMxFjAUBgNVBAoTDUdvb2dsZSBMTEMuMRgwFgYDVQQDEw9HVFMgUm9v
+dCBSMTCCAiIwDQYJKoZIhvcNAQEBBQADggIPADCCAgoCggIBALlr9E1uwK/CQyli
+R6FcTZU+qF4ExOB1ldT6C0zp7Z7pmG/1vKILNIt7hUckig3c19KZnep6F2+NAB1a
+wYd3x4mS/YZx7O3YhTn9WvNqkYGj4OTX85zG/Eh0N7dYB6W+BrYbCwqvbYPxuF7N
+FKzQGzJslK8NnldZK7RplCWX2ttYyxVnLXMSix8rsYHmfVp+1O8m5Z7Ug5fn5VbR
+M3B8bHiI4IPjjjytx6AgP4V3YzJ2dRikxZ2VfLPr5gVRH/3HMX/sxUdxCe3pl2Kd
+zD2vX0Le86PGDPr4O1aXU7VRyFBxY9uOTG2Oyp+x2cuhUMR2S1uPYUDlRCN06L9Z
+0Q0tIb8w7cx1bYcZ7Nvy3OeQL6Bb4X0mZ7HpUKBHLb3DYFZX03xZ4OeeFTbFyb1A
+rTCV6mTjQ9K0ZOnY/AU13wRmyD1D2s5Eer8fG84P/8RFyJjFh3+0w7kY4yLJ2mEb
+Uvzv3cRkj4Ze03RfD6zQ/v38mRgeCUdNNfCW1P8EQjaR09eUS2iKeBdr6xT2AJFd
+7pRz5IPnxF8bKzR1sde4pJ0NEEGhvDviK91nDkKW2+9h3kP/w1VQOdfMF4i0jApm
+iEwh5MndPuW4V2cVNfQrr5k6NE8scBfFzw6uHu2vOi1mXk+oDfp5LCpFIPLB+UlB
+8dM7Z/zfDReuUg9O3fS7Z+H/wQIDAQABo0IwQDAOBgNVHQ8BAf8EBAMCAQYwDwYD
+VR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUQXpMj3nHDbcwXUqSgApq6Ryi0TIwDQYJ
+KoZIhvcNAQELBQADggIBAEC0bCJhxyfH/6eQm1bEpL5N9nV2abPPoW1qYtI9zG2v
+Zng6HuW6i4P3NCD7DN+YjDPl7oN4T0psvNyc0K6qZwwEXLW9eJelr0SHGBYoJYzn
+Z5KHYFXL7m+doUoEb0Wo2ozEFvT6E7zqC+E/4VG31XY+yhUeWb3gA5kzNqWLGU/j
+xvKTnw+0aLqQy0Cpqg6KWde3OMyZFeNAA5+bQW0Nvxr0eDq8l6dJCEi6G6mX4kPg
+XkNfQjjV3rNQxOAGJ13nE2+FPaXxU+IgeU6RXOQx+RPb0vMWWRCEpEivDgk+TzFx
+e+fJIoZ0hx5RzM24GmXhJTu77skON/LrO8HhRcsPqMu+P+gK/VoZr+XXLjqE1/zQ
+LScAKqS2UFi5ZTfDq4b3HrO5X6cQEr8mYfbWDolKH5/oYSPRpAs8PqV2Jna8HfUg
+r+6pQzWNGQJ9bJvDbqWhDqHCQp26nO76nQeE2G34r5PEnj5dl6zF0zknz2ykyxUz
+szmQ7TnDjQqKXh6M3sUqScTwJtPOuWmFPjHxuvtYcPYcdyM/5q4d2fbrB2PQ2f7O
+XkXEtS0MVKRLZ+3GHq/7b/3ADQG/HFlWzN7Rpf7oxDPvdkSBhXEGNHWVsWkHq8K+
+IQ40qclGuZuv2zwF3y9P/zCLTwRkiX/hwOpgwOqh5IfONzwgE9EHW5/akBxteuhO
+-----END CERTIFICATE-----
+)EOF";
 
 // ============ Firebase Objects ============
 FirebaseData fbdo;
