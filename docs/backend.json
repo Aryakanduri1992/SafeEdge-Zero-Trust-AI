@@ -78,6 +78,39 @@
             "timestamp": { "type": "string", "format": "date-time", "description": "Timestamp of the latest reading." }
         },
         "required": ["name", "location", "type", "status", "lastSeen", "departmentId", "organizationId", "dbPath"]
+    },
+    "PIR_Sensor": {
+      "title": "PIR_Sensor",
+      "description": "A PIR motion sensor device.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "default": "PIR_Sensor" },
+        "type": { "type": "string", "default": "PIR" },
+        "dbPath": { "type": "string", "default": "devices/PIR_Sensor" }
+      }
+    },
+    "DHT22_Sensor": {
+      "title": "DHT22_Sensor",
+      "description": "A DHT22 temperature and humidity sensor device.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "default": "DHT22_Sensor" },
+        "type": { "type": "string", "default": "DHT22_Temp" },
+        "dbPath": { "type": "string", "default": "devices/DHT22_Sensor" }
+      }
+    },
+    "SensorReading": {
+      "title": "Sensor Reading",
+      "description": "Represents a single data point from a sensor device.",
+      "type": "object",
+      "properties": {
+          "deviceId": { "type": "string" },
+          "organizationId": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" },
+          "value": { "type": "number" },
+          "metricType": { "type": "string", "enum": ["temperature", "humidity", "pressure", "vibration"] }
+      },
+      "required": ["deviceId", "organizationId", "timestamp", "value"]
     }
   },
   "auth": {
@@ -105,9 +138,17 @@
       },
       "description": "Stores department information for all organizations."
     },
-    "/devices/{deviceId}": {
-        "schema": { "$ref": "#/entities/Device" },
-        "description": "Stores information about individual devices. The deviceId should match the device name used in the RTDB path, e.g. 'PIR_Sensor'."
+    "/devices/PIR_Sensor": {
+        "schema": { "$ref": "#/entities/PIR_Sensor" },
+        "description": "Stores information about the PIR sensor."
+    },
+     "/devices/DHT22_Sensor": {
+        "schema": { "$ref": "#/entities/DHT22_Sensor" },
+        "description": "Stores information about the DHT22 sensor."
+    },
+    "/sensorReadings/{readingId}": {
+        "schema": { "$ref": "#/entities/SensorReading" },
+        "description": "Stores time-series data from sensor devices."
     }
   }
 }
