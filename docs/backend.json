@@ -107,7 +107,7 @@
     },
     "/devices/{deviceId}": {
         "schema": { "$ref": "#/entities/Device" },
-        "description": "Stores information about individual devices, including their latest sensor readings."
+        "description": "Stores information about individual devices. The deviceId should match the device name used in the RTDB path, e.g. 'PIR_Sensor'."
     }
   }
 }

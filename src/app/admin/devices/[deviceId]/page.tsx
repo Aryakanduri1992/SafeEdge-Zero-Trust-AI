@@ -5,12 +5,17 @@ import { useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { HardDrive, ArrowLeft, RadioTower, Loader2, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
+import { HardDrive, ArrowLeft, RadioTower, Loader2, Wifi, WifiOff, AlertTriangle, Thermometer, Droplets } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import useRtdbValue from '@/hooks/use-rtdb-value';
 import { decryptData } from '@/lib/crypto-service';
+
+type DhtData = {
+  temperature: string;
+  humidity: string;
+}
 
 export default function DeviceDetailPage() {
   const params = useParams();
@@ -67,6 +72,19 @@ export default function DeviceDetailPage() {
     );
   }
 
+  const formatTimestamp = (timestamp: string): string => {
+    try {
+        const date = new Date(timestamp);
+        if (isNaN(date.getTime())) return "Invalid date";
+        const utcString = date.toISOString();
+        const formattedDate = utcString.slice(0, 10);
+        const formattedTime = utcString.slice(11, 19);
+        return `${formattedDate} ${formattedTime} UTC`;
+    } catch (e) {
+        return "Invalid date format";
+    }
+  };
+
   const renderContent = () => {
     if (isRtdbLoading) {
       return (
@@ -87,39 +105,51 @@ export default function DeviceDetailPage() {
     }
     if (liveData && liveData.encrypted_value && liveData.timestamp) {
       const decryptedValue = decryptData(liveData.encrypted_value);
-      const numericValue = parseFloat(decryptedValue);
-
-      const displayValue = () => {
-        if (device.type === "PIR") {
-          return numericValue === 1 ? "Motion Detected" : "No Motion";
-        }
-        if (!isNaN(numericValue)) {
-            return numericValue.toFixed(2);
-        }
-        return "Invalid Data";
-      };
       
-      const formatTimestamp = (timestamp: string): string => {
-        try {
-            const date = new Date(timestamp);
-            if (isNaN(date.getTime())) return "Invalid date";
-            const utcString = date.toISOString();
-            const formattedDate = utcString.slice(0, 10);
-            const formattedTime = utcString.slice(11, 19);
-            return `${formattedDate} ${formattedTime} UTC`;
-        } catch (e) {
-            return "Invalid date format";
-        }
-      };
+      // Handle PIR sensor
+      if (device.type === "PIR") {
+        const numericValue = parseInt(decryptedValue, 10);
+        const displayValue = numericValue === 1 ? "Motion Detected" : "No Motion";
+        return (
+          <div>
+            <p className="text-4xl lg:text-6xl font-bold tracking-tighter">{displayValue}</p>
+            <p className="text-sm text-muted-foreground mt-2">Last updated: {formatTimestamp(liveData.timestamp)}</p>
+          </div>
+        );
+      }
 
+      // Handle DHT22 sensor (combined data)
+      if (device.type === "DHT22_Temp" || device.type === "DHT22_Humidity") {
+        try {
+          const dhtData: DhtData = JSON.parse(decryptedValue);
+          return (
+             <div className="flex flex-col md:flex-row gap-8 md:gap-16 items-center justify-center">
+                <div className="flex flex-col items-center">
+                    <Thermometer className="h-8 w-8 text-destructive mb-2" />
+                    <p className="text-4xl lg:text-6xl font-bold tracking-tighter">
+                        {parseFloat(dhtData.temperature).toFixed(1)}°C
+                    </p>
+                    <p className="text-sm text-muted-foreground">Temperature</p>
+                </div>
+                <div className="flex flex-col items-center">
+                    <Droplets className="h-8 w-8 text-sky-500 mb-2" />
+                    <p className="text-4xl lg:text-6xl font-bold tracking-tighter">
+                        {parseFloat(dhtData.humidity).toFixed(1)}%
+                    </p>
+                    <p className="text-sm text-muted-foreground">Humidity</p>
+                </div>
+            </div>
+          );
+        } catch (e) {
+            return <p className="text-destructive">Failed to parse DHT data.</p>
+        }
+      }
+
+      // Default handler for other sensor types
       return (
         <div>
-          <p className="text-6xl font-bold tracking-tighter">
-            {displayValue()}
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Last updated: {formatTimestamp(liveData.timestamp)}
-          </p>
+          <p className="text-6xl font-bold tracking-tighter">{parseFloat(decryptedValue).toFixed(2)}</p>
+           <p className="text-sm text-muted-foreground mt-2">Last updated: {formatTimestamp(liveData.timestamp)}</p>
         </div>
       );
     }
@@ -158,10 +188,11 @@ export default function DeviceDetailPage() {
                 Real-time data stream from: {device.dbPath || "Not configured"}. Data is end-to-end encrypted.
             </CardDescription>
         </CardHeader>
-        <CardContent className="flex items-center justify-center text-center h-48">
+        <CardContent className="flex flex-col items-center justify-center text-center min-h-[12rem] py-6">
           {renderContent()}
         </CardContent>
-         <div className="p-4 border-t flex items-center justify-end">
+         <div className="p-4 border-t flex items-center justify-between">
+             <span className="text-sm text-muted-foreground">Last Update: {liveData?.timestamp ? formatTimestamp(liveData.timestamp) : 'N/A'}</span>
             <Badge variant="outline" className={statusClassName}>
               {statusIcon}
               {statusText}

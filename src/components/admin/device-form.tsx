@@ -20,7 +20,6 @@ const formSchema = z.object({
   departmentId: z.string().min(1, 'Please select a department.'),
   location: z.string().min(1, 'Location is required.'),
   type: z.enum(["Sensor", "Gateway", "Actuator", "Camera", "PIR", "LDR", "DHT22_Temp", "DHT22_Humidity"]),
-  dbPath: z.string().min(1, 'Realtime DB Path is required.'),
   description: z.string().optional(),
 });
 
@@ -49,19 +48,10 @@ export function DeviceForm({ deviceToEdit, onFinished }: DeviceFormProps) {
       departmentId: deviceToEdit?.departmentId || '',
       location: deviceToEdit?.location || '',
       type: deviceToEdit?.type || 'Sensor',
-      dbPath: deviceToEdit?.dbPath || '',
       description: deviceToEdit?.description || '',
     },
   });
 
-  const deviceName = form.watch('name');
-
-  useEffect(() => {
-    if (!deviceToEdit && deviceName) {
-      const suggestedPath = `devices/${deviceName.replace(/\s+/g, '_')}`;
-      form.setValue('dbPath', suggestedPath);
-    }
-  }, [deviceName, deviceToEdit, form]);
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     if (!user) return;
@@ -79,12 +69,15 @@ export function DeviceForm({ deviceToEdit, onFinished }: DeviceFormProps) {
 
     try {
       if (deviceToEdit) {
+        // When editing, we don't change the dbPath, just the other details.
         const updateData: UpdateDeviceData = { ...values };
         await updateDevice(deviceToEdit.id, updateData);
       } else {
         const newData: NewDeviceData = {
           ...values,
           organizationId: user.id,
+          // The dbPath is now derived from the name.
+          dbPath: `devices/${values.name.replace(/\s+/g, '_')}`
         };
         await createDevice(newData);
       }
@@ -106,7 +99,7 @@ export function DeviceForm({ deviceToEdit, onFinished }: DeviceFormProps) {
             <FormItem>
               <FormLabel>Device Name</FormLabel>
               <FormControl>
-                <Input placeholder="e.g., PIR Sensor" {...field} />
+                <Input placeholder="e.g., PIR_Sensor or DHT22_Sensor" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -162,29 +155,16 @@ export function DeviceForm({ deviceToEdit, onFinished }: DeviceFormProps) {
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="Sensor">Sensor</SelectItem>
+                  <SelectItem value="Sensor">Generic Sensor</SelectItem>
                   <SelectItem value="Gateway">Gateway</SelectItem>
                   <SelectItem value="Actuator">Actuator</SelectItem>
                   <SelectItem value="Camera">Camera</SelectItem>
-                  <SelectItem value="PIR">PIR</SelectItem>
-                  <SelectItem value="LDR">LDR</SelectItem>
-                  <SelectItem value="DHT22_Temp">DHT22 Temp</SelectItem>
-                  <SelectItem value="DHT22_Humidity">DHT22 Humidity</SelectItem>
+                  <SelectItem value="PIR">PIR Motion Sensor</SelectItem>
+                  <SelectItem value="LDR">Light Sensor</SelectItem>
+                  <SelectItem value="DHT22_Temp">DHT22 Temp/Humidity</SelectItem>
+                  <SelectItem value="DHT22_Humidity">DHT22 Temp/Humidity</SelectItem>
                 </SelectContent>
               </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-         <FormField
-          control={form.control}
-          name="dbPath"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Realtime DB Path</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g., devices/PIR_Sensor" {...field} />
-              </FormControl>
               <FormMessage />
             </FormItem>
           )}
