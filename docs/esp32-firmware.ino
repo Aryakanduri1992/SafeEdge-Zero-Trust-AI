@@ -1,11 +1,12 @@
 #define FIREBASE_DISABLE_ALL_LOGS
 #include <WiFi.h>
 #include <Firebase_ESP_Client.h>
+#include <ArduinoJson.h>
 #include <WiFiClientSecure.h>
 #include "mbedtls/aes.h"
 #include "mbedtls/base64.h"
 #include <time.h>
-#include <ArduinoJson.h>
+#include <HTTPClient.h>
 
 // ============ Wi-Fi Configuration ============
 #define WIFI_SSID "VivoY20"
@@ -16,38 +17,25 @@
 #define DATABASE_URL "https://studio-166999217-87cc8-default-rtdb.asia-southeast1.firebasedatabase.app/"
 
 // ============ Firebase Paths ============
-#define PIR_PATH "devices/PIR_Sensor"
-#define DHT_SENSOR_PATH "devices/DHT22_Sensor" // Unified path for the DHT sensor
+#define DHT_PATH "devices/DHT22_Sensor"
 
 // ============ Root CA Certificate ============
-// Google's Global Trust Services (GTS) Root R1 certificate.
-const char* root_ca_cert =
-    "-----BEGIN CERTIFICATE-----\n"
-    "MIIDdTCCAl2gAwIBAgILCgAAAAA0AAAAFzANBgkqhkiG9w0BAQsFADBYMQswCQYD\n"
-    "VQQGEwJCRTEZMBcGA1UEChMQR2xvYmFsU2lnbiBudi1zYTEQMA4GA1UECxMHUm9v\n"
-    "dCBDQTEbMBkGA1UEAxMSR2xvYmFsU2lnbiBSb290IENBMB4XDTE0MDYyOTEwMDAw\n"
-    "MFoXDTI4MDEyODEwMDAwMFowWDELMAkGA1UEBhMCQkUxGTAXBgNVBAoTEEdsb2Jh\n"
-    "bFNpZ24gbnYtc2ExEDAOBgNVBAsTB1Jvb3QgQ0ExGzAZBgNVBAMTEkdsb2JhbFNp\n"
-    "Z24gUm9vdCBDQTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAJwwL2oN\n"
-    "pMofdoA29iDo7Soo+VnU4yDve3xBAEtal14J6A7sQy/YDBr8oA2N2aTLTj5pQv/+\n"
-    "j8vj4iOEV4d2YIeC/1yfx6vI2M9v2uM1Fk2dgc4Yn82VJEa4aE8n0mB2yM+3yr72\n"
-    "u4j7gMc/A4y/3Vf4cWf0s8P6A/RLjI4/9p513a9g3B3XN136xi2c3v4exsyO22n3\n"
-    "D2tT5je8Gqj3yVeyA2sfrr/m2g/uJg8dpOaQP3S/v2d4jC42H/MTL3MUr3u4Cns4\n"
-    "d2Q3jbfDNEPjIeuwnZpPco9o2v3GvGOM6Zl962NqLWAIIS/grUpZWcSGjnTKwIAy\n"
-    "Xk9LPjP2g6p2KywH3iJvWd3nWNYVyA8T+CsKeJtTEiHWir8C12P/t9W2wo4a3GZo\n"
-    "eEWdYDMcsDmt3J6p0+p8h9YT8I28u3Qf432t3d5cW0AnE/g/sC2gM1aYmXo5T8Ie\n"
-    "w8wB3C3a+l/sZpL9ePGeJ25C/fKPg8VtzE5W757EBL20fCqK9sEy4lV1oAd4pI3d\n"
-    "agVvS2yf8Xq7DVfM/I6M05v1eAFBwXg1VfHBhJ/pQDBVQy6C3rD6M7p3d5xK68fm\n"
-    "gRe/Zn1aCgtg+pBAv5jG1V1YvU/0vRfqD321+MHasA0P82yJupVfyTjDAy8G9ks2\n"
-    "v9DDtQpFkFNu4p3QcMyyC+g8o2C/Tpf47M/vA5F/eDqfT3jZeyIZzAjGfd8b2eS2\n"
-    "c8v35p5TzQvfPU5qFMFnB1Pq0+3aP7J3qYI9wloJ7u4iC+ag1ql9Fz8m/3cbLqNL\n"
-    "gGlU35OANep54v/0NV0t2yjwB9lJEcdaeEKgQd2Anz+0k9/5LIQ5071I8N2F+A/+\n"
-    "w3wRfgfPs7l3yuzA28i1+6cQwns1tXv3+3d9gpprY2+Afv9gCT8qg8B47C5sC2o/\n"
-    "oY0IQY3x2Wqfwsx5HhAyNBr5T20o+29i40tO+lPAy2aQSLk34PxYt41mQn+v/+gq\n"
-    "h5a2xL3AnE2X2pcn+vQ/IagYnzA1ePEl144x9v05Glf+RN+3j6Jj8Mxyg2h/sWZh\n"
-    "dvyct3fQySFrx4o3m2t6zz62J1w0P4Vfsx7b4sXq95yVaBfr8YJ2BNCS99+4zB9p\n"
-    "E3f3fJ6NZj92v6yXl7a9eT93A/g6z64u9qJzVn553eMA31y9G+o5/93x+3j9Cj/s\n"
-    "/w==\n"
+// This is the modern GTS Root R1 certificate required for Firebase.
+const char* root_ca_cert = \
+    "-----BEGIN CERTIFICATE-----\n" \
+    "MIIDdTCCAl2gAwIBAgILCgAAAAA0AAAAFzANBgkqhkiG9w0BAQsFADBYMQswCQYD\n" \
+    "VQQGEwJCRTEZMBcGA1UEChMQR2xvYmFsU2lnbiBudi1zYTEQMA4GA1UECxMHUm9v\n" \
+    "dCBDQTEbMBkGA1UEAxMSR2xvYmFsU2lnbiBSb290IENBMB4XDTE0MDYyOTEwMDAw\n" \
+    "MFoXDTI4MDEyODEwMDAwMFowWDELMAkGA1UEBhMCQkUxGTAXBgNVBAoTEEdsb2Jh\n" \
+    "bFNpZ24gbnYtc2ExEDAOBgNVBAsTB1Jvb3QgQ0ExGzAZBgNVBAMTEkdsb2JhbFNp\n" \
+    "Z24gUm9vdCBDQTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAJwwL2oN\n" \
+    "pMofdoA29iDo7Soo+VnU4yDve3xBAEtal14J6A7sQy/YDBr8oA2N2aTLTj5pQv/+\n" \
+    "j8vj4iOEV4d2YIeC/1yfx6vI2M9v2uM1Fk2dgc4Yn82VJEa4aE8n0mB2yM+3yr72\n" \
+    "u4j7gMc/A4y/3Vf4cWf0s8P6A/RLjI4/9p513a9g3B3XN136xi2c3v4exsyO22n3\n" \
+    "D2tT5je8Gqj3yVeyA2sfrr/m2g/uJg8dpOaQP3S/v2d4jC42H/MTL3MUr3u4Cns4\n" \toY0IQY3x2Wqfwsx5HhAyNBr5T20o+29i40tO+lPAy2aQSLk34PxYt41mQn+v/+gqh5a2\n" \
+    "xL3AnE2X2pcn+vQ/IagYnzA1ePEl144x9v05Glf+RN+3j6Jj8Mxyg2h/sWZhdvyc\n" \
+    "t3fQySFrx4o3m2t6zz62J1w0P4Vfsx7b4sXq95yVaBfr8YJ2BNCS99+4zB9pE3f3\n" \
+    "fJ6NZj92v6yXl7a9eT93A/g6z64u9qJzVn553eMA31y9G+o5/93x+3j9Cj/s/w==\n" \
     "-----END CERTIFICATE-----\n";
 
 
@@ -71,10 +59,9 @@ static const unsigned char aes_iv[16] = {
 String getISOTime() {
   struct tm timeinfo;
   if (!getLocalTime(&timeinfo)) {
-    Serial.println("Failed to obtain time");
     return "1970-01-01T00:00:00Z";
   }
-  char buf[25];
+  char buf[30];
   strftime(buf, sizeof(buf), "%Y-%m-%dT%H:%M:%SZ", &timeinfo);
   return String(buf);
 }
@@ -102,6 +89,13 @@ String encryptData(String plainText) {
   size_t paddedLen = ((len / 16) + 1) * 16;
   unsigned char *input = (unsigned char *)calloc(paddedLen, 1);
   unsigned char *output = (unsigned char *)calloc(paddedLen, 1);
+  if(!input || !output){
+      Serial.println("❌ Failed to allocate memory for encryption");
+      if(input) free(input);
+      if(output) free(output);
+      return "";
+  }
+
   memcpy(input, plainText.c_str(), len);
   unsigned char pad = paddedLen - len;
   memset(input + len, pad, pad);
@@ -118,104 +112,88 @@ String encryptData(String plainText) {
   return encoded;
 }
 
-// ============ Robust NTP & HTTP Time Sync ============
-bool waitForTime(int timeoutSeconds = 30) {
-  Serial.print("⏳ Syncing time...");
-  configTime(19800, 0, "pool.ntp.org", "time.google.com");
-
-  unsigned long start = millis();
-  while ((millis() - start) < (unsigned long)timeoutSeconds * 1000UL) {
-    time_t now = time(nullptr);
-    if (now > 1609459200) {
-      Serial.println("🕒 Time synced via NTP!");
-      return true;
-    }
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("\n▲ NTP Time sync failed. Trying HTTP fallback...");
-
-  // HTTP Time Sync Fallback
-  WiFiClient client;
-  if (client.connect("worldtimeapi.org", 80)) {
-    client.println("GET /api/ip HTTP/1.1");
-    client.println("Host: worldtimeapi.org");
-    client.println("Connection: close");
-    client.println();
+// ============ Robust Time Sync Function ============
+void syncTime() {
+    Serial.print("⏳ Syncing time via NTP...");
+    configTime(19800, 0, "pool.ntp.org", "time.google.com");
     
-    start = millis();
-    while (client.connected() && (millis() - start < 5000)) {
-        if (client.available()) {
-            String line = client.readStringUntil('\n');
-            if (line.startsWith("{")) {
-                StaticJsonDocument<512> doc;
-                deserializeJson(doc, line);
-                time_t unixtime = doc["unixtime"];
-                struct timeval tv;
-                tv.tv_sec = unixtime;
-                tv.tv_usec = 0;
+    struct tm timeinfo;
+    if (!getLocalTime(&timeinfo, 10000)) { // 10-second timeout
+        Serial.println(" ▲ NTP Time sync failed. Trying HTTP fallback...");
+        
+        HTTPClient http;
+        http.begin("http://worldtimeapi.org/api/ip");
+        int httpCode = http.GET();
+        if (httpCode > 0) {
+            if (httpCode == HTTP_CODE_OK) {
+                StaticJsonDocument<1024> doc;
+                deserializeJson(doc, http.getString());
+                long unixtime = doc["unixtime"];
+                timeval tv = { unixtime, 0 };
                 settimeofday(&tv, nullptr);
                 Serial.println("🕒 Time synced via HTTP!");
-                return true;
+                http.end();
+                return;
             }
+        } else {
+            Serial.printf("▲ HTTP Time Sync: Connection failed: %s\n", http.errorToString(httpCode).c_str());
         }
+        http.end();
+
+        Serial.println("❌ CRITICAL: Time synchronization failed. Halting.");
+        Serial.println("🚨 Please check internet connection and firewall settings.");
+        while(1) {
+            digitalWrite(LED_BUILTIN, HIGH); delay(200);
+            digitalWrite(LED_BUILTIN, LOW); delay(200);
+        }
+    } else {
+        Serial.println("🕒 Time synced via NTP!");
     }
-  }
-  
-  Serial.println("▲ HTTP Time Sync: Connection failed or timed out.");
-  return false;
 }
+
 
 // ============ Upload Encrypted Dummy Data ============
 void uploadDataOnce() {
-  int pirValue = random(0, 2);
-  float temperature = random(20.0, 35.0);
-  float humidity = random(40.0, 60.0);
+  float temperature = random(2000, 3500) / 100.0; // 20.00-34.99°C
+  float humidity = random(4000, 7000) / 100.0;    // 40.00-69.99%
   String ts = getISOTime();
 
-  // Encrypt PIR data
-  String encPIR = encryptData(String(pirValue));
-  FirebaseJson pirJson;
-  pirJson.set("encrypted_value", encPIR);
-  pirJson.set("timestamp", ts);
+  StaticJsonDocument<128> dhtDoc;
+  dhtDoc["temperature"] = String(temperature, 2);
+  dhtDoc["humidity"] = String(humidity, 2);
+  String dhtPayload;
+  serializeJson(dhtDoc, dhtPayload);
+
+  String encryptedPayload = encryptData(dhtPayload);
   
-  // Create a combined JSON for DHT sensor data
-  FirebaseJson dhtJson;
-  dhtJson.set("temperature", String(temperature, 2));
-  dhtJson.set("humidity", String(humidity, 2));
-
-  // Encrypt the combined DHT data
-  String dhtPlaintext = "";
-  serializeJson(dhtJson, dhtPlaintext);
-  String encDHT = encryptData(dhtPlaintext);
-
-  FirebaseJson dhtPayload;
-  dhtPayload.set("encrypted_value", encDHT);
-  dhtPayload.set("timestamp", ts);
-
-  if (!Firebase.ready()) return;
-
-  // Upload PIR data
-  if (Firebase.RTDB.setJSON(&fbdo, PIR_PATH, &pirJson)) {
-    Serial.println("✅ PIR encrypted data uploaded!");
-  } else {
-    Serial.printf("❌ PIR upload failed: %s\n", fbdo.errorReason().c_str());
+  if(encryptedPayload == ""){
+      Serial.println("❌ Encryption returned empty string. Aborting upload.");
+      return;
   }
 
-  // Upload DHT data
-  if (Firebase.RTDB.setJSON(&fbdo, DHT_SENSOR_PATH, &dhtPayload)) {
-    Serial.println("✅ DHT encrypted data uploaded!");
+  FirebaseJson jsonToUpload;
+  jsonToUpload.set("encrypted_value", encryptedPayload);
+  jsonToUpload.set("timestamp", ts);
+
+  if (!Firebase.ready()) {
+    Serial.println("⚠️ Firebase not ready for upload.");
+    return;
+  }
+
+  Serial.println("📡 Uploading encrypted DHT data...");
+  if (Firebase.RTDB.setJSON(&fbdo, DHT_PATH, &jsonToUpload)) {
+    Serial.println("✅ Encrypted DHT data uploaded successfully!");
+    Serial.printf("   (Plaintext was: temp=%.2f, hum=%.2f)\n", temperature, humidity);
   } else {
     Serial.printf("❌ DHT upload failed: %s\n", fbdo.errorReason().c_str());
   }
-
-  Serial.println("⏰ Timestamp: " + ts);
   Serial.println("----------------------------------");
 }
 
 // ============ Setup ============
 void setup() {
   Serial.begin(115200);
+  pinMode(LED_BUILTIN, OUTPUT);
   delay(100);
 
   Serial.print("🔌 Connecting to Wi-Fi");
@@ -226,32 +204,28 @@ void setup() {
   }
   Serial.println("\n✅ Wi-Fi connected: " + WiFi.localIP().toString());
   
-  if (!waitForTime(30)) {
-    Serial.println("❌ CRITICAL: Time synchronization failed. Halting.");
-    pinMode(LED_BUILTIN, OUTPUT);
-    while(1) { // Halt execution
-      digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
-      delay(250);
-    }
-  }
+  syncTime();
 
   secureClient.setCACert(root_ca_cert);
 
   config.api_key = API_KEY;
-  config.database_url = DATABASE_URL;
-  
+  config.database_.url = DATABASE_URL;
   config.cert.data = root_ca_cert;
+  
   fbdo.setBSSLBufferSize(4096, 4096); 
+  config.timeout.serverResponse = 10000;
 
   Serial.println("🔐 Signing up with Firebase (anonymously)...");
   if (Firebase.signUp(&config, &auth, "", "")) {
     Serial.println("✅ Firebase SignUp OK");
+    config.token_status_callback = tokenStatusCallback;
   } else {
     Serial.printf("❌ Firebase sign-up failed: %s\n", config.signer.signupError.message.c_str());
   }
   
   Firebase.begin(&config, &auth);
   Firebase.reconnectWiFi(true);
+
   Serial.println("🔥 Firebase initialized!");
 }
 
@@ -264,5 +238,5 @@ void loop() {
   }
 
   uploadDataOnce();
-  delay(7000);
+  delay(10000);
 }
