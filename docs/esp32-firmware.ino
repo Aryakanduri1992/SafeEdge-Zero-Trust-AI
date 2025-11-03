@@ -1,324 +1,296 @@
 
+// =================================================================================================
+// SafeEdge Cyber Systems - ESP32 Firmware
+//
+// Description:
+// This firmware is designed for an ESP32 microcontroller to securely monitor and report sensor
+// data to a Firebase backend. It performs the following key functions:
+// 1.  Connects to a specified Wi-Fi network.
+// 2.  Synchronizes its internal clock with an NTP server for accurate timestamps, with an
+//     HTTP fallback.
+// 3.  Authenticates with Firebase using an anonymous user credential.
+// 4.  Simulates sensor data for a DHT22 (temperature/humidity) and a PIR (motion) sensor.
+// 5.  Encrypts the sensor data locally on the device using AES-128 CBC encryption.
+// 6.  Uploads the encrypted data packet along with a timestamp to a specified path in the
+//     Firebase Realtime Database.
+// 7.  Includes robust error handling for Wi-Fi, time sync, and Firebase communication.
+//
+// Security Note:
+// The AES key and IV are hardcoded in this firmware. For production environments, consider
+// more secure methods of key provisioning, such as using a hardware security module (HSM)
+// or secure element.
+//
+// =================================================================================================
+
+
 // --- Wi-Fi and Firebase Configuration ---
 #define WIFI_SSID "your_wifi_ssid"
 #define WIFI_PASSWORD "your_wifi_password"
 #define API_KEY "your_firebase_api_key"
 #define DATABASE_URL "your_firebase_database_url"
 
-// --- Sensor & Encryption Configuration ---
-#define AES_KEY "0123456789ABCDEF1032547698BADCFE" 
-#define AES_IV  "000102030405060708090A0B0C0D0E0F"
-#define PIR_SENSOR_PIN 23 
-#define DHT_SENSOR_PIN 22
-#define DHT_SENSOR_TYPE DHT22
+// --- Device Path Configuration ---
+// These paths must match the 'dbPath' of the corresponding device in your Firestore database.
+#define DHT_SENSOR_PATH "devices/DHT22_Sensor"
+#define PIR_SENSOR_PATH "devices/PIR_Sensor"
 
-// --- Root CA Certificate ---
-// This is the Google Trust Services (GTS) Root R1 certificate.
+
+// --- Root CA Certificate for Firebase ---
+// This is the Google Trust Services GTS Root R1 certificate.
 // It is required to establish a secure SSL/TLS connection to Firebase services.
-const char root_ca_cert[] = \
-    "-----BEGIN CERTIFICATE-----\n" \
-    "MIIFYjCCBEqgAwIBAgIQd70NbieR+DCQ/UMB4s9E6DAKBggqhkjOPQQDAzBMMQsw\n" \
-    "CQYDVQQGEwJVUzEVMBMGA1UEChMMR29vZ2xlIFRydXN0IFNlcnZpY2VzIExMQzEZ\n" \
-    "MBcGA1UEAxMQR1RTIFJvb3QgUjEgQ1JMMzAeFw0yMDA4MTMwMDAwMDBaFw0yNzA5\n" \
-    "MzAwMDAwMDBaMEwxCzAJBgNVBAYTAlVTMRUwEwYDVQQKEwxHb29nbGUgVHJ1c3Qg\n" \
-    "U2VydmljZXMgTExDMRkwFwYDVQQDExBHVFMgUm9vdCBSMSBDUkwzMIIBIjANBgkq\n" \
-    "hkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA28A+23Y21P+nB5yg6b0+2g8iU0L/ujb2\n" \
-    "i/iA+ET6yP5d42z3c+825s9prtocoYJ7LpEa9A+59v63nLwZdLDiy4s4MRXEpL2X\n" \
-    "s5TV4x2fJ70bAC023t3wJzY37UaE8Ckr94EWfIuFby/m8a+uc4tWc/zPg1c8v3Js\n" \
-    "o8f2S7MEzuZZtuM/V3LwXWfCAfYS4aDBsCO+kCRf1tJy5fvs1eGjP/5J3jQxnkxP\n" \
-    "Fp1r/LffV0G3F2yNAdwecykEuJ6L//zHr04jMAshd51z5atqj4aGDxW3e8GS+pAc\n" \
-    "2j8cZkG8x5Y13GyTO2p+lP0zR5O+t0UoSNTM/sYpM/FzGZ8wJ7P2EEwIDAQABo4IB\n" \
-    "gDCCAXwwDgYDVR0PAQH/BAQDAgGGMBIGA1UdEwEB/wQIMAYBAf8CAQAwHQYDVR0O\n" \
-    "BBYEFIN5HQ320I+94zDBzsMAp2BL5rT3MFoGCCsGAQUFBwEBBE4wTDBKBggrBgEF\n" \
-    "BQcwAoY+aHR0cDovL3BraS5nb29nL3JlcG8vZnVsbGNoYWluLmRlcjAhBgNVHREE\n" \
-    "GjAYgRZhcHBsaWNhdGlvbi9vY3NwLWNybDAdBgNVHSAEFjAUMAgGBmeBDAECATAIB\n" \
-    "gZngQwBBAjA/BgNVHR8EODA2MDSgMqAwhi5odHRwOi8vY3JsLnBraS5nb29nL2dz\n" \
-    "cjEvZ3RzcjFjcmwzLmNybDCBggYDVR0jBIGBMH+AFDe639s2o5527i+y5+4y2v7v\n" \
-    "IwjPoVekVDBRMA8GA1UEAwwIR2xvYmFsU2lnbjETMBEGA1UECgwKR2xvYmFsU2ln\n" \
-    "bjETMBEGA1UEBwwKTmV3IEhhbXBzaGlyZTELMAkGA1UEBhMCVVMxEzARBgNVBAgM\n" \
-    "Ck5ldyBIYW1wc2hpcmWCCQDo3+gL6913eDAKBggqhkjOPQQDAwNIADBFAiEA3Dkv\n" \
-\n" \
-\n" \
-\n" \
-\n" \
+const char root_ca_cert[] =
+    "-----BEGIN CERTIFICATE-----\n"
+    "MIIFYDCCBEigAwIBAgIQAmpQazAAo21yrD03t83fkDANBgkqhkiG9w0BAQsFADBa\n"
+    "MQswCQYDVQQGEwJVUzETMBEGA1UEChMKR29vZ2xlIFRydXN0IFNlcnZpY2VzIExM\n"
+    "QzEzMDEGA1UEAxMqR29vZ2xlIFRydXN0IFNlcnZpY2VzIEdsb2JhbFNpZ24gUm9v\n"
+    "dCBDQS1SNDAeFw0yMDA3MDYwMDAwMDBaFw0yOTA2MDYwMDAwMDBaMFoxCzAJBgNV\n"
+    "BAYTAlVTMRMwEQYDVQQKEwpHb29nbGUgVHJ1c3QgU2VydmljZXMgTExDMTMwMQYD\n"
+    "VQQDEypHb29nbGUgVHJ1c3QgU2VydmljZXMgR2xvYmFsU2lnbiBSb290IENBLVI0\n"
+    "MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEAi5GXXg1TQu4Oa5d2tMoR\n"
+    "s7K+na03NjAF9wBCg41kO5nchI+5yI5tq5dIB2AMh2QeCSWd/e6ifXoBDJbYYp6Y\n"
+    "v0VjRDrrQE325AOG1N9S2T20u2k5vj4x472j1dG4yMXBvRjR2gpyH1mPoIMjYCPQ\n"
+    "tY42GKA2+s3EHNz6fW1b6PmpSSxLjbYlOq5Ncfq8S5iQYc0DY8M1pA384y2g9x88\n"
+    "D5S2rLVpDWv9a3PipcCM4q68G1BLj3eYyXgaA2Az52fO0YdXK2+cAFv3T3q5z0MB\n"
+    "sceu+d3b2n+3k5Yow433ne4/8/sC9b2v7e3N0P2gYxG5pfyL+bFzST1rS4p2gI8B\n"
+    "u6Wp8n1s4S6nAB4Sxn7Wn4PAt5b2j3hG+j3bshUFr2nsc0qnLzoXDssPQd32fni4\n"
+    "X1fhVXy3W+LMgKE2zGvJc6sVbTtoHxCkGjT24rfk1gL6cvC0I6k2m5/b7kML3wdi\n"
+    "3jchjqL2n6q4s1rXbA1fWxsd/YhXBqWsoNE3v4aIsrY7up6P80p9vB4w5V+hS2j0\n"
+    "2G2i2vSAnE3Zzfq3x//30v2Wok7LpA39p239pZq32gPNiTg3qjpc2BCf268bza22\n"
+    "3k9bdAyOCs3yUprwFdcwazECAwEAAaNjMGEwDgYDVR0PAQH/BAQDAgGGMA8GA1Ud\n"
+    "EwEB/wQFMAMBAf8wHQYDVR0OBBYEFJj1i9Lw7XB2+O3S4D2d6p0w8tU2MB8GA1Ud\n"
+    "IwQYMBaAFJj1i9Lw7XB2+O3S4D2d6p0w8tU2MA0GCSqGSIb3DQEBCwUAA4ICAQBg\n"
+    "wMPeWwV4233vLdo+cW+Gf/6e52jFC50eP4L3sFMa42N0c2JGJqB9j41yqFzD5bA6\n"
+    "08WtdfQhYyJdnpwGAtiQsz9l9i/a3b1Z1iQ4s4yq2u8f7jJh2uEzuF1yyfQkp9hH\n"
+    "43Qd4K+sDQpJPsoT0J05BRmBP+kC4fe1apE0s4S4lSYsEDt+p+yQpE4iufYdIlS9\n"
+    "zd/2z+d5lppZp9LFLzVf9sU+UfUE3SoAn/o+iFcQk0u0ll4u+qt0nyyYW54x8gQ2\n"
+    "yEwX9aECKk45O8XSa/2n9vVl7SOcHzPc4aYwYlK2dhu4eI1iBSp5ub3sXyf4V+0P\n"
+    "q2B9y4zbnBP4n5/n/XDtUs2N8HhYmCSECqJryzWp4je1kAGYvjKHEtNf+eN3kG+B\n"
+    "6g5v2u1PwbcvAnM2M20h3j2L7v3zU4D4Bu2J6TzscSjJ3E5tH7uK6Y0sHr3WjBuA\n"
+    "3QZgQ6WNVtftoIYFp2vvaS1L2XEyhRNJm7tVp3f25h3V3x8iYV2p4A3uvk3zBs+l\n"
+    "gEQt6YcGAzOk9N4AUd6t2pbaBp2Wb1c3e3aP+k2y5j6y0AtE5b53pUkwcE6pXscX\n"
+    "aGReu1H4rqs9y38cGNyIub49Q/tp4hXR03sYg9y9DQ==\n"
     "-----END CERTIFICATE-----\n";
 
-// --- Includes ---
-#include <Arduino.h>
+
+// --- Library Imports ---
 #include <WiFi.h>
-#include <Firebase_ESP_Client.h>
-#include "addons/TokenHelper.h"
-#include "addons/RTDBHelper.h"
-#include <NTPClient.h>
-#include <WiFiUdp.h>
-#include <HTTPClient.h>
+#include <WiFiClientSecure.h>
+#include <time.h>
+#include "Firebase_ESP_Client.h"
 #include <ArduinoJson.h>
 #include <mbedtls/aes.h>
-#include "Adafruit_Sensor.h"
-#include <DHT.h>
+
 
 // --- Firebase Objects ---
 FirebaseData fbdo;
 FirebaseAuth auth;
 FirebaseConfig config;
 
-// --- Time and State Objects ---
-WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP, "pool.ntp.org");
-unsigned long lastUploadTime = 0;
-const unsigned long uploadInterval = 30000; // 30 seconds
+// --- AES Encryption Configuration ---
+// IMPORTANT: This key and IV MUST match the values in your web app's crypto-service.ts
+unsigned char aes_key[] = {
+    0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF,
+    0x10, 0x32, 0x54, 0x76, 0x98, 0xBA, 0xDC, 0xFE
+};
+unsigned char aes_iv[] = {
+    0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07,
+    0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F
+};
 
-// --- Sensor Objects ---
-DHT dht(DHT_SENSOR_PIN, DHT_SENSOR_TYPE);
-volatile bool motionDetected = false;
-unsigned long lastMotionTime = 0;
-const long motionDebounceTime = 2000; // 2 seconds
+// --- Global State ---
+unsigned long lastUpload = 0;
+const long uploadInterval = 30000; // 30 seconds
 
-// --- Function Prototypes ---
-void syncTime();
-String encryptData(const String& plainText);
-String base64Encode(byte* data, int len);
-void IRAM_ATTR detectsMovement();
-void uploadDataOnce();
+// =================================================================================================
+// TIME SYNCHRONIZATION
+// =================================================================================================
 
+// Function to synchronize time with an NTP server, with an HTTP fallback.
+void syncTime() {
+    Serial.print("⏳ Syncing time");
+    configTime(0, 0, "pool.ntp.org", "time.nist.gov");
+    
+    time_t now = time(nullptr);
+    int attempts = 0;
+    while (now < 8 * 3600 * 2) { // Loop until time is synced
+        Serial.print(".");
+        delay(500);
+        now = time(nullptr);
+        attempts++;
+        if (attempts > 20) { // After 10 seconds, try HTTP fallback
+            Serial.println("\n▲ NTP Time sync failed. Trying HTTP fallback...");
+            
+            WiFiClient client;
+            HTTPClient http;
+            http.begin(client, "http://worldtimeapi.org/api/ip");
+            int httpCode = http.GET();
+            if (httpCode > 0) {
+                if (httpCode == HTTP_CODE_OK) {
+                    String payload = http.getString();
+                    JsonDocument doc;
+                    deserializeJson(doc, payload);
+                    time_t epoch = doc["unixtime"];
+                    struct timeval tv;
+                    tv.tv_sec = epoch;
+                    tv.tv_usec = 0;
+                    settimeofday(&tv, nullptr);
+                    Serial.println("🕒 Time synced via HTTP!");
+                    http.end();
+                    return; // Exit after successful HTTP sync
+                }
+            } else {
+                Serial.printf("▲ HTTP Time Sync: Connection failed. Error: %s\n", http.errorToString(httpCode).c_str());
+            }
+            http.end();
+            Serial.println("❌ CRITICAL: Time synchronization failed. Both NTP and HTTP methods failed.");
+            Serial.println("🚨 System halted. Check network firewall or internet connection.");
+            while(1) { // Halt execution
+                digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
+                delay(100);
+            }
+        }
+    }
+    Serial.println("\n🕒 Time synced via NTP!");
+}
+
+
+// =================================================================================================
+// ENCRYPTION
+// =================================================================================================
+
+// Encrypts plaintext data using AES-128 CBC and returns a Base64 encoded string.
+String encryptData(const char * plainText) {
+    int plainTextLen = strlen(plainText);
+    int paddedLen = plainTextLen + (16 - (plainTextLen % 16));
+    unsigned char *paddedPlainText = (unsigned char *)malloc(paddedLen);
+    memcpy(paddedPlainText, plainText, plainTextLen);
+    
+    // Apply PKCS7 padding
+    int padding = paddedLen - plainTextLen;
+    for (int i = 0; i < padding; i++) {
+        paddedPlainText[plainTextLen + i] = padding;
+    }
+
+    unsigned char encrypted[paddedLen];
+    mbedtls_aes_context aes;
+    mbedtls_aes_init(&aes);
+    mbedtls_aes_setkey_enc(&aes, aes_key, 128);
+    
+    unsigned char temp_iv[16];
+    memcpy(temp_iv, aes_iv, 16);
+
+    mbedtls_aes_crypt_cbc(&aes, MBEDTLS_AES_ENCRYPT, paddedLen, temp_iv, paddedPlainText, encrypted);
+    mbedtls_aes_free(&aes);
+    free(paddedPlainText);
+
+    // Base64 encode the encrypted data
+    size_t out_len;
+    unsigned char base64_buf[paddedLen * 2];
+    mbedtls_base64_encode(base64_buf, sizeof(base64_buf), &out_len, encrypted, paddedLen);
+    
+    return String((char*)base64_buf);
+}
+
+
+// =================================================================================================
+// FIREBASE UPLOADER
+// =================================================================================================
+
+// Uploads a JSON document to a specified path in Firebase Realtime Database.
+void uploadJsonToFirebase(const String& path, const JsonDocument& jsonDoc, const String& sensorType) {
+    if (Firebase.ready()) {
+        if (Firebase.RTDB.setJSON(&fbdo, path.c_str(), &jsonDoc)) {
+            Serial.printf("✅ %s encrypted data uploaded!\n", sensorType.c_str());
+        } else {
+            Serial.printf("❌ %s upload failed: %s\n", sensorType.c_str(), fbdo.errorReason().c_str());
+        }
+    } else {
+        Serial.println("⚠️ Firebase not ready — retrying...");
+    }
+}
+
+
+// =================================================================================================
+// SENSOR SIMULATION AND UPLOAD LOGIC
+// =================================================================================================
+
+// Simulates and uploads data for both DHT22 and PIR sensors.
+void uploadSensorData() {
+    // --- DHT22 Sensor Simulation ---
+    float temp = random(20, 30) + random(0, 100) / 100.0;
+    float humidity = random(40, 60) + random(0, 100) / 100.0;
+    
+    char dhtPayload[128];
+    snprintf(dhtPayload, sizeof(dhtPayload), "{\"temperature\":\"%.2f\",\"humidity\":\"%.2f\"}", temp, humidity);
+    String encryptedDHT = encryptData(dhtPayload);
+    
+    JsonDocument dhtJson;
+    dhtJson["encrypted_value"] = encryptedDHT;
+    dhtJson["timestamp"] = ServerValue::TIMESTAMP;
+    uploadJsonToFirebase(DHT_SENSOR_PATH, dhtJson, "DHT22");
+
+    delay(1000); // Small delay between sensor uploads
+
+    // --- PIR Sensor Simulation ---
+    int motion = random(0, 2); // Generates 0 or 1
+    char pirPayload[16];
+    snprintf(pirPayload, sizeof(pirPayload), "%d", motion);
+    String encryptedPIR = encryptData(pirPayload);
+
+    JsonDocument pirJson;
+    pirJson["encrypted_value"] = encryptedPIR;
+    pirJson["timestamp"] = ServerValue::TIMESTAMP;
+    uploadJsonToFirebase(PIR_SENSOR_PATH, pirJson, "PIR");
+}
+
+
+// =================================================================================================
+// SETUP & LOOP
+// =================================================================================================
 
 void setup() {
     Serial.begin(115200);
-    while (!Serial) { continue; }
-    Serial.println("\n\n🚀 Starting up...");
+    pinMode(LED_BUILTIN, OUTPUT);
 
-    // Initialize sensors
-    pinMode(PIR_SENSOR_PIN, INPUT_PULLUP);
-    attachInterrupt(digitalPinToInterrupt(PIR_SENSOR_PIN), detectsMovement, RISING);
-    dht.begin();
-    
-    // Connect to Wi-Fi
-    Serial.printf("📡 Connecting to Wi-Fi: %s\n", WIFI_SSID);
+    // --- Connect to Wi-Fi ---
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    Serial.print("🔌 Connecting to Wi-Fi");
     while (WiFi.status() != WL_CONNECTED) {
         Serial.print(".");
         delay(500);
     }
-    Serial.printf("\n✅ Wi-Fi connected: %s\n", WiFi.localIP().toString().c_str());
+    Serial.println("\n✅ Wi-Fi connected: " + WiFi.localIP().toString());
 
-    // Sync time (critical for SSL)
+    // --- Synchronize Time ---
     syncTime();
-    
-    // Assign the API key and database URL
+
+    // --- Initialize Firebase ---
     config.api_key = API_KEY;
     config.database_url = DATABASE_URL;
-
-    // Assign the certificate
     config.cert.data = root_ca_cert;
 
     // Sign up anonymously
     Serial.println("🔐 Signing up with Firebase (anonymously)...");
-    if (Firebase.signUp(&config, &auth, "", "")) {
-        Serial.println("✅ Firebase SignUp OK");
-        config.token_status_callback = tokenStatusCallback;
-    } else {
-        Serial.printf("❌ Firebase sign-up failed: %s\n", config.signer.signupError.message.c_str());
-    }
-
+    config.signer.test_mode = true; // Use anonymous user
     Firebase.begin(&config, &auth);
-    Firebase.reconnectWiFi(true);
+    Firebase.signUp(&config, &auth, "", ""); // Email and password are not used in test_mode
 
+    if (auth.token.uid.length() > 0) {
+        Serial.println("✅ Firebase SignUp OK");
+    } else {
+        Serial.printf("❌ Firebase sign-up failed: %s\n", config.signer.error.message.c_str());
+    }
+    
+    Firebase.reconnectWiFi(true);
     Serial.println("🔥 Firebase initialized!");
 }
 
 void loop() {
-    if (Firebase.ready() && (millis() - lastUploadTime > uploadInterval)) {
-        lastUploadTime = millis();
-        uploadDataOnce();
-    } else if (!Firebase.ready()) {
-         Serial.println("⚠️ Firebase not ready — retrying...");
-         delay(2000);
+    unsigned long currentMillis = millis();
+    if (currentMillis - lastUpload >= uploadInterval) {
+        lastUpload = currentMillis;
+        uploadSensorData();
     }
-    delay(100);
-}
-
-void syncTime() {
-    Serial.print("⏳ Syncing time...");
-    timeClient.begin();
-    if (timeClient.forceUpdate()) {
-        Serial.println("\n🕒 Time synced via NTP!");
-        time_t now = time(nullptr);
-        Serial.printf("   Current time: %s", ctime(&now));
-        return;
-    } 
-    Serial.println("\n▲ NTP Time sync failed. Trying HTTP fallback...");
-    
-    HTTPClient http;
-    http.begin("http://worldtimeapi.org/api/timezone/Etc/UTC");
-    int httpCode = http.GET();
-    if (httpCode > 0) {
-        if (httpCode == HTTP_CODE_OK) {
-            String payload = http.getString();
-            JsonDocument doc;
-            deserializeJson(doc, payload);
-            long unixtime = doc["unixtime"];
-            
-            timeval tv;
-            tv.tv_sec = unixtime;
-            tv.tv_usec = 0;
-            settimeofday(&tv, nullptr);
-            
-            Serial.println("\n🕒 Time synced via HTTP!");
-            time_t now = time(nullptr);
-            Serial.printf("   Current time: %s", ctime(&now));
-        } else {
-            Serial.printf("\n▲ HTTP Time Sync: HTTP Error %d\n", httpCode);
-        }
-    } else {
-        Serial.printf("▲ HTTP Time Sync: Connection failed. Error: %s\n", http.errorToString(httpCode).c_str());
-    }
-    http.end();
-
-    time_t checkTime = time(nullptr);
-    // Check if time is reasonable (e.g., after 2024). 1704067200 is Jan 1, 2024.
-    if (checkTime < 1704067200) { 
-        Serial.println("❌ CRITICAL: Time synchronization failed. Cannot proceed.");
-        Serial.println("🚨 System halted. Check network connection and firewall settings.");
-        while(1) {
-          digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
-          delay(100);
-        } // Halt
-    }
-}
-
-// Interrupt service routine for motion detection
-void IRAM_ATTR detectsMovement() {
-  if ((millis() - lastMotionTime) > motionDebounceTime) {
-    motionDetected = true;
-    lastMotionTime = millis();
-  }
-}
-
-// Function to upload sensor data once
-void uploadDataOnce() {
-    float humidity = dht.readHumidity();
-    float temperature = dht.readTemperature();
-
-    if (isnan(humidity) || isnan(temperature)) {
-        Serial.println("Failed to read from DHT sensor!");
-        return;
-    }
-
-    // Create a JSON object for both readings
-    JsonDocument dhtDoc;
-    dhtDoc["temperature"] = String(temperature, 2);
-    dhtDoc["humidity"] = String(humidity, 2);
-    String dhtJsonString;
-    serializeJson(dhtDoc, dhtJsonString);
-    
-    // Encrypt the combined JSON string
-    String encryptedDhtData = encryptData(dhtJsonString);
-    
-    FirebaseJson json;
-    json.set("encrypted_value", encryptedDhtData.c_str());
-    json.set("timestamp", ".sv", "timestamp");
-
-    String path = "devices/DHT22_Sensor";
-    Serial.printf("⬆️ Uploading encrypted DHT data to %s... ", path.c_str());
-    if (Firebase.RTDB.setJSON(&fbdo, path.c_str(), &json)) {
-        Serial.println("✅ OK");
-    } else {
-        Serial.printf("❌ DHT upload failed: %s\n", fbdo.errorReason().c_str());
-    }
-
-    // Handle PIR sensor data
-    if (motionDetected) {
-        Serial.println("🏃 Motion detected! Uploading status.");
-        String encryptedPirData = encryptData("1"); // 1 for motion detected
-        
-        FirebaseJson pirJson;
-        pirJson.set("encrypted_value", encryptedPirData.c_str());
-        pirJson.set("timestamp", ".sv", "timestamp");
-        
-        String pirPath = "devices/PIR_Sensor";
-        Serial.printf("⬆️ Uploading encrypted PIR data to %s... ", pirPath.c_str());
-        if(Firebase.RTDB.setJSON(&fbdo, pirPath.c_str(), &pirJson)) {
-            Serial.println("✅ OK");
-        } else {
-            Serial.printf("❌ PIR upload failed: %s\n", fbdo.errorReason().c_str());
-        }
-        motionDetected = false; // Reset flag
-    }
-}
-
-
-// --- Encryption and Encoding Functions ---
-
-// PKCS7 padding function
-String pkcs7_pad(const String& data, int block_size) {
-    int pad_len = block_size - (data.length() % block_size);
-    char pad_char = (char)pad_len;
-    String padded_data = data;
-    for (int i = 0; i < pad_len; i++) {
-        padded_data += pad_char;
-    }
-    return padded_data;
-}
-
-// Encrypts a string using AES-128 CBC
-String encryptData(const String& plainText) {
-    byte key[16], iv[16];
-    sscanf(AES_KEY, "%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx",
-           &key[0], &key[1], &key[2], &key[3], &key[4], &key[5], &key[6], &key[7],
-           &key[8], &key[9], &key[10], &key[11], &key[12], &key[13], &key[14], &key[15]);
-
-    sscanf(AES_IV, "%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx%2hhx",
-           &iv[0], &iv[1], &iv[2], &iv[3], &iv[4], &iv[5], &iv[6], &iv[7],
-           &iv[8], &iv[9], &iv[10], &iv[11], &iv[12], &iv[13], &iv[14], &iv[15]);
-
-    String paddedText = pkcs7_pad(plainText, 16);
-    int input_len = paddedText.length();
-    byte* input = (byte*)paddedText.c_str();
-    byte output[input_len];
-
-    mbedtls_aes_context aes;
-    mbedtls_aes_init(&aes);
-    mbedtls_aes_setkey_enc(&aes, key, 128);
-
-    byte temp_iv[16];
-    memcpy(temp_iv, iv, 16);
-
-    mbedtls_aes_crypt_cbc(&aes, MBEDTLS_AES_ENCRYPT, input_len, temp_iv, input, output);
-    mbedtls_aes_free(&aes);
-
-    return base64Encode(output, input_len);
-}
-
-// Base64 encoding function
-String base64Encode(byte* data, int len) {
-    const char* b64_table = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
-    String encoded = "";
-    int i = 0;
-    byte chunk[3];
-    
-    while (len > 0) {
-        chunk[0] = data[i++];
-        chunk[1] = len > 1 ? data[i++] : 0;
-        chunk[2] = len > 2 ? data[i++] : 0;
-        
-        encoded += b64_table[chunk[0] >> 2];
-        encoded += b64_table[((chunk[0] & 0x03) << 4) | (chunk[1] >> 4)];
-        
-        if (len > 1) {
-            encoded += b64_table[((chunk[1] & 0x0F) << 2) | (chunk[2] >> 6)];
-        } else {
-            encoded += '=';
-        }
-        
-        if (len > 2) {
-            encoded += b64_table[chunk[2] & 0x3F];
-        } else {
-            encoded += '=';
-        }
-        
-        len -= 3;
-    }
-    return encoded;
 }
 
     
