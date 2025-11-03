@@ -1,7 +1,9 @@
 // -------------------------------------------------------------------------------- /
-//  AuthStation - ESP32 Secure Sensor Data Uploader (with TEST_MODE)
-//  - Dummy Data Mode added for testing without hardware
-//  - Switch between real sensors and simulated data easily
+//  AuthStation - ESP32 Secure Sensor Data Uploader
+//  - Uses dummy data for testing without hardware.
+//  - Establishes a secure TLS connection using a Root CA certificate.
+//  - Robust time synchronization with NTP and HTTP fallback.
+//  - Halts on critical errors for easier debugging.
 // -------------------------------------------------------------------------------- /
 
 #define FIREBASE_DISABLE_ALL_LOGS
@@ -38,7 +40,6 @@ const char* root_ca_cert =
     "bFNpZ24gbnYtc2ExEDAOBgNVBAsTB1Jvb3QgQ0ExGzAZBgNVBAMTEkdsb2JhbFNp\n"
     "Z24gUm9vdCBDQTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAJwwL2oN\n"
     "pMofdoA29iDo7Soo+VnU4yDve3xBAEtal14J6A7sQy/YDBr8oA2N2aTLTj5pQv/+\n"
-
     "j8vj4iOEV4d2YIeC/1yfx6vI2M9v2uM1Fk2dgc4Yn82VJEa4aE8n0mB2yM+3yr72\n"
     "u4j7gMc/A4y/3Vf4cWf0s8P6A/RLjI4/9p513a9g3B3XN136xi2c3v4exsyO22n3\n"
     "D2tT5je8Gqj3yVeyA2sfrr/m2g/uJg8dpOaQP3S/v2d4jC42H/MTL3MUr3u4Cns4\n"
@@ -308,5 +309,3 @@ void loop() {
   uploadDataOnce();
   delay(7000);
 }
-
-    
