@@ -118,31 +118,17 @@ export default function DeviceDetailPage() {
         );
       }
 
-      // Handle DHT22 sensor (combined data)
-      if (device.type === "DHT22_Temp" || device.type === "DHT22_Humidity") {
-        try {
-          const dhtData: DhtData = JSON.parse(decryptedValue);
-          return (
-             <div className="flex flex-col md:flex-row gap-8 md:gap-16 items-center justify-center">
-                <div className="flex flex-col items-center">
-                    <Thermometer className="h-8 w-8 text-destructive mb-2" />
-                    <p className="text-4xl lg:text-6xl font-bold tracking-tighter">
-                        {parseFloat(dhtData.temperature).toFixed(1)}°C
-                    </p>
-                    <p className="text-sm text-muted-foreground">Temperature</p>
-                </div>
-                <div className="flex flex-col items-center">
-                    <Droplets className="h-8 w-8 text-sky-500 mb-2" />
-                    <p className="text-4xl lg:text-6xl font-bold tracking-tighter">
-                        {parseFloat(dhtData.humidity).toFixed(1)}%
-                    </p>
-                    <p className="text-sm text-muted-foreground">Humidity</p>
-                </div>
+      // Handle DHT22 sensor (single temperature value)
+      if (device.type === "DHT22_Temp") {
+        return (
+            <div className="flex flex-col items-center">
+                <Thermometer className="h-8 w-8 text-destructive mb-2" />
+                <p className="text-4xl lg:text-6xl font-bold tracking-tighter">
+                    {parseFloat(decryptedValue).toFixed(1)}°C
+                </p>
+                <p className="text-sm text-muted-foreground">Temperature</p>
             </div>
-          );
-        } catch (e) {
-            return <p className="text-destructive">Failed to parse DHT data.</p>
-        }
+        );
       }
 
       // Default handler for other sensor types
