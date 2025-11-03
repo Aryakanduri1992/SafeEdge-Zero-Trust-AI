@@ -5,17 +5,12 @@ import { useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { HardDrive, ArrowLeft, RadioTower, Loader2, Wifi, WifiOff, AlertTriangle, Thermometer, Droplets } from 'lucide-react';
+import { HardDrive, ArrowLeft, RadioTower, Loader2, Wifi, WifiOff, AlertTriangle, Thermometer } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import useRtdbValue from '@/hooks/use-rtdb-value';
 import { decryptData } from '@/lib/crypto-service';
-
-type DhtData = {
-  temperature: string;
-  humidity: string;
-}
 
 export default function DeviceDetailPage() {
   const params = useParams();
