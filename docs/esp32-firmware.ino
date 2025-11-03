@@ -19,6 +19,7 @@
 #define DHT_PATH "devices/DHT22_Sensor"
 
 // ============ Root CA Certificate ============
+// Google's Global Trust Services (GTS) Root R1 certificate.
 const char* root_ca_cert =
     "-----BEGIN CERTIFICATE-----\n"
     "MIIDdTCCAl2gAwIBAgILCgAAAAA0AAAAFzANBgkqhkiG9w0BAQsFADBYMQswCQYD\n"
@@ -30,15 +31,13 @@ const char* root_ca_cert =
     "pMofdoA29iDo7Soo+VnU4yDve3xBAEtal14J6A7sQy/YDBr8oA2N2aTLTj5pQv/+\n"
     "j8vj4iOEV4d2YIeC/1yfx6vI2M9v2uM1Fk2dgc4Yn82VJEa4aE8n0mB2yM+3yr72\n"
     "u4j7gMc/A4y/3Vf4cWf0s8P6A/RLjI4/9p513a9g3B3XN136xi2c3v4exsyO22n3\n"
-    "D2tT5je8Gqj3yVeyA2sfrr/m2g/uJg8dpOaQP3S/v2d4jC42H/MTL3MUr3u4Cns4\n"
-    "d2Q3jbfDNEPjIeuwnZpPco9o2v3GvGOM6Zl962NqLWAIIS/grUpZWcSGjnTKwIAy\n"
+d2Q3jbfDNEPjIeuwnZpPco9o2v3GvGOM6Zl962NqLWAIIS/grUpZWcSGjnTKwIAy\n"
     "Xk9LPjP2g6p2KywH3iJvWd3nWNYVyA8T+CsKeJtTEiHWir8C12P/t9W2wo4a3GZo\n"
     "eEWdYDMcsDmt3J6p0+p8h9YT8I28u3Qf432t3d5cW0AnE/g/sC2gM1aYmXo5T8Ie\n"
     "w8wB3C3a+l/sZpL9ePGeJ25C/fKPg8VtzE5W757EBL20fCqK9sEy4lV1oAd4pI3d\n"
     "agVvS2yf8Xq7DVfM/I6M05v1eAFBwXg1VfHBhJ/pQDBVQy6C3rD6M7p3d5xK68fm\n"
     "gRe/Zn1aCgtg+pBAv5jG1V1YvU/0vRfqD321+MHasA0P82yJupVfyTjDAy8G9ks2\n"
     "v9DDtQpFkFNu4p3QcMyyC+g8o2C/Tpf47M/vA5F/eDqfT3jZeyIZzAjGfd8b2eS2\n"
-
     "c8v35p5TzQvfPU5qFMFnB1Pq0+3aP7J3qYI9wloJ7u4iC+ag1ql9Fz8m/3cbLqNL\n"
     "gGlU35OANep54v/0NV0t2yjwB9lJEcdaeEKgQd2Anz+0k9/5LIQ5071I8N2F+A/+\n"
     "w3wRfgfPs7l3yuzA28i1+6cQwns1tXv3+3d9gpprY2+Afv9gCT8qg8B47C5sC2o/\n"
@@ -56,6 +55,7 @@ FirebaseConfig config;
 WiFiClientSecure secureClient;
 
 // ============ AES Key & IV ============
+// This key and IV MUST match what is in src/lib/crypto-service.ts
 static const unsigned char aes_key[16] = {
   0x01,0x23,0x45,0x67,0x89,0xAB,0xCD,0xEF,
   0x10,0x32,0x54,0x76,0x98,0xBA,0xDC,0xFE
@@ -121,7 +121,7 @@ bool waitForTime(int timeoutSeconds = 30) {
   unsigned long start = millis();
   while ((millis() - start) < (unsigned long)timeoutSeconds * 1000UL) {
     time_t now = time(nullptr);
-    if (now > 1609459200) { 
+    if (now > 1609459200) { // after 2021
         Serial.println("🕒 Time synced!");
         return true; 
     }
@@ -136,12 +136,11 @@ bool waitForTime(int timeoutSeconds = 30) {
 // ============ Upload Encrypted Dummy Data ============
 void uploadDataOnce() {
   int pirValue = random(0, 2);
-  float temperature = random(20, 36); 
+  float temperature = random(20, 36); // 20–35°C
   String ts = getISOTime();
 
-  // Encrypt the data before sending
   String encPIR = encryptData(String(pirValue));
-  String encTemp = encryptData(String(temperature));
+  String encTemp = encryptData(String(temperature, 2)); // Encrypt with 2 decimal places
 
   FirebaseJson pirJson;
   pirJson.set("encrypted_value", encPIR);
@@ -182,13 +181,15 @@ void setup() {
   
   waitForTime(30);
 
+  // Associate the root CA certificate with the secure client
   secureClient.setCACert(root_ca_cert);
 
   config.api_key = API_KEY;
   config.database_url = DATABASE_URL;
   
+  // Assign the client to the Firebase config
   config.cert.data = root_ca_cert;
-  fbdo.setBSSLBufferSize(2048, 2048); 
+  fbdo.setBSSLBufferSize(2048, 2048); // Increase buffer for TLS handshake
 
   Serial.println("🔐 Signing up with Firebase (anonymously)...");
   if (Firebase.signUp(&config, &auth, "", "")) {
