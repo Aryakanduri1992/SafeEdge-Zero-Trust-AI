@@ -14,11 +14,14 @@ export default function useRtdbValue(path: string, deviceId?: string) {
   const { user } = useAuth();
 
   useEffect(() => {
+    // Reset state on path change
+    setLoading(true);
+    setData(null);
+    setError(null);
+
     if (!path || !app || !user) {
       setLoading(false);
-      setData(null);
-      if (user) {
-         // Only set an error if we expected a path but didn't get one.
+      if (user && !path) {
          setError("Realtime Database path is not configured for this device.");
       }
       return;
@@ -26,8 +29,6 @@ export default function useRtdbValue(path: string, deviceId?: string) {
 
     const db = getDatabase(app);
     const dbRef = ref(db, path);
-    setLoading(true);
-    setError(null);
 
     const listener = onValue(
       dbRef,
@@ -38,13 +39,14 @@ export default function useRtdbValue(path: string, deviceId?: string) {
           setError(null);
         } else {
           setData(null);
-          // Don't set an error here, it might just be that no data has arrived yet.
+          // Don't set an error; it might just be waiting for the first data point.
         }
         setLoading(false);
       },
       (err) => {
         console.error("RTDB Error:", err);
         setError(err.message);
+        setData(null);
         setLoading(false);
       }
     );
@@ -53,7 +55,7 @@ export default function useRtdbValue(path: string, deviceId?: string) {
     return () => {
       off(dbRef, "value", listener);
     };
-  }, [path, app, user]);
+  }, [path, app, user]); // Dependency array is correct
 
   return { data, loading, error };
 }

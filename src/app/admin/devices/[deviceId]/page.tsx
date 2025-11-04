@@ -101,15 +101,19 @@ export default function DeviceDetailPage() {
     }
 
     // Handle DHT22 sensor (separate temp/humidity)
-    if ((device.type === "DHT22_Temp" || device.type === "DHT22_Humidity") && liveData?.encrypted_temperature && liveData?.encrypted_humidity) {
+    if (device.type.startsWith("DHT22") && liveData?.encrypted_temperature && liveData?.encrypted_humidity) {
         const temp = decryptData(liveData.encrypted_temperature);
         const humidity = decryptData(liveData.encrypted_humidity);
+        
+        const tempValue = temp ? parseFloat(temp).toFixed(1) : "N/A";
+        const humidityValue = humidity ? parseFloat(humidity).toFixed(1) : "N/A";
+
         return (
             <div className="flex items-center justify-center w-full">
                 <div className="flex flex-col items-center px-8">
                     <Thermometer className="h-8 w-8 text-destructive mb-2" />
                     <p className="text-4xl lg:text-6xl font-bold tracking-tighter">
-                        {parseFloat(temp).toFixed(1)}°C
+                        {tempValue}°C
                     </p>
                     <p className="text-sm text-muted-foreground">Temperature</p>
                 </div>
@@ -117,7 +121,7 @@ export default function DeviceDetailPage() {
                 <div className="flex flex-col items-center px-8">
                     <Droplets className="h-8 w-8 text-blue-500 mb-2" />
                     <p className="text-4xl lg:text-6xl font-bold tracking-tighter">
-                        {parseFloat(humidity).toFixed(1)}%
+                        {humidityValue}%
                     </p>
                     <p className="text-sm text-muted-foreground">Humidity</p>
                 </div>
