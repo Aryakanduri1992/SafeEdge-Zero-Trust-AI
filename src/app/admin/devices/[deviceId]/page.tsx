@@ -5,12 +5,13 @@ import { useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { HardDrive, ArrowLeft, RadioTower, Loader2, Wifi, WifiOff, AlertTriangle, Thermometer } from 'lucide-react';
+import { HardDrive, ArrowLeft, RadioTower, Loader2, Wifi, WifiOff, AlertTriangle, Thermometer, Droplets } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import useRtdbValue from '@/hooks/use-rtdb-value';
 import { decryptData } from '@/lib/crypto-service';
+import { Separator } from '@/components/ui/separator';
 
 export default function DeviceDetailPage() {
   const params = useParams();
@@ -98,42 +99,54 @@ export default function DeviceDetailPage() {
            </div>
         );
     }
-    if (liveData && liveData.encrypted_value && liveData.timestamp) {
+
+    // Handle DHT22 sensor (separate temp/humidity)
+    if (device.type === "DHT22_Temp" && liveData?.encrypted_temperature && liveData?.encrypted_humidity) {
+        const temp = decryptData(liveData.encrypted_temperature);
+        const humidity = decryptData(liveData.encrypted_humidity);
+        return (
+            <div className="flex items-center justify-center w-full">
+                <div className="flex flex-col items-center px-8">
+                    <Thermometer className="h-8 w-8 text-destructive mb-2" />
+                    <p className="text-4xl lg:text-6xl font-bold tracking-tighter">
+                        {parseFloat(temp).toFixed(1)}°C
+                    </p>
+                    <p className="text-sm text-muted-foreground">Temperature</p>
+                </div>
+                <Separator orientation="vertical" className="h-24" />
+                <div className="flex flex-col items-center px-8">
+                    <Droplets className="h-8 w-8 text-blue-500 mb-2" />
+                    <p className="text-4xl lg:text-6xl font-bold tracking-tighter">
+                        {parseFloat(humidity).toFixed(1)}%
+                    </p>
+                    <p className="text-sm text-muted-foreground">Humidity</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Handle PIR sensor and other single-value sensors
+    if (liveData?.encrypted_value && liveData.timestamp) {
       const decryptedValue = decryptData(liveData.encrypted_value);
       
-      // Handle PIR sensor
       if (device.type === "PIR") {
         const numericValue = parseInt(decryptedValue, 10);
         const displayValue = numericValue === 1 ? "Motion Detected" : "No Motion";
         return (
           <div>
             <p className="text-4xl lg:text-6xl font-bold tracking-tighter">{displayValue}</p>
-            <p className="text-sm text-muted-foreground mt-2">Last updated: {formatTimestamp(liveData.timestamp)}</p>
           </div>
         );
       }
-
-      // Handle DHT22 sensor (single temperature value)
-      if (device.type === "DHT22_Temp") {
-        return (
-            <div className="flex flex-col items-center">
-                <Thermometer className="h-8 w-8 text-destructive mb-2" />
-                <p className="text-4xl lg:text-6xl font-bold tracking-tighter">
-                    {parseFloat(decryptedValue).toFixed(1)}°C
-                </p>
-                <p className="text-sm text-muted-foreground">Temperature</p>
-            </div>
-        );
-      }
-
-      // Default handler for other sensor types
+      
+      // Default handler for other single-value sensor types
       return (
         <div>
           <p className="text-6xl font-bold tracking-tighter">{parseFloat(decryptedValue).toFixed(2)}</p>
-           <p className="text-sm text-muted-foreground mt-2">Last updated: {formatTimestamp(liveData.timestamp)}</p>
         </div>
       );
     }
+    
      return (
        <div className="flex flex-col items-center gap-2">
           <WifiOff className="h-8 w-8 text-muted-foreground" />
