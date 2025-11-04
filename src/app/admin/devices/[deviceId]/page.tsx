@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { HardDrive, ArrowLeft, RadioTower, Loader2, Wifi, WifiOff, AlertTriangle, Thermometer, Droplets } from 'lucide-react';
+import { HardDrive, ArrowLeft, RadioTower, Loader2, Wifi, WifiOff, Thermometer, Droplets } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -84,11 +84,12 @@ export default function DeviceDetailPage() {
       );
     }
     
+    // Check for live data specifically
     if (device?.liveData) {
       // Handle DHT22 sensor (separate temp/humidity)
-      if (device.type.startsWith("DHT22") && (device.temperature !== undefined || device.humidity !== undefined)) {
-          const tempValue = device.temperature?.toFixed(1) || "N/A";
-          const humidityValue = device.humidity?.toFixed(1) || "N/A";
+      if (device.type === "DHT22_Temp" && (device.temperature !== undefined || device.humidity !== undefined)) {
+          const tempValue = device.temperature?.toFixed(1) ?? "N/A";
+          const humidityValue = device.humidity?.toFixed(1) ?? "N/A";
 
           return (
               <div className="flex items-center justify-around w-full">
@@ -111,9 +112,8 @@ export default function DeviceDetailPage() {
           );
       }
 
-      // Handle PIR sensor and other single-value sensors
-      if (device.value !== undefined) {
-        if (device.type === "PIR") {
+      // Handle PIR sensor
+      if (device.type === "PIR" && device.value !== undefined) {
           const numericValue = Math.round(device.value);
           const displayValue = numericValue === 1 ? "Motion Detected" : "No Motion";
           const valueClass = numericValue === 1 ? "text-destructive" : "";
@@ -122,9 +122,10 @@ export default function DeviceDetailPage() {
               <p className={`text-4xl lg:text-5xl font-bold tracking-tighter ${valueClass}`}>{displayValue}</p>
             </div>
           );
-        }
-        
-        // Default handler for other single-value sensor types
+      }
+
+      // Default handler for other single-value sensor types
+      if (device.value !== undefined) {
         return (
           <div className="flex flex-col items-center gap-2">
             <p className="text-6xl font-bold tracking-tighter">{device.value.toFixed(1)}</p>
@@ -134,6 +135,7 @@ export default function DeviceDetailPage() {
       }
     }
     
+     // Fallback if no specific data is matched or no live data
      return (
        <div className="flex flex-col items-center gap-2">
           <WifiOff className="h-8 w-8 text-muted-foreground" />
@@ -142,12 +144,13 @@ export default function DeviceDetailPage() {
     );
   };
 
+
   return (
     <div className="space-y-8">
        <div className="flex items-center gap-4">
         <Button asChild variant="outline" size="icon" className="shrink-0">
           <Link href="/admin/devices">
-            <ArrowLeft className="mr-2 h-4 w-4" />
+            <ArrowLeft className="h-4 w-4" />
             <span className="sr-only">Back to Devices</span>
           </Link>
         </Button>
