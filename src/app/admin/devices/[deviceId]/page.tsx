@@ -75,7 +75,7 @@ export default function DeviceDetailPage() {
   };
 
   const renderContent = () => {
-    if (isAuthLoading && !device?.liveData) {
+    if (isAuthLoading) {
       return (
         <div className="flex flex-col items-center gap-2">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -84,58 +84,55 @@ export default function DeviceDetailPage() {
       );
     }
     
-    // Check for live data specifically
-    if (device?.liveData) {
-      // Handle DHT22 sensor (separate temp/humidity)
-      if (device.type === "DHT22_Temp" && (device.temperature !== undefined || device.humidity !== undefined)) {
-          const tempValue = device.temperature?.toFixed(1) ?? "N/A";
-          const humidityValue = device.humidity?.toFixed(1) ?? "N/A";
+    // Check for processed temperature or humidity values specifically
+    if (device.type === "DHT22_Temp" && (device.temperature !== undefined || device.humidity !== undefined)) {
+        const tempValue = device.temperature?.toFixed(1) ?? "N/A";
+        const humidityValue = device.humidity?.toFixed(1) ?? "N/A";
 
-          return (
-              <div className="flex items-center justify-around w-full">
-                  <div className="flex flex-col items-center px-4">
-                      <Thermometer className="h-8 w-8 text-red-500 mb-2" />
-                      <p className="text-4xl lg:text-5xl font-bold tracking-tighter">
-                          {tempValue}°C
-                      </p>
-                      <p className="text-sm text-muted-foreground">Temperature</p>
-                  </div>
-                  <Separator orientation="vertical" className="h-24" />
-                  <div className="flex flex-col items-center px-4">
-                      <Droplets className="h-8 w-8 text-blue-500 mb-2" />
-                      <p className="text-4xl lg:text-5xl font-bold tracking-tighter">
-                          {humidityValue}%
-                      </p>
-                      <p className="text-sm text-muted-foreground">Humidity</p>
-                  </div>
-              </div>
-          );
-      }
-
-      // Handle PIR sensor
-      if (device.type === "PIR" && device.value !== undefined) {
-          const numericValue = Math.round(device.value);
-          const displayValue = numericValue === 1 ? "Motion Detected" : "No Motion";
-          const valueClass = numericValue === 1 ? "text-destructive" : "";
-          return (
-            <div>
-              <p className={`text-4xl lg:text-5xl font-bold tracking-tighter ${valueClass}`}>{displayValue}</p>
-            </div>
-          );
-      }
-
-      // Default handler for other single-value sensor types
-      if (device.value !== undefined) {
         return (
-          <div className="flex flex-col items-center gap-2">
-            <p className="text-6xl font-bold tracking-tighter">{device.value.toFixed(1)}</p>
-            <p className="text-sm text-muted-foreground">Value</p>
+            <div className="flex items-center justify-around w-full">
+                <div className="flex flex-col items-center px-4">
+                    <Thermometer className="h-8 w-8 text-red-500 mb-2" />
+                    <p className="text-4xl lg:text-5xl font-bold tracking-tighter">
+                        {tempValue}°C
+                    </p>
+                    <p className="text-sm text-muted-foreground">Temperature</p>
+                </div>
+                <Separator orientation="vertical" className="h-24" />
+                <div className="flex flex-col items-center px-4">
+                    <Droplets className="h-8 w-8 text-blue-500 mb-2" />
+                    <p className="text-4xl lg:text-5xl font-bold tracking-tighter">
+                        {humidityValue}%
+                    </p>
+                    <p className="text-sm text-muted-foreground">Humidity</p>
+                </div>
+            </div>
+        );
+    }
+
+    // Handle PIR sensor
+    if (device.type === "PIR" && device.value !== undefined) {
+        const numericValue = Math.round(device.value);
+        const displayValue = numericValue === 1 ? "Motion Detected" : "No Motion";
+        const valueClass = numericValue === 1 ? "text-destructive" : "";
+        return (
+          <div>
+            <p className={`text-4xl lg:text-5xl font-bold tracking-tighter ${valueClass}`}>{displayValue}</p>
           </div>
         );
-      }
+    }
+
+    // Default handler for other single-value sensor types
+    if (device.value !== undefined) {
+      return (
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-6xl font-bold tracking-tighter">{device.value.toFixed(1)}</p>
+          <p className="text-sm text-muted-foreground">Value</p>
+        </div>
+      );
     }
     
-     // Fallback if no specific data is matched or no live data
+     // Fallback if no specific data is matched
      return (
        <div className="flex flex-col items-center gap-2">
           <WifiOff className="h-8 w-8 text-muted-foreground" />
