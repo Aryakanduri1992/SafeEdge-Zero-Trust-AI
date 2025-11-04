@@ -109,18 +109,18 @@ export default function DeviceDetailPage() {
         const humidityValue = humidity ? parseFloat(humidity).toFixed(1) : "N/A";
 
         return (
-            <div className="flex items-center justify-center w-full">
-                <div className="flex flex-col items-center px-8">
-                    <Thermometer className="h-8 w-8 text-destructive mb-2" />
-                    <p className="text-4xl lg:text-6xl font-bold tracking-tighter">
+            <div className="flex items-center justify-around w-full">
+                <div className="flex flex-col items-center px-4">
+                    <Thermometer className="h-8 w-8 text-red-500 mb-2" />
+                    <p className="text-4xl lg:text-5xl font-bold tracking-tighter">
                         {tempValue}°C
                     </p>
                     <p className="text-sm text-muted-foreground">Temperature</p>
                 </div>
                 <Separator orientation="vertical" className="h-24" />
-                <div className="flex flex-col items-center px-8">
+                <div className="flex flex-col items-center px-4">
                     <Droplets className="h-8 w-8 text-blue-500 mb-2" />
-                    <p className="text-4xl lg:text-6xl font-bold tracking-tighter">
+                    <p className="text-4xl lg:text-5xl font-bold tracking-tighter">
                         {humidityValue}%
                     </p>
                     <p className="text-sm text-muted-foreground">Humidity</p>
@@ -136,9 +136,10 @@ export default function DeviceDetailPage() {
       if (device.type === "PIR") {
         const numericValue = parseInt(decryptedValue, 10);
         const displayValue = numericValue === 1 ? "Motion Detected" : "No Motion";
+        const valueClass = numericValue === 1 ? "text-destructive" : "";
         return (
           <div>
-            <p className="text-4xl lg:text-6xl font-bold tracking-tighter">{displayValue}</p>
+            <p className={`text-4xl lg:text-5xl font-bold tracking-tighter ${valueClass}`}>{displayValue}</p>
           </div>
         );
       }
