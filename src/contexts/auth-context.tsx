@@ -185,30 +185,41 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     devices.forEach(device => {
       if (device.dbPath && !listeners[device.dbPath]) {
         const dbRef = ref(rtdb, device.dbPath);
+        
         const listener = onValue(dbRef, (snapshot) => {
           if (snapshot.exists()) {
             const liveData = snapshot.val();
             
             setDevices(prevDevices => {
-              return prevDevices.map(d => {
-                if (d.dbPath === device.dbPath) {
-                  const updatedDevice = { ...d, liveData, status: 'online' as const };
-                  if (liveData.encrypted_value) {
-                     updatedDevice.value = parseFloat(decryptData(liveData.encrypted_value));
-                  }
-                  if (liveData.encrypted_temperature) {
-                     updatedDevice.temperature = parseFloat(decryptData(liveData.encrypted_temperature));
-                  }
-                   if (liveData.encrypted_humidity) {
-                     updatedDevice.humidity = parseFloat(decryptData(liveData.encrypted_humidity));
-                  }
-                  if (liveData.timestamp) {
-                    updatedDevice.timestamp = liveData.timestamp;
-                  }
-                  return updatedDevice;
-                }
-                return d;
-              });
+              // Find the index of the device to update.
+              const deviceIndex = prevDevices.findIndex(d => d.dbPath === device.dbPath);
+              if (deviceIndex === -1) return prevDevices; // Should not happen
+
+              // Create a new array to avoid direct mutation.
+              const newDevices = [...prevDevices];
+              const targetDevice = { ...newDevices[deviceIndex] };
+
+              // Update the device with live data.
+              targetDevice.liveData = liveData;
+              targetDevice.status = 'online';
+
+              if (liveData.encrypted_value) {
+                 targetDevice.value = parseFloat(decryptData(liveData.encrypted_value));
+              }
+              if (liveData.encrypted_temperature) {
+                 targetDevice.temperature = parseFloat(decryptData(liveData.encrypted_temperature));
+              }
+               if (liveData.encrypted_humidity) {
+                 targetDevice.humidity = parseFloat(decryptData(liveData.encrypted_humidity));
+              }
+              if (liveData.timestamp) {
+                targetDevice.timestamp = liveData.timestamp;
+              }
+              
+              // Replace the old device object with the updated one.
+              newDevices[deviceIndex] = targetDevice;
+              
+              return newDevices;
             });
           }
         }, (error) => {
@@ -223,7 +234,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       Object.values(listeners).forEach(unsubscribe => unsubscribe());
     };
-  }, [devices, rtdb]);
+    // The dependency array is crucial. We only want to set up listeners when the list of devices changes structurally.
+    // We use device.id to create a stable dependency array based on the current devices.
+  }, [rtdb, devices.map(d => d.id).join(',')]);
+
 
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
     setIsAuthLoading(true);
