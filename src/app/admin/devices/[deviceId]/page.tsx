@@ -22,10 +22,10 @@ export default function DeviceDetailPage() {
     return devices.find(d => d.id === deviceId);
   }, [devices, deviceId]);
 
-  const { data: liveData, loading: isRtdbLoading, error: rtdbError } = useRtdbValue(device?.dbPath || '', deviceId);
+  const { data: liveData, loading: isRtdbLoading, error: rtdbError } = useRtdbValue(device?.dbPath);
 
   const getStatusInfo = (): { text: string; className: string; icon: React.ReactNode } => {
-    if (isRtdbLoading) {
+    if (isRtdbLoading && !liveData) {
       return { text: 'Connecting...', className: 'text-muted-foreground animate-pulse', icon: <Loader2 className="h-4 w-4 animate-spin" /> };
     }
     if (rtdbError) {
@@ -82,7 +82,7 @@ export default function DeviceDetailPage() {
   };
 
   const renderContent = () => {
-    if (isRtdbLoading) {
+    if (isRtdbLoading && !liveData) {
       return (
         <div className="flex flex-col items-center gap-2">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -99,57 +99,61 @@ export default function DeviceDetailPage() {
            </div>
         );
     }
+    
+    if (liveData) {
+      // Handle DHT22 sensor (separate temp/humidity)
+      if (device.type.startsWith("DHT22") && liveData.encrypted_temperature && liveData.encrypted_humidity) {
+          const temp = decryptData(liveData.encrypted_temperature);
+          const humidity = decryptData(liveData.encrypted_humidity);
+          
+          const tempValue = temp ? parseFloat(temp).toFixed(1) : "N/A";
+          const humidityValue = humidity ? parseFloat(humidity).toFixed(1) : "N/A";
 
-    // Handle DHT22 sensor (separate temp/humidity)
-    if (device.type.startsWith("DHT22") && liveData?.encrypted_temperature && liveData?.encrypted_humidity) {
-        const temp = decryptData(liveData.encrypted_temperature);
-        const humidity = decryptData(liveData.encrypted_humidity);
+          return (
+              <div className="flex items-center justify-around w-full">
+                  <div className="flex flex-col items-center px-4">
+                      <Thermometer className="h-8 w-8 text-red-500 mb-2" />
+                      <p className="text-4xl lg:text-5xl font-bold tracking-tighter">
+                          {tempValue}°C
+                      </p>
+                      <p className="text-sm text-muted-foreground">Temperature</p>
+                  </div>
+                  <Separator orientation="vertical" className="h-24" />
+                  <div className="flex flex-col items-center px-4">
+                      <Droplets className="h-8 w-8 text-blue-500 mb-2" />
+                      <p className="text-4xl lg:text-5xl font-bold tracking-tighter">
+                          {humidityValue}%
+                      </p>
+                      <p className="text-sm text-muted-foreground">Humidity</p>
+                  </div>
+              </div>
+          );
+      }
+
+      // Handle PIR sensor and other single-value sensors
+      if (liveData.encrypted_value && liveData.timestamp) {
+        const decryptedValue = decryptData(liveData.encrypted_value);
         
-        const tempValue = temp ? parseFloat(temp).toFixed(1) : "N/A";
-        const humidityValue = humidity ? parseFloat(humidity).toFixed(1) : "N/A";
-
-        return (
-            <div className="flex items-center justify-around w-full">
-                <div className="flex flex-col items-center px-4">
-                    <Thermometer className="h-8 w-8 text-red-500 mb-2" />
-                    <p className="text-4xl lg:text-5xl font-bold tracking-tighter">
-                        {tempValue}°C
-                    </p>
-                    <p className="text-sm text-muted-foreground">Temperature</p>
-                </div>
-                <Separator orientation="vertical" className="h-24" />
-                <div className="flex flex-col items-center px-4">
-                    <Droplets className="h-8 w-8 text-blue-500 mb-2" />
-                    <p className="text-4xl lg:text-5xl font-bold tracking-tighter">
-                        {humidityValue}%
-                    </p>
-                    <p className="text-sm text-muted-foreground">Humidity</p>
-                </div>
+        if (device.type === "PIR") {
+          const numericValue = parseInt(decryptedValue, 10);
+          const displayValue = numericValue === 1 ? "Motion Detected" : "No Motion";
+          const valueClass = numericValue === 1 ? "text-destructive" : "";
+          return (
+            <div>
+              <p className={`text-4xl lg:text-5xl font-bold tracking-tighter ${valueClass}`}>{displayValue}</p>
             </div>
-        );
-    }
-
-    // Handle PIR sensor and other single-value sensors
-    if (liveData?.encrypted_value && liveData.timestamp) {
-      const decryptedValue = decryptData(liveData.encrypted_value);
-      
-      if (device.type === "PIR") {
-        const numericValue = parseInt(decryptedValue, 10);
-        const displayValue = numericValue === 1 ? "Motion Detected" : "No Motion";
-        const valueClass = numericValue === 1 ? "text-destructive" : "";
+          );
+        }
+        
+        // Default handler for other single-value sensor types, including DHT22 sending a single value
         return (
-          <div>
-            <p className={`text-4xl lg:text-5xl font-bold tracking-tighter ${valueClass}`}>{displayValue}</p>
+          <div className="flex flex-col items-center gap-2">
+            <Thermometer className="h-8 w-8 text-primary mb-2" />
+            <p className="text-6xl font-bold tracking-tighter">{parseFloat(decryptedValue).toFixed(1)}°C</p>
+            <p className="text-sm text-muted-foreground">Temperature</p>
           </div>
         );
       }
-      
-      // Default handler for other single-value sensor types
-      return (
-        <div>
-          <p className="text-6xl font-bold tracking-tighter">{parseFloat(decryptedValue).toFixed(2)}</p>
-        </div>
-      );
     }
     
      return (
