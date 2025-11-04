@@ -101,7 +101,7 @@ export default function DeviceDetailPage() {
     }
 
     // Handle DHT22 sensor (separate temp/humidity)
-    if (device.type === "DHT22_Temp" && liveData?.encrypted_temperature && liveData?.encrypted_humidity) {
+    if ((device.type === "DHT22_Temp" || device.type === "DHT22_Humidity") && liveData?.encrypted_temperature && liveData?.encrypted_humidity) {
         const temp = decryptData(liveData.encrypted_temperature);
         const humidity = decryptData(liveData.encrypted_humidity);
         return (
@@ -160,7 +160,7 @@ export default function DeviceDetailPage() {
        <div className="flex items-center gap-4">
         <Button asChild variant="outline" size="icon" className="shrink-0">
           <Link href="/admin/devices">
-            <ArrowLeft className="h-4 w-4" />
+            <ArrowLeft className="mr-2 h-4 w-4" />
             <span className="sr-only">Back to Devices</span>
           </Link>
         </Button>
