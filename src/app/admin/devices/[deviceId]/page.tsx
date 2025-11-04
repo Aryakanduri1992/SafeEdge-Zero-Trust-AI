@@ -85,9 +85,9 @@ export default function DeviceDetailPage() {
     }
     
     // Check for processed temperature or humidity values specifically
-    if (device.type === "DHT22_Temp" && (device.temperature !== undefined || device.humidity !== undefined)) {
-        const tempValue = device.temperature?.toFixed(1) ?? "N/A";
-        const humidityValue = device.humidity?.toFixed(1) ?? "N/A";
+    if (typeof device.temperature === 'number' && typeof device.humidity === 'number') {
+        const tempValue = device.temperature.toFixed(1);
+        const humidityValue = device.humidity.toFixed(1);
 
         return (
             <div className="flex items-center justify-around w-full">
