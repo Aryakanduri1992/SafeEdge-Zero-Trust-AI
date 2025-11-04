@@ -43,6 +43,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
+  const [isFirestoreLoading, setIsFirestoreLoading] = useState(true);
   const [globalSearchTerm, setGlobalSearchTerm] = useState('');
   const router = useRouter();
   const pathname = usePathname();
@@ -52,7 +53,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const firestore = useFirestore();
   const rtdb = useRtdb();
 
-  const isLoading = isFirebaseUserLoading || isAuthLoading;
+  const isLoading = isFirebaseUserLoading || isAuthLoading || isFirestoreLoading;
 
   // Effect for handling Firebase Authentication state changes
   useEffect(() => {
@@ -107,6 +108,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     let devicesUnsubscribe: Unsubscribe | undefined;
 
     if (firestore && appUser) {
+        setIsFirestoreLoading(true);
         if (appUser.role === 'superadmin') {
             const orgsQuery = query(collection(firestore, 'organizations'));
             orgsUnsubscribe = onSnapshot(orgsQuery, (snapshot) => {
@@ -122,10 +124,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             departmentsUnsubscribe = onSnapshot(deptsQuery, (snapshot) => {
                 const deptList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Department));
                 setDepartments(deptList);
+                setIsFirestoreLoading(false);
             }, (serverError) => {
                 const permissionError = new FirestorePermissionError({ path: 'departments', operation: 'list' });
                 errorEmitter.emit('permission-error', permissionError);
                 setDepartments([]);
+                setIsFirestoreLoading(false);
             });
         }
         else if (appUser.role === 'admin') {
@@ -155,16 +159,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             devicesUnsubscribe = onSnapshot(devicesQuery, (snapshot) => {
                 const deviceList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Device));
                 setDevices(deviceList);
+                setIsFirestoreLoading(false);
             }, (serverError) => {
                 const permissionError = new FirestorePermissionError({ path: `devices where organizationId == ${appUser.id}`, operation: 'list' });
                 errorEmitter.emit('permission-error', permissionError);
                 setDevices([]);
+                setIsFirestoreLoading(false);
             });
         }
     } else {
         setOrganizations([]);
         setDepartments([]);
         setDevices([]);
+        if (!isAuthLoading) setIsFirestoreLoading(false);
     }
 
     return () => {
@@ -172,52 +179,45 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (departmentsUnsubscribe) departmentsUnsubscribe();
         if (devicesUnsubscribe) devicesUnsubscribe();
     }
-  }, [appUser?.id, appUser?.role, firestore]);
+  }, [appUser?.id, appUser?.role, firestore, isAuthLoading]);
 
    // Effect for listening to Realtime Database updates for devices
-   useEffect(() => {
-    if (!rtdb || devices.length === 0) {
+  useEffect(() => {
+    if (!rtdb || devices.length === 0 || isLoading) {
       return;
     }
 
     const listeners: { [path: string]: () => void } = {};
-    const devicePaths = ['devices/PIR_Sensor', 'devices/DHT22_Sensor'];
+    const uniqueDevicePaths = [...new Set(devices.map(d => d.dbPath).filter(Boolean))];
 
-    devicePaths.forEach(path => {
+    uniqueDevicePaths.forEach(path => {
         const dbRef = ref(rtdb, path);
+        
         const listener = onValue(dbRef, (snapshot) => {
             if (snapshot.exists()) {
                 const liveData = snapshot.val();
                 
                 setDevices(prevDevices => 
                     prevDevices.map(d => {
-                        // Check if the device name is part of the path, e.g., 'PIR_Sensor' in 'devices/PIR_Sensor'
-                        if (!path.includes(d.name)) {
+                        if (d.dbPath !== path) {
                             return d;
                         }
 
                         const updatedDevice: Device = { 
                             ...d, 
-                            liveData, 
                             status: 'online', 
                             timestamp: liveData.timestamp 
                         };
 
-                        // Handle PIR Sensor (single value)
-                        if (liveData.encrypted_value && (d.type === 'PIR' || d.name.includes('PIR'))) {
+                        if (liveData.encrypted_value) {
                             updatedDevice.value = parseFloat(decryptData(liveData.encrypted_value));
                         }
                         
-                        // Handle DHT22 Sensor (temperature and humidity)
-                        if (d.type === 'DHT22_Temp' || d.name.includes('DHT22')) {
-                            if (liveData.encrypted_temperature) {
-                                updatedDevice.temperature = parseFloat(decryptData(liveData.encrypted_temperature));
-                            }
-                            if (liveData.encrypted_humidity) {
-                                updatedDevice.humidity = parseFloat(decryptData(liveData.encrypted_humidity));
-                            }
-                             // Clear generic value field for DHT22 to avoid confusion
-                            delete updatedDevice.value;
+                        if (liveData.encrypted_temperature) {
+                            updatedDevice.temperature = parseFloat(decryptData(liveData.encrypted_temperature));
+                        }
+                        if (liveData.encrypted_humidity) {
+                            updatedDevice.humidity = parseFloat(decryptData(liveData.encrypted_humidity));
                         }
                         
                         return updatedDevice;
@@ -234,7 +234,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       Object.values(listeners).forEach(unsubscribe => unsubscribe());
     };
-  }, [rtdb, devices.length]); // Rerun only if rtdb is available or the number of devices changes
+  }, [rtdb, devices.length, isLoading]); 
 
 
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
