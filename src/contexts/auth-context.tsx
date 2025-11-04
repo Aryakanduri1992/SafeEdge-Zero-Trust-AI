@@ -181,57 +181,60 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
 
     const listeners: { [path: string]: () => void } = {};
+    const devicePaths = ['devices/PIR_Sensor', 'devices/DHT22_Sensor'];
 
-    devices.forEach(device => {
-      // Ensure we only attach one listener per unique dbPath
-      if (device.dbPath && !listeners[device.dbPath]) {
-        const dbRef = ref(rtdb, device.dbPath);
-        
+    devicePaths.forEach(path => {
+        const dbRef = ref(rtdb, path);
         const listener = onValue(dbRef, (snapshot) => {
-          if (snapshot.exists()) {
-            const liveData = snapshot.val();
-            
-            setDevices(prevDevices => 
-              prevDevices.map(d => {
-                // Update all devices that share this dbPath
-                if (d.dbPath !== device.dbPath) {
-                  return d;
-                }
-
-                const updatedDevice = { ...d, liveData, status: 'online' as const, timestamp: liveData.timestamp };
-
-                // Handle PIR Sensor (single value)
-                if (liveData.encrypted_value && d.type === 'PIR') {
-                  updatedDevice.value = parseFloat(decryptData(liveData.encrypted_value));
-                }
+            if (snapshot.exists()) {
+                const liveData = snapshot.val();
                 
-                // Handle DHT22 Sensor (temperature and humidity)
-                if (liveData.encrypted_temperature) {
-                  updatedDevice.temperature = parseFloat(decryptData(liveData.encrypted_temperature));
-                  delete updatedDevice.value; // Remove generic value if temp exists
-                }
-                if (liveData.encrypted_humidity) {
-                  updatedDevice.humidity = parseFloat(decryptData(liveData.encrypted_humidity));
-                }
-                
-                return updatedDevice;
-              })
-            );
-          }
+                setDevices(prevDevices => 
+                    prevDevices.map(d => {
+                        // Check if the device name is part of the path, e.g., 'PIR_Sensor' in 'devices/PIR_Sensor'
+                        if (!path.includes(d.name)) {
+                            return d;
+                        }
+
+                        const updatedDevice: Device = { 
+                            ...d, 
+                            liveData, 
+                            status: 'online', 
+                            timestamp: liveData.timestamp 
+                        };
+
+                        // Handle PIR Sensor (single value)
+                        if (liveData.encrypted_value && (d.type === 'PIR' || d.name.includes('PIR'))) {
+                            updatedDevice.value = parseFloat(decryptData(liveData.encrypted_value));
+                        }
+                        
+                        // Handle DHT22 Sensor (temperature and humidity)
+                        if (d.type === 'DHT22_Temp' || d.name.includes('DHT22')) {
+                            if (liveData.encrypted_temperature) {
+                                updatedDevice.temperature = parseFloat(decryptData(liveData.encrypted_temperature));
+                            }
+                            if (liveData.encrypted_humidity) {
+                                updatedDevice.humidity = parseFloat(decryptData(liveData.encrypted_humidity));
+                            }
+                             // Clear generic value field for DHT22 to avoid confusion
+                            delete updatedDevice.value;
+                        }
+                        
+                        return updatedDevice;
+                    })
+                );
+            }
         }, (error) => {
-          console.error(`RTDB listener error for path ${device.dbPath}:`, error);
+            console.error(`RTDB listener error for path ${path}:`, error);
         });
 
-        // Store the cleanup function for this listener
-        listeners[device.dbPath] = () => off(dbRef, 'value', listener);
-      }
+        listeners[path] = () => off(dbRef, 'value', listener);
     });
 
-    // Cleanup function to remove all listeners when component unmounts or devices change
     return () => {
       Object.values(listeners).forEach(unsubscribe => unsubscribe());
     };
-  }, [rtdb, devices.map(d => d.id).join(',')]); // Rerun if the device list changes
+  }, [rtdb, devices.length]); // Rerun only if rtdb is available or the number of devices changes
 
 
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
@@ -372,5 +375,3 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     </AuthContext.Provider>
   );
 };
-
-    
