@@ -9,8 +9,6 @@ import { HardDrive, ArrowLeft, RadioTower, Loader2, Wifi, WifiOff, AlertTriangle
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import useRtdbValue from '@/hooks/use-rtdb-value';
-import { decryptData } from '@/lib/crypto-service';
 import { Separator } from '@/components/ui/separator';
 
 export default function DeviceDetailPage() {
@@ -22,19 +20,14 @@ export default function DeviceDetailPage() {
     return devices.find(d => d.id === deviceId);
   }, [devices, deviceId]);
 
-  const { data: liveData, loading: isRtdbLoading, error: rtdbError } = useRtdbValue(device?.dbPath);
-
   const getStatusInfo = (): { text: string; className: string; icon: React.ReactNode } => {
-    if (isRtdbLoading && !liveData) {
-      return { text: 'Connecting...', className: 'text-muted-foreground animate-pulse', icon: <Loader2 className="h-4 w-4 animate-spin" /> };
+    if (!device) {
+      return { text: 'Loading...', className: 'text-muted-foreground animate-pulse', icon: <Loader2 className="h-4 w-4 animate-spin" /> };
     }
-    if (rtdbError) {
-      return { text: 'Connection Error', className: 'text-destructive border-destructive/50 bg-destructive/10', icon: <AlertTriangle className="h-4 w-4" /> };
-    }
-    if (liveData) {
+    if (device.status === 'online') {
       return { text: 'Live Feed', className: 'text-green-500 border-green-500/50 bg-green-500/10', icon: <Wifi className="h-4 w-4" /> };
     }
-    if (!device?.dbPath) {
+    if (!device.dbPath) {
         return { text: 'No DB Path', className: 'text-amber-500 border-amber-500/50 bg-amber-500/10', icon: <WifiOff className="h-4 w-4" /> };
     }
     return { text: 'Awaiting Data', className: '', icon: <WifiOff className="h-4 w-4" /> };
@@ -82,32 +75,20 @@ export default function DeviceDetailPage() {
   };
 
   const renderContent = () => {
-    if (isRtdbLoading && !liveData) {
+    if (isAuthLoading && !device?.liveData) {
       return (
         <div className="flex flex-col items-center gap-2">
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">Connecting to Realtime DB...</span>
+          <span className="text-sm text-muted-foreground">Connecting to device...</span>
         </div>
       );
     }
-    if (rtdbError) {
-       return (
-           <div className="flex flex-col items-center gap-2">
-              <AlertTriangle className="h-8 w-8 text-destructive" />
-              <span className="font-semibold text-destructive">Connection Error</span>
-              <span className="text-sm text-muted-foreground">{rtdbError}</span>
-           </div>
-        );
-    }
     
-    if (liveData) {
+    if (device?.liveData) {
       // Handle DHT22 sensor (separate temp/humidity)
-      if (device.type.startsWith("DHT22") && liveData.encrypted_temperature && liveData.encrypted_humidity) {
-          const temp = decryptData(liveData.encrypted_temperature);
-          const humidity = decryptData(liveData.encrypted_humidity);
-          
-          const tempValue = temp ? parseFloat(temp).toFixed(1) : "N/A";
-          const humidityValue = humidity ? parseFloat(humidity).toFixed(1) : "N/A";
+      if (device.type.startsWith("DHT22") && (device.temperature !== undefined || device.humidity !== undefined)) {
+          const tempValue = device.temperature?.toFixed(1) || "N/A";
+          const humidityValue = device.humidity?.toFixed(1) || "N/A";
 
           return (
               <div className="flex items-center justify-around w-full">
@@ -131,11 +112,9 @@ export default function DeviceDetailPage() {
       }
 
       // Handle PIR sensor and other single-value sensors
-      if (liveData.encrypted_value && liveData.timestamp) {
-        const decryptedValue = decryptData(liveData.encrypted_value);
-        
+      if (device.value !== undefined) {
         if (device.type === "PIR") {
-          const numericValue = parseInt(decryptedValue, 10);
+          const numericValue = Math.round(device.value);
           const displayValue = numericValue === 1 ? "Motion Detected" : "No Motion";
           const valueClass = numericValue === 1 ? "text-destructive" : "";
           return (
@@ -145,12 +124,11 @@ export default function DeviceDetailPage() {
           );
         }
         
-        // Default handler for other single-value sensor types, including DHT22 sending a single value
+        // Default handler for other single-value sensor types
         return (
           <div className="flex flex-col items-center gap-2">
-            <Thermometer className="h-8 w-8 text-primary mb-2" />
-            <p className="text-6xl font-bold tracking-tighter">{parseFloat(decryptedValue).toFixed(1)}°C</p>
-            <p className="text-sm text-muted-foreground">Temperature</p>
+            <p className="text-6xl font-bold tracking-tighter">{device.value.toFixed(1)}</p>
+            <p className="text-sm text-muted-foreground">Value</p>
           </div>
         );
       }
@@ -195,7 +173,7 @@ export default function DeviceDetailPage() {
           {renderContent()}
         </CardContent>
          <div className="p-4 border-t flex items-center justify-between">
-             <span className="text-sm text-muted-foreground">Last Update: {liveData?.timestamp ? formatTimestamp(liveData.timestamp) : 'N/A'}</span>
+             <span className="text-sm text-muted-foreground">Last Update: {device.timestamp ? formatTimestamp(device.timestamp) : 'N/A'}</span>
             <Badge variant="outline" className={statusClassName}>
               {statusIcon}
               {statusText}

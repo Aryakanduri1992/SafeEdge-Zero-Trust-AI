@@ -88,11 +88,14 @@ export interface Device {
   description?: string;
   dbPath: string; // Path to Realtime DB
   value?: number;
+  temperature?: number;
+  humidity?: number;
   timestamp?: string; // ISO date string
+  liveData?: any; // To hold raw RTDB data
 }
 
-export type NewDeviceData = Omit<Device, 'id' | 'lastSeen' | 'status' | 'value' | 'timestamp'>;
-export type UpdateDeviceData = Partial<Omit<Device, 'id' | 'organizationId'>>;
+export type NewDeviceData = Omit<Device, 'id' | 'lastSeen' | 'status' | 'value' | 'timestamp' | 'temperature' | 'humidity' | 'liveData'>;
+export type UpdateDeviceData = Partial<Omit<Device, 'id' | 'organizationId' | 'liveData'>>;
 
 export type UpdateDeviceStatusData = {
   value?: number;

@@ -6,9 +6,11 @@ import { useRouter, usePathname } from 'next/navigation';
 import * as authService from '@/lib/auth-service';
 import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData, NewDeviceData, UpdateDeviceData, Device, UpdateDeviceStatusData } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, useFirestore, FirestorePermissionError, errorEmitter } from '@/firebase';
+import { useFirebase, useFirestore, FirestorePermissionError, errorEmitter, useRtdb } from '@/firebase';
 import { collection, onSnapshot, Unsubscribe, query, where, doc } from 'firebase/firestore';
-import { User, getIdTokenResult } from 'firebase/auth';
+import { User } from 'firebase/auth';
+import { ref, onValue, off } from 'firebase/database';
+import { decryptData } from '@/lib/crypto-service';
 
 type AuthContextType = {
   user: SuperAdminUser | Organization | null;
@@ -48,16 +50,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const { user: firebaseUser, isUserLoading: isFirebaseUserLoading } = useFirebase();
   const firestore = useFirestore();
+  const rtdb = useRtdb();
 
   const isLoading = isFirebaseUserLoading || isAuthLoading;
 
+  // Effect for handling Firebase Authentication state changes
   useEffect(() => {
     const handleAuthChange = async () => {
       if (firebaseUser) {
           setIsAuthLoading(true);
           try {
             const userProfile = await authService.fetchUserProfile(firebaseUser);
-
             if (userProfile) {
               setAppUser(userProfile);
             } else {
@@ -83,7 +86,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [firebaseUser, isFirebaseUserLoading]);
 
-
+  // Effect for redirecting unauthenticated users
   useEffect(() => {
     if (!isLoading && !appUser) {
         const isAuthProtectedRoute = pathname.startsWith('/admin') || pathname.startsWith('/superadmin');
@@ -97,6 +100,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [pathname, isLoading, appUser, router]);
 
+  // Effect for fetching Firestore data (Orgs, Depts, Devices)
   useEffect(() => {
     let orgsUnsubscribe: Unsubscribe | undefined;
     let departmentsUnsubscribe: Unsubscribe | undefined;
@@ -129,7 +133,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
              orgsUnsubscribe = onSnapshot(orgRef, (doc) => {
                 if (doc.exists()) {
                     const orgData = { ...doc.data(), id: doc.id, role: 'admin' } as Organization;
-                    setAppUser(orgData); // Keep appUser in sync with DB changes
+                    setAppUser(orgData);
                     setOrganizations([orgData]);
                 }
             }, (serverError) => {
@@ -169,6 +173,57 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         if (devicesUnsubscribe) devicesUnsubscribe();
     }
   }, [appUser?.id, appUser?.role, firestore]);
+
+   // Effect for listening to Realtime Database updates for devices
+   useEffect(() => {
+    if (!rtdb || devices.length === 0) {
+      return;
+    }
+
+    const listeners: { [path: string]: () => void } = {};
+
+    devices.forEach(device => {
+      if (device.dbPath && !listeners[device.dbPath]) {
+        const dbRef = ref(rtdb, device.dbPath);
+        const listener = onValue(dbRef, (snapshot) => {
+          if (snapshot.exists()) {
+            const liveData = snapshot.val();
+            
+            setDevices(prevDevices => {
+              return prevDevices.map(d => {
+                if (d.dbPath === device.dbPath) {
+                  const updatedDevice = { ...d, liveData, status: 'online' as const };
+                  if (liveData.encrypted_value) {
+                     updatedDevice.value = parseFloat(decryptData(liveData.encrypted_value));
+                  }
+                  if (liveData.encrypted_temperature) {
+                     updatedDevice.temperature = parseFloat(decryptData(liveData.encrypted_temperature));
+                  }
+                   if (liveData.encrypted_humidity) {
+                     updatedDevice.humidity = parseFloat(decryptData(liveData.encrypted_humidity));
+                  }
+                  if (liveData.timestamp) {
+                    updatedDevice.timestamp = liveData.timestamp;
+                  }
+                  return updatedDevice;
+                }
+                return d;
+              });
+            });
+          }
+        }, (error) => {
+          console.error(`RTDB listener error for path ${device.dbPath}:`, error);
+        });
+
+        listeners[device.dbPath] = () => off(dbRef, 'value', listener);
+      }
+    });
+
+    // Cleanup function
+    return () => {
+      Object.values(listeners).forEach(unsubscribe => unsubscribe());
+    };
+  }, [devices, rtdb]);
 
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
     setIsAuthLoading(true);
@@ -274,7 +329,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const updateDeviceStatus = async (deviceId: string, statusData: UpdateDeviceStatusData) => {
     if (!appUser || appUser.role !== 'admin') {
-      // Silently fail if not an admin, as this is an automatic background task.
       return;
     }
     await authService.updateDeviceStatus(deviceId, statusData);
