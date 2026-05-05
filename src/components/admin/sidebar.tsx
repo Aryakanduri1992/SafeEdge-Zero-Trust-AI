@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, User, Users, ShieldAlert, HardDrive } from "lucide-react";
+import { LayoutDashboard, User, Users, ShieldAlert, HardDrive, Shield, Box, Zap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import type { Organization } from "@/lib/types";
@@ -11,6 +11,10 @@ import { Logo } from "../logo";
 
 export const navItems = [
   { href: "/admin/dashboard", icon: LayoutDashboard, label: "Organization" },
+  { href: "/admin/3d-floor-plan-simple", icon: Box, label: "3D Floor Plan" },
+  // TEMPORARILY HIDDEN - Attack Simulation (restore when needed)
+  // { href: "/admin/attack-simulation", icon: Zap, label: "Attack Simulation" },
+  { href: "/admin/security", icon: Shield, label: "Security Center" },
   { href: "/admin/departments", icon: Users, label: "Departments" },
   { href: "/admin/devices", icon: HardDrive, label: "Devices" },
   { href: "/admin/alerts", icon: ShieldAlert, label: "Alerts" },
@@ -28,7 +32,7 @@ export function Sidebar() {
         <div className="flex h-16 items-center border-b px-6">
           <Link href="/admin/dashboard" className="flex items-center gap-2 font-semibold overflow-hidden">
              <Logo className="h-7 w-7" />
-             <span className="font-headline text-primary truncate text-lg lg:text-xl">SafeEdge</span>
+             <span className="font-headline text-primary truncate text-lg lg:text-xl">Blackshield-X</span>
           </Link>
         </div>
         <div className="flex-1 overflow-auto py-4">

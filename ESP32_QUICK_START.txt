@@ -1,0 +1,124 @@
+╔════════════════════════════════════════════════════════════════╗
+║           ESP32 QUICK START - SafeEdge Complete                ║
+║                  Ready to Upload & Deploy                      ║
+╚════════════════════════════════════════════════════════════════╝
+
+📁 FILE TO UPLOAD:
+   esp32_secure/SafeEdge_Complete.ino
+
+⚙️ CONFIGURATION (Only 2 things to change):
+
+   1. WiFi Credentials (Line ~50) - OPTIONAL, only if using WiFi:
+      const char* WIFI_SSID = "YourWiFiName";
+      const char* WIFI_PASSWORD = "YourPassword";
+      
+      Leave empty if using Ethernet only!
+
+   2. Backend API URL (Line ~40):
+      #define BACKEND_API_URL "http://192.168.1.100:8000"
+      Change to your backend server IP
+
+🔌 HARDWARE CONNECTIONS:
+
+   W5500 Ethernet:          LEDs (220Ω):        Buzzer:
+   MOSI → GPIO 23           Red → GPIO 32       + → GPIO 33
+   MISO → GPIO 19           Green → GPIO 25     - → GND
+   SCK  → GPIO 18           Yellow → GPIO 26
+   CS   → GPIO 5
+
+📚 REQUIRED LIBRARIES (Install in Arduino IDE):
+
+   1. Firebase ESP Client (by Mobizt)
+   2. ArduinoJson (v6.x)
+   3. Ethernet (built-in)
+
+🚀 UPLOAD STEPS:
+
+   1. Open Arduino IDE
+   2. File → Open → SafeEdge_Complete.ino
+   3. Tools → Board → ESP32 Dev Module
+   4. Tools → Port → (Select your ESP32)
+   5. Click Upload (→)
+   6. Wait for "Hard resetting via RTS pin..."
+   7. Done! ✅
+
+📊 LED INDICATORS:
+
+   🟡 Blinking (1s)    = Provisioning mode (waiting for mobile)
+   🟢 Solid            = Connected & operational ✅
+   🔴 Blinking (0.5s)  = Not connected
+   🟢 Blink 3x         = Network connected
+   🟢 Blink 5x         = Provisioning successful
+
+📱 PROVISIONING WORKFLOW:
+
+   1. Power on ESP32
+   2. ESP32 creates WiFi AP: "SafeEdge-XXYYZZ"
+   3. Password: "SafeEdge2026"
+   4. Open mobile app → Scan QR code from dashboard
+   5. Mobile connects to ESP32 automatically
+   6. ESP32 validates with backend (enterprise security)
+   7. ESP32 stores credentials
+   8. ESP32 restarts and connects
+   9. Green LED = Operational! ✅
+
+🧪 TESTING:
+
+   After upload:
+   - Open Serial Monitor (115200 baud)
+   - Should see: "Ready for mobile provisioning!"
+   - Yellow LED should blink
+   - WiFi AP "SafeEdge-XXYYZZ" should be visible
+
+   After provisioning:
+   - ESP32 restarts automatically
+   - Connects to network
+   - Green LED turns solid
+   - Sends sensor data every 5 seconds
+
+🔐 SECURITY FEATURES:
+
+   ✅ One-time provisioning tokens (prevents replay attacks)
+   ✅ MAC address binding (prevents device cloning)
+   ✅ Dual validation (mobile + ESP32)
+   ✅ Backend authentication (enterprise security)
+   ✅ Certificate-based mTLS
+   ✅ AES-256-GCM encryption
+
+🐛 TROUBLESHOOTING:
+
+   Won't upload?
+   → Hold BOOT button while uploading
+
+   WiFi AP not visible?
+   → Check Serial Monitor for SSID
+   → Restart ESP32
+
+   Validation failed?
+   → Check backend is running
+   → Verify BACKEND_API_URL
+
+   Won't connect after provisioning?
+   → Ethernet: Check cable
+   → WiFi: Verify WIFI_SSID and WIFI_PASSWORD
+
+📞 SUPPORT:
+
+   Serial Monitor: 115200 baud
+   Web Interface: http://192.168.4.1 (when in provisioning mode)
+   Documentation: ESP32_SETUP_GUIDE.md
+
+✅ PRODUCTION READY:
+
+   Same firmware for all devices
+   Each device gets unique credentials via mobile provisioning
+   Enterprise security for all
+   ~5 minutes per device
+
+╔════════════════════════════════════════════════════════════════╗
+║  That's it! Upload and provision. Green LED = Success! 🚀     ║
+╚════════════════════════════════════════════════════════════════╝
+
+Author: SafeEdge Team - Imagine Cup 2026
+Date: April 10, 2026
+Status: ✅ PRODUCTION READY

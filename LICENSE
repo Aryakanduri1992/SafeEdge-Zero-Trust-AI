@@ -1,0 +1,49 @@
+## ⚠️ License
+
+**All Rights Reserved.**
+
+This project is publicly visible for educational and portfolio purposes only.
+
+**Unauthorized use, copying, modification, or distribution of this code is strictly prohibited.**
+
+---
+
+**SafeEdge IoT Security Platform**  
+Copyright (c) 2026 SafeEdge Security Team. All rights reserved.
+
+### Terms of Use
+
+This software and associated documentation files (the "Software") are made available for **viewing and educational purposes only**. 
+
+**You may NOT:**
+- Use this code for commercial purposes
+- Copy, modify, or distribute the code
+- Create derivative works based on this code
+- Use this code in your own projects
+- Reverse engineer or attempt to extract proprietary algorithms
+
+**You may:**
+- View the code for learning purposes
+- Reference this project in academic or professional discussions
+- Use this project as a portfolio reference (with proper attribution)
+
+### Educational Use
+
+This project is shared publicly to demonstrate:
+- Advanced IoT security implementation
+- Real-time threat detection systems
+- Professional software development practices
+- Integration of multiple technologies (Next.js, Python, ESP32, Kali Linux)
+
+### Contact
+
+For licensing inquiries, collaboration opportunities, or permission requests:
+- **Email**: contact@safeedge.io
+- **Website**: https://safeedge.io
+- **LinkedIn**: [SafeEdge Platform](https://linkedin.com/company/safeedge)
+
+### Legal Notice
+
+This project contains proprietary algorithms, security implementations, and intellectual property developed specifically for the Microsoft Imagine Cup 2026 World Championship. Any unauthorized use may result in legal action.
+
+**© 2026 SafeEdge Security Team. All Rights Reserved.**

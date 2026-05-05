@@ -1,0 +1,83 @@
+{
+  "rules": {
+    ".read": "now < 1778351400000",
+    ".write": "now < 1778351400000",
+    
+    "devices": {
+      "$deviceId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        
+        "info": {
+          ".validate": "newData.hasChildren(['deviceId', 'deviceName', 'status'])"
+        },
+        
+        "current": {
+          ".validate": "newData.hasChildren(['timestamp', 'threatLevel', 'securityScore'])"
+        },
+        
+        "sensorHistory": {
+          "metadata": {
+            ".validate": "newData.hasChildren(['currentIndex', 'totalWrites', 'maxEntries'])",
+            "currentIndex": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 200"
+            },
+            "totalWrites": {
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            },
+            "maxEntries": {
+              ".validate": "newData.val() === 200"
+            }
+          },
+          "readings": {
+            "$index": {
+              ".validate": "$index.matches(/^(1?[0-9]{1,2})$/) && newData.hasChildren(['timestamp'])"
+            }
+          }
+        },
+        
+        "alerts": {
+          "metadata": {
+            ".validate": "newData.hasChildren(['currentIndex', 'totalAlerts', 'maxEntries'])",
+            "currentIndex": {
+              ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 200"
+            },
+            "totalAlerts": {
+              ".validate": "newData.isNumber() && newData.val() >= 0"
+            },
+            "maxEntries": {
+              ".validate": "newData.val() === 200"
+            }
+          },
+          "entries": {
+            "$index": {
+              ".validate": "$index.matches(/^(1?[0-9]{1,2})$/) && newData.hasChildren(['timestamp', 'severity'])"
+            }
+          }
+        },
+        
+        "connectedIoTDevices": {
+          "$iotDeviceId": {
+            ".validate": "newData.hasChildren(['deviceId', 'status'])"
+          }
+        },
+        
+        "blockedDevices": {
+          "$iotDeviceId": {
+            ".validate": "newData.hasChildren(['deviceId', 'blockedAt'])"
+          }
+        }
+      }
+    },
+    
+    "commands": {
+      "$deviceId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        "pending": {
+          ".validate": "newData.isString() && (newData.val() === 'STATUS' || newData.val() === 'TEMP_ATTACK' || newData.val() === 'STOP_ATTACK' || newData.val() === 'RESET')"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+[
+  {
+    "device_id": "esp32_safeedge_001",
+    "cert_file": "/Users/adithyan/Downloads/Blackshield-X/esp32_secure/certificates/devices/esp32_safeedge_001.crt",
+    "key_file": "/Users/adithyan/Downloads/Blackshield-X/esp32_secure/certificates/devices/esp32_safeedge_001.key",
+    "fingerprint_sha256": "4F2D5B191A0283363B003807A8B03D1BA19C008241937D239F5CBADC805818A5",
+    "valid_until": "2027-01-08T14:38:33.895741"
+  },
+  {
+    "device_id": "esp32_safeedge_002",
+    "cert_file": "/Users/adithyan/Downloads/Blackshield-X/esp32_secure/certificates/devices/esp32_safeedge_002.crt",
+    "key_file": "/Users/adithyan/Downloads/Blackshield-X/esp32_secure/certificates/devices/esp32_safeedge_002.key",
+    "fingerprint_sha256": "DA9837D2ABC7DF631C2BD78DAC1AF41EA371403E1FE8B1DE3BCDEB8DAE4789D5",
+    "valid_until": "2027-01-08T14:38:34.491370"
+  },
+  {
+    "device_id": "esp32_safeedge_003",
+    "cert_file": "/Users/adithyan/Downloads/Blackshield-X/esp32_secure/certificates/devices/esp32_safeedge_003.crt",
+    "key_file": "/Users/adithyan/Downloads/Blackshield-X/esp32_secure/certificates/devices/esp32_safeedge_003.key",
+    "fingerprint_sha256": "7DFE03675656E82A312E567E47E0445948EF0F4146DB5AF1F6D929853F7F8E60",
+    "valid_until": "2027-01-08T14:38:35.075651"
+  }
+]

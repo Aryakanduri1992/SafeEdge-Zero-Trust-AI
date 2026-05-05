@@ -1,9 +1,9 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useAuth } from '@/hooks/use-auth';
-import { Device, Department } from '@/lib/types';
+import { Device, Department, Room } from '@/lib/types';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -26,19 +26,46 @@ type DeviceListProps = {
 };
 
 export function DeviceList({ devices, departments }: DeviceListProps) {
-    const { deleteDevice, globalSearchTerm } = useAuth();
+    const { deleteDevice, globalSearchTerm, user } = useAuth();
     const router = useRouter();
     const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [selectedDevice, setSelectedDevice] = useState<Device | null>(null);
+    const [roomsMap, setRoomsMap] = useState<Map<string, Room>>(new Map());
+
+    // Load rooms for room name display
+    useEffect(() => {
+        const loadRooms = async () => {
+            if (!user) return;
+            
+            try {
+                // Use API endpoint to get rooms from current floor plan
+                const response = await fetch(`/api/floor-plans/current/rooms?organizationId=${user.id}`);
+                const result = await response.json();
+                
+                if (result.success && result.data) {
+                    const rooms = new Map<string, Room>();
+                    result.data.forEach((room: Room) => {
+                        rooms.set(room.id, room);
+                    });
+                    setRoomsMap(rooms);
+                }
+            } catch (error) {
+                console.error("Failed to load rooms:", error);
+            }
+        };
+
+        loadRooms();
+    }, [user]);
 
     const filteredDevices = useMemo(() => {
         return devices.filter(device => {
             const department = departments.find(d => d.id === device.departmentId);
-            const searchCorpus = `${device.name} ${device.location} ${device.type} ${department?.departmentName || ''}`.toLowerCase();
+            const room = roomsMap.get(device.roomId || '');
+            const searchCorpus = `${device.name} ${device.location} ${device.type} ${department?.departmentName || ''} ${room?.name || ''}`.toLowerCase();
             return globalSearchTerm ? searchCorpus.includes(globalSearchTerm.toLowerCase()) : true;
         });
-    }, [devices, departments, globalSearchTerm]);
+    }, [devices, departments, globalSearchTerm, roomsMap]);
 
     const handleEditClick = (e: React.MouseEvent, device: Device) => {
         e.stopPropagation();
@@ -67,6 +94,12 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
     const getDepartmentName = (departmentId: string) => {
         return departments.find(d => d.id === departmentId)?.departmentName || 'Unknown';
     };
+
+    const getRoomName = (roomId: string | undefined) => {
+        if (!roomId) return 'Unassigned';
+        const room = roomsMap.get(roomId);
+        return room ? `${room.name} (${room.identifier})` : 'Unknown Room';
+    };
     
     return (
         <>
@@ -83,6 +116,7 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
                                     <TableRow>
                                         <TableHead>Device Name</TableHead>
                                         <TableHead className="hidden sm:table-cell">Department</TableHead>
+                                        <TableHead className="hidden md:table-cell">Room</TableHead>
                                         <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -91,9 +125,12 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
                                         <TableRow key={device.id} onClick={() => handleRowClick(device.id)} className="cursor-pointer">
                                             <TableCell className="font-medium">
                                                 {device.name}
-                                                <div className="text-xs text-muted-foreground sm:hidden">{getDepartmentName(device.departmentId)}</div>
+                                                <div className="text-xs text-muted-foreground sm:hidden">
+                                                    {getDepartmentName(device.departmentId)} • {getRoomName(device.roomId)}
+                                                </div>
                                             </TableCell>
                                             <TableCell className="hidden sm:table-cell">{getDepartmentName(device.departmentId)}</TableCell>
+                                            <TableCell className="hidden md:table-cell">{getRoomName(device.roomId)}</TableCell>
                                             <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                                                 <DropdownMenu>
                                                     <DropdownMenuTrigger asChild>
@@ -118,7 +155,7 @@ export function DeviceList({ devices, departments }: DeviceListProps) {
                                     ))}
                                     {filteredDevices.length === 0 && (
                                         <TableRow>
-                                            <TableCell colSpan={3} className="h-24 text-center">
+                                            <TableCell colSpan={4} className="h-24 text-center">
                                                 No devices found matching your criteria.
                                             </TableCell>
                                         </TableRow>

@@ -8,7 +8,6 @@ import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, UserPlus } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
@@ -22,7 +21,7 @@ const formSchema = z.object({
   location: z.string().min(2, { message: 'Location is required.' }),
   building: z.string().min(1, { message: 'Building is required.' }),
   floor: z.string().min(1, { message: 'Floor is required.' }),
-  plan: z.enum(['Free', 'Pro', 'Enterprise']),
+  plan: z.enum(['Basic', 'Pro', 'Enterprise']),
   devices: z.coerce.number().min(1, { message: 'Must have at least 1 device.' }),
 });
 
@@ -32,7 +31,6 @@ type CreateOrgFormProps = {
 
 export function CreateOrganizationForm({ onFinished }: CreateOrgFormProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const { createOrganization } = useAuth();
   const { toast } = useToast();
   
   const form = useForm<z.infer<typeof formSchema>>({
@@ -45,7 +43,7 @@ export function CreateOrganizationForm({ onFinished }: CreateOrgFormProps) {
       location: '',
       building: '',
       floor: '',
-      plan: 'Free',
+      plan: 'Basic',
       devices: 10,
     },
     mode: 'onChange',
@@ -55,7 +53,49 @@ export function CreateOrganizationForm({ onFinished }: CreateOrgFormProps) {
     setIsLoading(true);
     
     try {
-      await createOrganization(values);
+      // Create organization via SQLite API
+      const orgResponse = await fetch('/api/superadmin/organizations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          organizationName: values.organizationName,
+          email: values.email,
+          password: values.password,
+        }),
+      });
+
+      if (!orgResponse.ok) {
+        const errorData = await orgResponse.json();
+        throw new Error(errorData.error || 'Failed to create organization');
+      }
+
+      const orgResult = await orgResponse.json();
+      const organizationId = orgResult.data.id;
+
+      // Create initial department
+      const deptResponse = await fetch('/api/superadmin/departments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          organizationId,
+          departmentName: values.departmentName,
+          location: values.location,
+          building: values.building,
+          floor: parseInt(values.floor),
+          devices: values.devices,
+          plan: values.plan,
+        }),
+      });
+
+      if (!deptResponse.ok) {
+        const errorData = await deptResponse.json();
+        throw new Error(errorData.error || 'Failed to create department');
+      }
+
       toast({
         title: 'Organization Created',
         description: `Organization "${values.organizationName}" and its first department have been successfully created.`,
@@ -197,7 +237,7 @@ export function CreateOrganizationForm({ onFinished }: CreateOrgFormProps) {
                                         </SelectTrigger>
                                     </FormControl>
                                     <SelectContent>
-                                        <SelectItem value="Free">Free</SelectItem>
+                                        <SelectItem value="Basic">Basic</SelectItem>
                                         <SelectItem value="Pro">Pro</SelectItem>
                                         <SelectItem value="Enterprise">Enterprise</SelectItem>
                                     </SelectContent>

@@ -2,7 +2,6 @@ import type { Metadata } from 'next';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from '@/contexts/auth-context';
-import { FirebaseClientProvider } from '@/firebase';
 import { Inter, Orbitron } from 'next/font/google';
 import { cn } from '@/lib/utils';
 import { ThemeProvider } from '@/components/theme-provider';
@@ -32,15 +31,12 @@ export default function RootLayout({
       <body className={cn("font-body antialiased", fontHeadline.variable, fontBody.variable)}>
         <ThemeProvider
           attribute="class"
-          defaultTheme="system"
-          enableSystem
+          defaultTheme="dark"
           disableTransitionOnChange
         >
-          <FirebaseClientProvider>
-            <AuthProvider>
-              {children}
-            </AuthProvider>
-          </FirebaseClientProvider>
+          <AuthProvider>
+            {children}
+          </AuthProvider>
           <Toaster />
         </ThemeProvider>
       </body>

@@ -8,30 +8,28 @@ import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, PlusCircle } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
 import { ScrollArea } from '../ui/scroll-area';
-import type { Department, NewDepartmentData } from '@/lib/types';
+import type { DepartmentSQLite } from '@/lib/types';
 
 const formSchema = z.object({
   departmentName: z.string().min(2, { message: 'Department Name is required.' }),
   location: z.string().min(2, { message: 'Location is required.' }),
   building: z.string().min(1, { message: 'Building is required.' }),
   floor: z.string().min(1, { message: 'Floor is required.' }),
-  plan: z.enum(['Free', 'Pro', 'Enterprise']),
+  plan: z.enum(['Basic', 'Pro', 'Enterprise']),
   devices: z.coerce.number().min(1, { message: 'Must have at least 1 device.' }),
 });
 
 type CreateDepartmentFormProps = {
-  organization: Department; // We use a department to get org details
+  organization: DepartmentSQLite; // We use a department to get org details
   onFinished: () => void;
 };
 
 export function CreateDepartmentForm({ organization, onFinished }: CreateDepartmentFormProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const { createDepartment } = useAuth();
   const { toast } = useToast();
   
   const form = useForm<z.infer<typeof formSchema>>({
@@ -41,7 +39,7 @@ export function CreateDepartmentForm({ organization, onFinished }: CreateDepartm
       location: organization.location,
       building: organization.building,
       floor: '',
-      plan: 'Free',
+      plan: 'Basic',
       devices: 10,
     },
     mode: 'onChange',
@@ -51,13 +49,28 @@ export function CreateDepartmentForm({ organization, onFinished }: CreateDepartm
     setIsLoading(true);
     
     try {
-      const newDepartmentData: NewDepartmentData = {
-        ...values,
-        organizationName: organization.organizationName,
-        email: organization.email, // The login email for the whole org
-        organizationId: organization.organizationId,
-      };
-      await createDepartment(newDepartmentData);
+      // Create department via SQLite API
+      const response = await fetch('/api/superadmin/departments', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          organizationId: organization.organizationId,
+          departmentName: values.departmentName,
+          location: values.location,
+          building: values.building,
+          floor: parseInt(values.floor),
+          devices: values.devices,
+          plan: values.plan,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create department');
+      }
+
       toast({
         title: 'Department Created',
         description: `Department "${values.departmentName}" has been successfully created for ${organization.organizationName}.`,
@@ -148,7 +161,7 @@ export function CreateDepartmentForm({ organization, onFinished }: CreateDepartm
                                             </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                            <SelectItem value="Free">Free</SelectItem>
+                                            <SelectItem value="Basic">Basic</SelectItem>
                                             <SelectItem value="Pro">Pro</SelectItem>
                                             <SelectItem value="Enterprise">Enterprise</SelectItem>
                                         </SelectContent>

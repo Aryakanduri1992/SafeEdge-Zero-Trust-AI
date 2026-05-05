@@ -12,12 +12,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { buttonVariants } from "@/components/ui/button";
-import { Department } from "@/lib/types";
+import { DepartmentSQLite } from "@/lib/types";
 
 type ActivateDepartmentDialogProps = {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  department: Department | null;
+  department: DepartmentSQLite | null;
   onConfirm: () => void;
 };
 

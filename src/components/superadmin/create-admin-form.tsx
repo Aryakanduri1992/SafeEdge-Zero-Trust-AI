@@ -85,7 +85,7 @@ export function CreateAdminForm({ onFinished }: CreateOrgFormProps) {
                     <FormItem>
                     <FormLabel>Organization Name</FormLabel>
                     <FormControl>
-                        <Input placeholder="e.g., AuthStation Inc." {...field} />
+                        <Input placeholder="e.g., Blackshield-X Inc." {...field} />
                     </FormControl>
                     <FormMessage />
                     </FormItem>

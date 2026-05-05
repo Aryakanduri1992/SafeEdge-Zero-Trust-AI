@@ -58,8 +58,8 @@ export function AdminLoginForm() {
               <FormLabel className="sr-only">Email</FormLabel>
               <FormControl>
                 <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input placeholder="admin@example.com" {...field} className="pl-10" />
+                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input placeholder="admin@example.com" {...field} className="pl-10 bg-[#1a2340] border-[#3a4570] text-white placeholder:text-gray-400 focus:border-[#d3b78f] focus:ring-[#d3b78f]" />
                 </div>
               </FormControl>
               <FormMessage />
@@ -74,20 +74,20 @@ export function AdminLoginForm() {
               <FormLabel className="sr-only">Password</FormLabel>
               <FormControl>
                 <div className="relative">
-                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input type="password" placeholder="••••••••" {...field} className="pl-10" />
+                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <Input type="password" placeholder="••••••••" {...field} className="pl-10 bg-[#1a2340] border-[#3a4570] text-white placeholder:text-gray-400 focus:border-[#d3b78f] focus:ring-[#d3b78f]" />
                 </div>
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        <Button type="submit" className="w-full" disabled={isLoading}>
+        <Button type="submit" className="w-full bg-[#3a4570] hover:bg-[#4a5580] text-white font-semibold shadow-lg border-2 border-[#d3b78f] focus-visible:ring-[#d3b78f] focus-visible:ring-offset-0" disabled={isLoading}>
           {isLoading ? (
             <Loader2 className="animate-spin" />
           ) : (
             <>
-              <LogIn className="mr-2" /> Login
+              <LogIn className="mr-2 h-4 w-4" /> Login
             </>
           )}
         </Button>

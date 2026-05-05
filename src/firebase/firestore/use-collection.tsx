@@ -57,6 +57,15 @@ export function useCollection<T = any>(
   type ResultItemType = WithId<T>;
   type StateDataType = ResultItemType[] | null;
 
+  // Validate memoization BEFORE any hooks
+  if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
+    console.error('Firebase query not properly memoized:', memoizedTargetRefOrQuery);
+    console.error('Query type:', typeof memoizedTargetRefOrQuery);
+    console.error('Query constructor:', memoizedTargetRefOrQuery.constructor?.name);
+    console.error('Query properties:', Object.keys(memoizedTargetRefOrQuery));
+    throw new Error(`Firebase query of type ${memoizedTargetRefOrQuery.constructor?.name || 'unknown'} was not properly memoized using useMemoFirebase. Make sure to wrap your query creation with useMemoFirebase().`);
+  }
+
   const [data, setData] = useState<StateDataType>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<FirestoreError | Error | null>(null);
@@ -107,8 +116,6 @@ export function useCollection<T = any>(
 
     return () => unsubscribe();
   }, [memoizedTargetRefOrQuery]); // Re-run if the target query/reference changes.
-  if(memoizedTargetRefOrQuery && !memoizedTargetRefOrQuery.__memo) {
-    throw new Error(memoizedTargetRefOrQuery + ' was not properly memoized using useMemoFirebase');
-  }
+  
   return { data, isLoading, error };
 }

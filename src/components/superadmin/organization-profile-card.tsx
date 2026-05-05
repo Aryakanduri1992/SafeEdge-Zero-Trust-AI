@@ -8,12 +8,12 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
 import { Globe, User, Building, Edit } from "lucide-react";
 import { format } from "date-fns";
-import type { Organization } from "@/lib/types";
+import type { OrganizationSQLite } from "@/lib/types";
 import { Button } from '../ui/button';
 import { ImageSelectorDialog } from './image-selector-dialog';
 
 type OrganizationProfileCardProps = {
-  organization: Organization;
+  organization: OrganizationSQLite;
 };
 
 export function OrganizationProfileCard({ organization }: OrganizationProfileCardProps) {
@@ -65,13 +65,6 @@ export function OrganizationProfileCard({ organization }: OrganizationProfileCar
                   </div>
                   </div>
                   <div className="flex items-start gap-3">
-                  <User className="h-4 w-4 mt-0.5 text-muted-foreground" />
-                  <div>
-                      <p className="font-medium">User Role</p>
-                      <p className="text-muted-foreground capitalize">{organization.role}</p>
-                  </div>
-                  </div>
-                  <div className="flex items-start gap-3">
                   <Building className="h-4 w-4 mt-0.5 text-muted-foreground" />
                   <div>
                       <p className="font-medium">Organization ID</p>
@@ -84,6 +77,7 @@ export function OrganizationProfileCard({ organization }: OrganizationProfileCar
       <ImageSelectorDialog
         isOpen={isImageSelectorOpen}
         onOpenChange={setIsImageSelectorOpen}
+        organization={organization}
       />
     </>
   );

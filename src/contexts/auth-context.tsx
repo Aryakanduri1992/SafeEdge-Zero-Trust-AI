@@ -1,16 +1,10 @@
 
 "use client";
 
-import React, { createContext, useState, useEffect, ReactNode, useCallback } from 'react';
+import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import * as authService from '@/lib/auth-service';
 import type { Department, SuperAdminUser, LoginCredentials, NewOrgData, UpdateDepartmentData, Organization, NewDepartmentData, NewDeviceData, UpdateDeviceData, Device, UpdateDeviceStatusData } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
-import { useFirebase, useFirestore, FirestorePermissionError, errorEmitter, useRtdb } from '@/firebase';
-import { collection, onSnapshot, Unsubscribe, query, where, doc } from 'firebase/firestore';
-import { User } from 'firebase/auth';
-import { ref, onValue, off } from 'firebase/database';
-import { decryptData } from '@/lib/crypto-service';
 
 type AuthContextType = {
   user: SuperAdminUser | Organization | null;
@@ -43,54 +37,55 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [departments, setDepartments] = useState<Department[]>([]);
   const [devices, setDevices] = useState<Device[]>([]);
   const [isAuthLoading, setIsAuthLoading] = useState(true);
-  const [isFirestoreLoading, setIsFirestoreLoading] = useState(true);
   const [globalSearchTerm, setGlobalSearchTerm] = useState('');
   const router = useRouter();
   const pathname = usePathname();
   const { toast } = useToast();
 
-  const { user: firebaseUser, isUserLoading: isFirebaseUserLoading } = useFirebase();
-  const firestore = useFirestore();
-  const rtdb = useRtdb();
+  const isLoading = isAuthLoading;
 
-  const isLoading = isFirebaseUserLoading || isAuthLoading || isFirestoreLoading;
-
-  // Effect for handling Firebase Authentication state changes
+  // Effect for handling session restoration from localStorage
   useEffect(() => {
-    const handleAuthChange = async () => {
-      if (firebaseUser) {
-          setIsAuthLoading(true);
-          try {
-            const userProfile = await authService.fetchUserProfile(firebaseUser);
-            if (userProfile) {
-              setAppUser(userProfile);
-            } else {
-               console.error("Auth session restoration failed: User profile could not be found or created. Logging out.");
-               await authService.logout();
-               setAppUser(null);
-            }
-          } catch (error) {
-            console.error("Auth session restoration error:", error);
-            await authService.logout();
+    const checkSession = async () => {
+      setIsAuthLoading(true);
+      try {
+        const storedUser = localStorage.getItem('user');
+        const storedToken = localStorage.getItem('authToken');
+        
+        if (storedUser && storedToken) {
+          const user = JSON.parse(storedUser);
+          
+          // Fetch fresh profile from Firestore
+          const profileResponse = await fetch(`/api/auth/profile?userId=${user.id}&role=${user.role}`);
+          if (profileResponse.ok) {
+            const userProfile = await profileResponse.json();
+            setAppUser(userProfile);
+          } else {
+            // If profile fetch fails, clear session
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('user');
             setAppUser(null);
-          } finally {
-            setIsAuthLoading(false);
           }
-      } else {
+        } else {
+          setAppUser(null);
+        }
+      } catch (error) {
+        console.error('Session check error:', error);
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
         setAppUser(null);
+      } finally {
         setIsAuthLoading(false);
       }
     };
 
-    if (!isFirebaseUserLoading) {
-      handleAuthChange();
-    }
-  }, [firebaseUser, isFirebaseUserLoading]);
+    checkSession();
+  }, []);
 
   // Effect for redirecting unauthenticated users
   useEffect(() => {
     if (!isLoading && !appUser) {
-        const isAuthProtectedRoute = pathname.startsWith('/admin') || pathname.startsWith('/superadmin');
+        const isAuthProtectedRoute = pathname.startsWith('/admin') || pathname.startsWith('/superadmin') || pathname.startsWith('/org-dashboard');
         if (isAuthProtectedRoute) {
             if (pathname.startsWith('/superadmin')) {
                  router.replace('/superadmin-login');
@@ -101,163 +96,55 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [pathname, isLoading, appUser, router]);
 
-  // Effect for fetching Firestore data (Orgs, Depts, Devices)
-  useEffect(() => {
-    let orgsUnsubscribe: Unsubscribe | undefined;
-    let departmentsUnsubscribe: Unsubscribe | undefined;
-    let devicesUnsubscribe: Unsubscribe | undefined;
-
-    if (firestore && appUser) {
-        setIsFirestoreLoading(true);
-        if (appUser.role === 'superadmin') {
-            const orgsQuery = query(collection(firestore, 'organizations'));
-            orgsUnsubscribe = onSnapshot(orgsQuery, (snapshot) => {
-                const orgsList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id, role: 'admin' } as Organization));
-                setOrganizations(orgsList);
-            }, (serverError) => {
-                const permissionError = new FirestorePermissionError({ path: 'organizations', operation: 'list' });
-                errorEmitter.emit('permission-error', permissionError);
-                setOrganizations([]);
-            });
-
-            const deptsQuery = query(collection(firestore, 'departments'));
-            departmentsUnsubscribe = onSnapshot(deptsQuery, (snapshot) => {
-                const deptList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Department));
-                setDepartments(deptList);
-                setIsFirestoreLoading(false);
-            }, (serverError) => {
-                const permissionError = new FirestorePermissionError({ path: 'departments', operation: 'list' });
-                errorEmitter.emit('permission-error', permissionError);
-                setDepartments([]);
-                setIsFirestoreLoading(false);
-            });
-        }
-        else if (appUser.role === 'admin') {
-            const orgRef = doc(firestore, 'organizations', appUser.id);
-             orgsUnsubscribe = onSnapshot(orgRef, (doc) => {
-                if (doc.exists()) {
-                    const orgData = { ...doc.data(), id: doc.id, role: 'admin' } as Organization;
-                    setAppUser(orgData);
-                    setOrganizations([orgData]);
-                }
-            }, (serverError) => {
-                const permissionError = new FirestorePermissionError({ path: orgRef.path, operation: 'get' });
-                errorEmitter.emit('permission-error', permissionError);
-            });
-
-            const deptsQuery = query(collection(firestore, 'departments'), where("organizationId", "==", appUser.id));
-            departmentsUnsubscribe = onSnapshot(deptsQuery, (snapshot) => {
-                const deptList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Department));
-                setDepartments(deptList);
-            }, (serverError) => {
-                 const permissionError = new FirestorePermissionError({ path: `departments where organizationId == ${appUser.id}`, operation: 'list' });
-                errorEmitter.emit('permission-error', permissionError);
-                setDepartments([]);
-            });
-            
-            const devicesQuery = query(collection(firestore, 'devices'), where("organizationId", "==", appUser.id));
-            devicesUnsubscribe = onSnapshot(devicesQuery, (snapshot) => {
-                const deviceList = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Device));
-                setDevices(deviceList);
-                setIsFirestoreLoading(false);
-            }, (serverError) => {
-                const permissionError = new FirestorePermissionError({ path: `devices where organizationId == ${appUser.id}`, operation: 'list' });
-                errorEmitter.emit('permission-error', permissionError);
-                setDevices([]);
-                setIsFirestoreLoading(false);
-            });
-        }
-    } else {
-        setOrganizations([]);
-        setDepartments([]);
-        setDevices([]);
-        if (!isAuthLoading) setIsFirestoreLoading(false);
-    }
-
-    return () => {
-        if (orgsUnsubscribe) orgsUnsubscribe();
-        if (departmentsUnsubscribe) departmentsUnsubscribe();
-        if (devicesUnsubscribe) devicesUnsubscribe();
-    }
-  }, [appUser?.id, appUser?.role, firestore, isAuthLoading]);
-
-   // Effect for listening to Realtime Database updates for devices
-  useEffect(() => {
-    if (!rtdb || devices.length === 0 || isLoading) {
-      return;
-    }
-
-    const listeners: { [path: string]: () => void } = {};
-    const uniqueDevicePaths = [...new Set(devices.map(d => d.dbPath).filter(Boolean))];
-
-    uniqueDevicePaths.forEach(path => {
-        const dbRef = ref(rtdb, path);
-        
-        const listener = onValue(dbRef, (snapshot) => {
-            if (snapshot.exists()) {
-                const liveData = snapshot.val();
-                
-                setDevices(prevDevices => 
-                    prevDevices.map(d => {
-                        if (d.dbPath !== path) {
-                            return d;
-                        }
-
-                        const updatedDevice: Device = { 
-                            ...d, 
-                            status: 'online', 
-                            timestamp: liveData.timestamp 
-                        };
-
-                        if (liveData.encrypted_value) {
-                            updatedDevice.value = parseFloat(decryptData(liveData.encrypted_value));
-                        }
-                        
-                        if (liveData.encrypted_temperature) {
-                            updatedDevice.temperature = parseFloat(decryptData(liveData.encrypted_temperature));
-                        }
-                        if (liveData.encrypted_humidity) {
-                            updatedDevice.humidity = parseFloat(decryptData(liveData.encrypted_humidity));
-                        }
-                        
-                        return updatedDevice;
-                    })
-                );
-            }
-        }, (error) => {
-            console.error(`RTDB listener error for path ${path}:`, error);
-        });
-
-        listeners[path] = () => off(dbRef, 'value', listener);
-    });
-
-    return () => {
-      Object.values(listeners).forEach(unsubscribe => unsubscribe());
-    };
-  }, [rtdb, devices.length, isLoading]); 
+  // Firestore real-time listeners are handled by individual pages through API calls
+  // This keeps the auth context lightweight and doesn't require FirebaseProvider 
 
 
   const login = async (credentials: LoginCredentials, role: 'admin' | 'superadmin') => {
     setIsAuthLoading(true);
     try {
-        const userCredential = await authService.login(credentials);
-        const userProfile = await authService.fetchUserProfile(userCredential.user);
+        // Call the Firestore-based login API
+        const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(credentials)
+        });
 
-        if (!userProfile || userProfile.role !== role) {
-            await authService.logout();
-            throw new Error(`Login failed: User does not have the required '${role}' role or profile not found.`);
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Login failed');
         }
 
-        setAppUser(userProfile);
+        const { user, token } = await response.json();
+
+        // Verify role matches
+        if ((role === 'superadmin' && user.role !== 'superadmin') || 
+            (role === 'admin' && user.role === 'superadmin')) {
+          throw new Error(`Login failed: User does not have the required '${role}' role.`);
+        }
+
+        // Store session
+        localStorage.setItem('authToken', token);
+        localStorage.setItem('user', JSON.stringify(user));
+
+        // Fetch full user profile from Firestore
+        const profileResponse = await fetch(`/api/auth/profile?userId=${user.id}&role=${user.role}`);
+        if (profileResponse.ok) {
+          const userProfile = await profileResponse.json();
+          setAppUser(userProfile);
+        } else {
+          setAppUser(user);
+        }
         
-        if (userProfile.role === 'superadmin') {
+        if (user.role === 'superadmin') {
             router.replace('/superadmin/dashboard');
-        } else if (userProfile.role === 'admin') {
-            router.replace('/admin/dashboard');
+        } else {
+            router.replace('/org-dashboard');
         }
 
     } catch (error: any) {
-        await authService.logout();
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
         setAppUser(null);
         throw error;
     } finally {
@@ -268,12 +155,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const logout = async (): Promise<void> => {
     const previousRole = appUser?.role;
     setIsAuthLoading(true);
-    await authService.logout();
+    
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
     setAppUser(null);
     setDepartments([]);
     setOrganizations([]);
     setDevices([]);
+    
     setIsAuthLoading(false);
+    
     if (previousRole === 'superadmin') {
       router.push('/superadmin-login');
     } else {
@@ -283,22 +174,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const createOrganization = async (orgData: NewOrgData) => {
     if (!appUser || appUser.role !== 'superadmin') throw new Error("Unauthorized");
-    await authService.createOrganization(orgData, appUser.id);
+    // TODO: Implement via API call
+    throw new Error("Not implemented");
   };
   
   const createDepartment = async (deptData: NewDepartmentData) => {
     if (!appUser || appUser.role !== 'superadmin') throw new Error("Unauthorized");
-    await authService.createDepartment(deptData, appUser.id);
+    // TODO: Implement via API call
+    throw new Error("Not implemented");
   };
 
   const updateDepartment = async (departmentId: string, departmentData: UpdateDepartmentData) => {
      if (!appUser || appUser.role !== 'superadmin') throw new Error("Unauthorized");
-    await authService.updateDepartment(departmentId, departmentData);
+    // TODO: Implement via API call
+    throw new Error("Not implemented");
   };
 
   const deactivateDepartment = async (departmentId: string) => {
     if (!appUser || appUser.role !== 'superadmin') throw new Error("Unauthorized");
-    await authService.deactivateDepartment(departmentId);
+    // TODO: Implement via API call
     toast({
       title: "Department Deactivated",
       description: "The department has been successfully deactivated.",
@@ -307,7 +201,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const activateDepartment = async (departmentId: string) => {
     if (!appUser || appUser.role !== 'superadmin') throw new Error("Unauthorized");
-    await authService.activateDepartment(departmentId);
+    // TODO: Implement via API call
     toast({
       title: "Department Activated",
       description: "The department has been successfully activated.",
@@ -316,19 +210,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const createDevice = async (deviceData: NewDeviceData) => {
     if (!appUser || appUser.role !== 'admin') throw new Error("Unauthorized");
-    await authService.createDevice(deviceData);
+    // TODO: Implement via API call
     toast({ title: "Device Created", description: `${deviceData.name} has been successfully registered.` });
   };
 
   const updateDevice = async (deviceId: string, deviceData: UpdateDeviceData) => {
     if (!appUser || appUser.role !== 'admin') throw new Error("Unauthorized");
-    await authService.updateDevice(deviceId, deviceData);
+    // TODO: Implement via API call
     toast({ title: "Device Updated", description: `The device details have been updated.` });
   };
 
   const deleteDevice = async (deviceId: string) => {
     if (!appUser || appUser.role !== 'admin') throw new Error("Unauthorized");
-    await authService.deleteDevice(deviceId);
+    // TODO: Implement via API call
     toast({ title: "Device Deleted", description: `The device has been removed from the system.` });
   };
   
@@ -336,14 +230,14 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       if (!appUser || (appUser.role !== 'superadmin' && appUser.id !== organizationId)) {
         throw new Error("Unauthorized to update this organization's image.");
       }
-      await authService.updateOrganizationImage(organizationId, imageUrl);
+      // TODO: Implement via API call
   };
 
   const updateDeviceStatus = async (deviceId: string, statusData: UpdateDeviceStatusData) => {
     if (!appUser || appUser.role !== 'admin') {
       return;
     }
-    await authService.updateDeviceStatus(deviceId, statusData);
+    // TODO: Implement via API call
   };
 
   const contextValue = { 

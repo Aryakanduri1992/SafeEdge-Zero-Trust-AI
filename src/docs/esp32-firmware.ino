@@ -7,6 +7,9 @@
 #include <time.h>
 #include <Adafruit_Sensor.h>
 #include <DHT.h>
+#include <Wire.h>
+#include <Adafruit_ADXL345_U.h>
+#include <Adafruit_BMP280.h>
 
 // ================== Wi-Fi Configuration ==================
 #define WIFI_SSID "VivoY20"
@@ -17,13 +20,27 @@
 #define DATABASE_URL "https://studio-166999217-87cc8-default-rtdb.asia-southeast1.firebasedatabase.app/"
 
 // ================== Pin Configuration ==================
+// Environmental Sensors
 #define DHT_PIN 4
 #define DHT_TYPE DHT22
-#define PIR_PIN 5
+
+// Security Sensors
+#define PIR_PIN 5          // Motion detection
+#define DOOR_PIN 21        // Reed switch for door/panel status
+#define SOUND_PIN 36       // Microphone for sound level
+
+// Analog Sensors
+#define OXYGEN_PIN 34      // Oxygen sensor (21-40% O2)
+#define CO2_PIN 39         // CO2 sensor (<0.5% CO2)
+#define POWER_PIN 35       // Power voltage monitoring
+
+// I2C Sensors (SDA=GPIO 5, SCL=GPIO 18 for ADXL345)
+// Note: DHT is on GPIO 4, so we use alternate I2C pins
+#define I2C_SDA 5
+#define I2C_SCL 18
 
 // ================== Firebase Paths ==================
-#define PIR_PATH "devices/PIR_Sensor"
-#define DHT_PATH "devices/DHT22_Sensor"
+#define INCUBATOR_PATH "devices/incubator_monitor"
 
 // ================== Firebase Objects ==================
 FirebaseData fbdo;
@@ -33,6 +50,16 @@ WiFiClientSecure secureClient;
 
 // ================== Sensor Objects ==================
 DHT dht(DHT_PIN, DHT_TYPE);
+Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified(12345);
+Adafruit_BMP280 bmp; // I2C
+
+// ================== Patient Safety Thresholds ==================
+#define TEMP_MIN 36.5
+#define TEMP_MAX 37.5
+#define HUMIDITY_MIN 50.0
+#define HUMIDITY_MAX 60.0
+#define VIBRATION_THRESHOLD 0.5  // g-force
+#define POWER_MIN_VOLTAGE 11.0   // Minimum voltage before backup alert
 
 // ================== AES Key & IV ==================
 static const unsigned char aes_key[16] = {
@@ -112,58 +139,171 @@ bool waitForTime(int timeoutSeconds = 30) {
   return false;
 }
 
+// ================== Read All Sensors ==================
+void readAllSensors(FirebaseJson &sensorData) {
+  String ts = getISOTime();
+  
+  // Environmental Control Sensors
+  float temperature = dht.readTemperature();
+  float humidity = dht.readHumidity();
+  float airPressure = bmp.readPressure() / 100.0F; // Convert to hPa
+  
+  // Analog Sensors (0-4095 ADC range, convert to meaningful values)
+  int oxygenRaw = analogRead(OXYGEN_PIN);
+  int co2Raw = analogRead(CO2_PIN);
+  int powerRaw = analogRead(POWER_PIN);
+  
+  // Convert analog readings to actual values
+  float oxygenLevel = map(oxygenRaw, 0, 4095, 0, 100) / 100.0 * 40.0; // 0-40% O2
+  float co2Level = map(co2Raw, 0, 4095, 0, 100) / 100.0 * 1.0; // 0-1% CO2
+  float powerVoltage = (powerRaw / 4095.0) * 3.3 * 4.0; // Assuming voltage divider
+  
+  // Security Sensors
+  bool motionDetected = digitalRead(PIR_PIN);
+  bool doorOpen = digitalRead(DOOR_PIN);
+  int soundLevel = analogRead(SOUND_PIN);
+  
+  // Vibration Sensor (ADXL345)
+  sensors_event_t event;
+  accel.getEvent(&event);
+  float vibrationLevel = sqrt(event.acceleration.x * event.acceleration.x + 
+                              event.acceleration.y * event.acceleration.y + 
+                              event.acceleration.z * event.acceleration.z) / 9.8; // Convert to g-force
+  
+  // System Health
+  int wifiSignal = WiFi.RSSI();
+  float systemTemp = temperatureRead(); // ESP32 internal temperature
+  
+  // Assess Patient Safety
+  bool tempSafe = (temperature >= TEMP_MIN && temperature <= TEMP_MAX);
+  bool humiditySafe = (humidity >= HUMIDITY_MIN && humidity <= HUMIDITY_MAX);
+  bool powerSafe = (powerVoltage >= POWER_MIN_VOLTAGE);
+  bool vibrationSafe = (vibrationLevel <= VIBRATION_THRESHOLD);
+  bool accessSafe = (!motionDetected && !doorOpen);
+  
+  String threatLevel = "safe";
+  if (!tempSafe || !humiditySafe || !powerSafe) {
+    threatLevel = "critical";
+  } else if (!vibrationSafe || !accessSafe) {
+    threatLevel = "warning";
+  }
+  
+  // Build Azure-compatible JSON structure
+  sensorData.set("timestamp", ts);
+  sensorData.set("deviceId", "incubator_001");
+  
+  // Environmental Control
+  sensorData.set("temperature", temperature);
+  sensorData.set("humidity", humidity);
+  sensorData.set("airPressure", airPressure);
+  sensorData.set("oxygenLevel", oxygenLevel);
+  sensorData.set("co2Level", co2Level);
+  
+  // Security & Access Control
+  sensorData.set("motionDetected", motionDetected);
+  sensorData.set("vibrationLevel", vibrationLevel);
+  sensorData.set("doorStatus", doorOpen);
+  sensorData.set("soundLevel", soundLevel);
+  
+  // Power & System Health
+  sensorData.set("powerVoltage", powerVoltage);
+  sensorData.set("wifiSignalStrength", wifiSignal);
+  sensorData.set("systemTemperature", systemTemp);
+  
+  // Security Analysis
+  sensorData.set("threatLevel", threatLevel);
+  sensorData.set("anomalyDetected", (threatLevel != "safe"));
+  sensorData.set("tempSafe", tempSafe);
+  sensorData.set("humiditySafe", humiditySafe);
+  sensorData.set("powerSafe", powerSafe);
+  sensorData.set("vibrationSafe", vibrationSafe);
+  sensorData.set("accessSafe", accessSafe);
+  
+  // Calculate security score (0-100)
+  int securityScore = 100;
+  if (!tempSafe) securityScore -= 30;
+  if (!humiditySafe) securityScore -= 20;
+  if (!powerSafe) securityScore -= 25;
+  if (!vibrationSafe) securityScore -= 15;
+  if (!accessSafe) securityScore -= 10;
+  sensorData.set("securityScore", securityScore);
+}
+
 // ================== Upload Encrypted Sensor Data ==================
 void uploadSensorData() {
   if (!Firebase.ready()) return;
 
-  // --- Read Sensors ---
-  int pirValue = digitalRead(PIR_PIN);
-  float temperature = dht.readTemperature();
-  float humidity = dht.readHumidity();
-  String ts = getISOTime();
-
-  // --- Upload PIR Data ---
-  if (pirValue == 0 || pirValue == 1) {
-    String encPIR = encryptData(String(pirValue));
-    FirebaseJson pirJson;
-    pirJson.set("encrypted_value", encPIR);
-    pirJson.set("timestamp", ts);
-    if (Firebase.RTDB.setJSON(&fbdo, PIR_PATH, &pirJson)) {
-      Serial.println("✅ PIR data uploaded.");
-    } else {
-      Serial.printf("❌ PIR upload failed: %s\n", fbdo.errorReason().c_str());
-    }
-  }
-
-  // --- Upload DHT22 Data ---
-  if (!isnan(temperature) && !isnan(humidity)) {
-    String encTemp = encryptData(String(temperature));
-    String encHumid = encryptData(String(humidity));
-
-    FirebaseJson dhtJson;
-    dhtJson.set("encrypted_temperature", encTemp);
-    dhtJson.set("encrypted_humidity", encHumid);
-    dhtJson.set("timestamp", ts);
-    if (Firebase.RTDB.setJSON(&fbdo, DHT_PATH, &dhtJson)) {
-       Serial.println("✅ DHT22 data uploaded.");
-    } else {
-       Serial.printf("❌ DHT22 upload failed: %s\n", fbdo.errorReason().c_str());
-    }
+  FirebaseJson sensorData;
+  readAllSensors(sensorData);
+  
+  // Get raw JSON string for encryption
+  String jsonStr;
+  sensorData.toString(jsonStr, true);
+  
+  // Encrypt the entire sensor data payload
+  String encryptedData = encryptData(jsonStr);
+  
+  // Create upload payload
+  FirebaseJson uploadJson;
+  uploadJson.set("encryptedData", encryptedData);
+  uploadJson.set("timestamp", getISOTime());
+  uploadJson.set("deviceId", "incubator_001");
+  
+  // Upload to Firebase (Azure-compatible structure)
+  if (Firebase.RTDB.setJSON(&fbdo, INCUBATOR_PATH, &uploadJson)) {
+    Serial.println("✅ Incubator sensor data uploaded.");
+    
+    // Print summary
+    String threatLevel;
+    sensorData.get(jsonStr, "threatLevel");
+    Serial.println("🏥 Threat Level: " + threatLevel);
+    
+    float temp, humidity;
+    sensorData.get(jsonStr, "temperature");
+    sensorData.get(jsonStr, "humidity");
+    Serial.printf("🌡️  Temp: %.1f°C, Humidity: %.1f%%\n", temp, humidity);
   } else {
-    Serial.println("⚠️ Failed to read from DHT sensor.");
+    Serial.printf("❌ Upload failed: %s\n", fbdo.errorReason().c_str());
   }
   
-  Serial.println("⏰ Timestamp: " + ts);
   Serial.println("----------------------------------");
 }
 
 // ================== Setup ==================
 void setup() {
   Serial.begin(115200);
-  pinMode(PIR_PIN, INPUT);
-  dht.begin();
   delay(100);
-
+  
+  Serial.println("🏥 SafeEdge Incubator Monitor - Initializing...");
+  
+  // Initialize I2C for ADXL345 and BMP280
+  Wire.begin(I2C_SDA, I2C_SCL);
+  
+  // Initialize sensors
+  pinMode(PIR_PIN, INPUT);
+  pinMode(DOOR_PIN, INPUT_PULLUP); // Reed switch with pullup
+  pinMode(SOUND_PIN, INPUT);
+  pinMode(OXYGEN_PIN, INPUT);
+  pinMode(CO2_PIN, INPUT);
+  pinMode(POWER_PIN, INPUT);
+  
+  dht.begin();
+  
+  // Initialize ADXL345
+  if (!accel.begin()) {
+    Serial.println("⚠️ ADXL345 not detected!");
+  } else {
+    Serial.println("✅ ADXL345 initialized");
+    accel.setRange(ADXL345_RANGE_2_G); // Set range for patient safety monitoring
+  }
+  
+  // Initialize BMP280
+  if (!bmp.begin(0x76)) { // Try default I2C address
+    Serial.println("⚠️ BMP280 not detected!");
+  } else {
+    Serial.println("✅ BMP280 initialized");
+  }
+  
   Serial.print("🔌 Connecting to Wi-Fi");
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
   while (WiFi.status() != WL_CONNECTED) {
@@ -177,7 +317,7 @@ void setup() {
   config.api_key = API_KEY;
   config.database_url = DATABASE_URL;
 
-  // 🔓 Disable SSL certificate verification
+  // 🔓 Disable SSL certificate verification (Firebase MVP)
   config.cert.data = nullptr;
 
   Firebase.reconnectWiFi(true);
@@ -192,6 +332,8 @@ void setup() {
 
   Firebase.begin(&config, &auth);
   Serial.println("🔥 Firebase initialized!");
+  Serial.println("🏥 Hospital Incubator Monitoring Active");
+  Serial.println("📊 Monitoring: Temperature, Humidity, Pressure, O2, CO2, Motion, Vibration, Door, Sound, Power");
 }
 
 // ================== Loop ==================

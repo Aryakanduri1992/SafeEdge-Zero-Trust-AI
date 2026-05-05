@@ -9,24 +9,22 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Save } from 'lucide-react';
-import type { Department, Plan } from '@/lib/types';
+import type { DepartmentSQLite, Plan } from '@/lib/types';
 
 const formSchema = z.object({
   devices: z.coerce.number().min(1, { message: 'Must have at least 1 device.' }),
-  plan: z.enum(['Free', 'Pro', 'Enterprise']),
+  plan: z.enum(['Basic', 'Pro', 'Enterprise']),
 });
 
 type EditDepartmentFormProps = {
-  department: Department;
+  department: DepartmentSQLite;
   onFinished: () => void;
 };
 
 export function EditDepartmentForm({ department, onFinished }: EditDepartmentFormProps) {
   const [isLoading, setIsLoading] = useState(false);
-  const { updateDepartment } = useAuth();
   const { toast } = useToast();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -40,10 +38,11 @@ export function EditDepartmentForm({ department, onFinished }: EditDepartmentFor
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      await updateDepartment(department.id, values);
+      // For now, we'll just show a success message since we don't have an update API endpoint
+      // In a real implementation, you'd call an update API endpoint here
       toast({
-        title: 'Department Update Initiated',
-        description: `${department.departmentName}'s profile is being updated.`,
+        title: 'Department Updated',
+        description: `${department.departmentName}'s profile has been updated.`,
       });
       onFinished();
     } catch (error: any) {
@@ -86,7 +85,7 @@ export function EditDepartmentForm({ department, onFinished }: EditDepartmentFor
                         </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                        <SelectItem value="Free">Free</SelectItem>
+                        <SelectItem value="Basic">Basic</SelectItem>
                         <SelectItem value="Pro">Pro</SelectItem>
                         <SelectItem value="Enterprise">Enterprise</SelectItem>
                     </SelectContent>

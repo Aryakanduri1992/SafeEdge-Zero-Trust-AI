@@ -16,7 +16,7 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import { PlaceHolderImages, type ImagePlaceholder } from '@/lib/placeholder-images';
-import { Organization } from '@/lib/types';
+import { OrganizationSQLite } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '../ui/input';
@@ -24,7 +24,7 @@ import { Input } from '../ui/input';
 type ImageSelectorDialogProps = {
     isOpen: boolean;
     onOpenChange: (isOpen: boolean) => void;
-    organization: Organization;
+    organization?: OrganizationSQLite;
 };
 
 export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: ImageSelectorDialogProps) {
@@ -39,12 +39,17 @@ export function ImageSelectorDialog({ isOpen, onOpenChange, organization }: Imag
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     useEffect(() => {
-        if (isOpen) {
+        if (isOpen && organization) {
             setSelectedImageUrl(organization.imageUrl || '');
             setSessionImages(PlaceHolderImages); // Reset to original gallery on open
             setActiveTab('gallery');
         }
     }, [isOpen, organization]);
+
+    // Don't render if organization is not provided
+    if (!organization) {
+        return null;
+    }
 
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];

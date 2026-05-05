@@ -1,0 +1,27 @@
+{
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "python",
+    
+    "IoTHubConnectionString": "Endpoint=sb://ihsuprodblres123dednamespace.servicebus.windows.net/;SharedAccessKeyName=iothubowner;SharedAccessKey=YOUR_KEY;EntityPath=iothub-ehub-lume-iothub",
+    "IoTHubEventHubName": "lume-iothub",
+    
+    "AzureSqlConnectionString": "Server=tcp:lumeedge-sql.database.windows.net,1433;Initial Catalog=lumeedge;Persist Security Info=False;User ID=lumeedge_admin;Password=YOUR_PASSWORD;MultipleActiveResultSets=False;Encrypt=True;TrustServerCertificate=False;Connection Timeout=30;",
+    
+    "TwilioAccountSid": "YOUR_TWILIO_ACCOUNT_SID",
+    "TwilioAuthToken": "YOUR_TWILIO_AUTH_TOKEN",
+    "TwilioPhoneNumber": "+1234567890",
+    "AlertPhoneNumber": "+1234567890",
+    
+    "AllowedDeviceIds": "lumeedge-001,lumeedge-002",
+    "EnableAnomalyDetection": "true",
+    "EnablePhoneAlerts": "true",
+    
+    "CORS_ORIGINS": "http://localhost:9002,https://lumeedge.azurewebsites.net"
+  },
+  "Host": {
+    "CORS": "*",
+    "CORSCredentials": false
+  }
+}

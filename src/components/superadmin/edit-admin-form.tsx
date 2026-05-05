@@ -16,7 +16,7 @@ import type { Department, Plan } from '@/lib/types';
 
 const formSchema = z.object({
   devices: z.coerce.number().min(1, { message: 'Must have at least 1 device.' }),
-  plan: z.enum(['Free', 'Pro', 'Enterprise']),
+  plan: z.enum(['Basic', 'Pro', 'Enterprise']),
 });
 
 type EditDepartmentFormProps = {

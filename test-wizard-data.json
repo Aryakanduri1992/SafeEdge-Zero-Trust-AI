@@ -1,0 +1,46 @@
+{
+  "organizationName": "Advanced Test Corp",
+  "email": "admin@advancedtest.com",
+  "password": "secure123",
+  "description": "Testing advanced room management features",
+  "totalFloors": 3,
+  "buildingName": "Advanced Tech Building",
+  "buildingAddress": "123 Innovation Drive, Tech City",
+  "floors": [
+    {
+      "floorNumber": 1,
+      "floorName": "Ground Floor",
+      "rooms": [
+        { "name": "Reception Area", "identifier": "R101", "width": 20, "height": 15, "type": "Lobby" },
+        { "name": "Conference Room Alpha", "identifier": "R102", "width": 20, "height": 14, "type": "Conference Room" },
+        { "name": "Open Office Space", "identifier": "R103", "width": 30, "height": 20, "type": "Office" },
+        { "name": "Storage Room", "identifier": "R104", "width": 8, "height": 6, "type": "Storage" }
+      ]
+    },
+    {
+      "floorNumber": 2,
+      "floorName": "Second Floor",
+      "rooms": [
+        { "name": "Office 201", "identifier": "R201", "width": 12, "height": 10, "type": "Office" },
+        { "name": "Office 202", "identifier": "R202", "width": 12, "height": 10, "type": "Office" },
+        { "name": "Office 203", "identifier": "R203", "width": 12, "height": 10, "type": "Office" },
+        { "name": "Meeting Room Beta", "identifier": "R204", "width": 16, "height": 12, "type": "Conference Room" },
+        { "name": "Server Room", "identifier": "R205", "width": 10, "height": 8, "type": "Server Room" }
+      ]
+    },
+    {
+      "floorNumber": 3,
+      "floorName": "Third Floor",
+      "rooms": [
+        { "name": "Executive Office", "identifier": "R301", "width": 16, "height": 12, "type": "Office" },
+        { "name": "Board Room", "identifier": "R302", "width": 24, "height": 16, "type": "Conference Room" },
+        { "name": "Kitchen", "identifier": "R303", "width": 12, "height": 8, "type": "Kitchen" },
+        { "name": "Break Room", "identifier": "R304", "width": 14, "height": 10, "type": "Other" }
+      ]
+    }
+  ],
+  "departmentName": "Advanced Technology Division",
+  "location": "Building A, Floor 2",
+  "plan": "Enterprise",
+  "devices": 150
+}

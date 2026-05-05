@@ -12,12 +12,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Loader2, Save, PlusCircle } from 'lucide-react';
-import { Device, NewDeviceData, UpdateDeviceData } from '@/lib/types';
+import { Device, NewDeviceData, UpdateDeviceData, Room } from '@/lib/types';
 import { useToast } from '@/hooks/use-toast';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Device name is required.'),
   departmentId: z.string().min(1, 'Please select a department.'),
+  roomId: z.string().min(1, 'Please select a room.'),
   location: z.string().min(1, 'Location is required.'),
   type: z.enum(["Sensor", "Gateway", "Actuator", "Camera", "PIR", "LDR", "DHT22_Temp", "DHT22_Humidity"]),
   description: z.string().optional(),
@@ -30,6 +31,8 @@ type DeviceFormProps = {
 
 export function DeviceForm({ deviceToEdit, onFinished }: DeviceFormProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const [availableRooms, setAvailableRooms] = useState<Room[]>([]);
+  const [isLoadingRooms, setIsLoadingRooms] = useState(false);
   const { user, departments, devices, createDevice, updateDevice } = useAuth();
   const { toast } = useToast();
 
@@ -46,11 +49,51 @@ export function DeviceForm({ deviceToEdit, onFinished }: DeviceFormProps) {
     defaultValues: {
       name: deviceToEdit?.name || '',
       departmentId: deviceToEdit?.departmentId || '',
+      roomId: deviceToEdit?.roomId || '',
       location: deviceToEdit?.location || '',
       type: deviceToEdit?.type || 'Sensor',
       description: deviceToEdit?.description || '',
     },
   });
+
+  // Load available rooms when component mounts or user changes
+  useEffect(() => {
+    const loadRooms = async () => {
+      if (!user) return;
+      
+      setIsLoadingRooms(true);
+      try {
+        // Use API endpoint to get rooms from current floor plan
+        const response = await fetch(`/api/floor-plans/current/rooms?organizationId=${user.id}`);
+        const result = await response.json();
+        
+        if (result.success && result.data) {
+          setAvailableRooms(result.data);
+        } else {
+          setAvailableRooms([]);
+          if (result.error) {
+            toast({
+              variant: "destructive",
+              title: "Error Loading Rooms",
+              description: result.error,
+            });
+          }
+        }
+      } catch (error) {
+        console.error("Failed to load rooms:", error);
+        setAvailableRooms([]);
+        toast({
+          variant: "destructive",
+          title: "Error Loading Rooms",
+          description: "Failed to load available rooms. Please try again.",
+        });
+      } finally {
+        setIsLoadingRooms(false);
+      }
+    };
+
+    loadRooms();
+  }, [user, toast]);
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -61,6 +104,16 @@ export function DeviceForm({ deviceToEdit, onFinished }: DeviceFormProps) {
         variant: "destructive",
         title: "Quota Reached",
         description: "You have reached your device limit. Contact admin to upgrade plan.",
+      });
+      return;
+    }
+
+    // Validate that a room is selected
+    if (!values.roomId) {
+      toast({
+        variant: "destructive",
+        title: "Room Required",
+        description: "Please select a room for the device.",
       });
       return;
     }
@@ -84,6 +137,11 @@ export function DeviceForm({ deviceToEdit, onFinished }: DeviceFormProps) {
       onFinished();
     } catch (error) {
       console.error("Failed to save device:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to save device. Please try again.",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -123,6 +181,36 @@ export function DeviceForm({ deviceToEdit, onFinished }: DeviceFormProps) {
                       {dept.departmentName}
                     </SelectItem>
                   ))}
+                </SelectContent>
+              </Select>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        <FormField
+          control={form.control}
+          name="roomId"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Room Assignment</FormLabel>
+              <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingRooms}>
+                <FormControl>
+                  <SelectTrigger>
+                    <SelectValue placeholder={isLoadingRooms ? "Loading rooms..." : "Select a room"} />
+                  </SelectTrigger>
+                </FormControl>
+                <SelectContent>
+                  {availableRooms.length === 0 && !isLoadingRooms ? (
+                    <div className="p-2 text-sm text-gray-500">
+                      No rooms available - Create a floor plan first
+                    </div>
+                  ) : (
+                    availableRooms.map(room => (
+                      <SelectItem key={room.id} value={room.id}>
+                        {room.name} ({room.identifier})
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
               <FormMessage />

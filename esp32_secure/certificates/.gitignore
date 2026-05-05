@@ -1,0 +1,18 @@
+# SafeEdge Certificate Security
+# DO NOT commit private keys or certificates to version control!
+
+# Private keys
+*.key
+*.pem
+
+# Certificates (optional - you may want to commit CA cert)
+# *.crt
+
+# Device-specific files
+devices/*.key
+devices/*.crt
+devices/*.h
+devices/*.py
+
+# Keep the directory structure
+!.gitignore
