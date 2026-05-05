@@ -223,7 +223,7 @@ This project is publicly visible for **educational and portfolio purposes only**
 
 **Unauthorized use, copying, modification, or distribution of this code is strictly prohibited.**
 
-For licensing inquiries or collaboration opportunities, contact: **contact@safeedge.io**
+For licensing inquiries or collaboration opportunities, contact: **info@travlume.com**
 
 ---
 

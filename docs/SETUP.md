@@ -165,7 +165,7 @@ npm run dev
 ### Getting Help
 - Check [GitHub Issues](https://github.com/yourusername/safeedge/issues)
 - Review [API Documentation](API.md)
-- Contact support: contact@safeedge.io
+- Contact support: info@travlume.com
 
 ## Next Steps
 - [Security Configuration](SECURITY.md)
