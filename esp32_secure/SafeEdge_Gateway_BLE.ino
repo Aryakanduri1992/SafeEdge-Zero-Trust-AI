@@ -6,7 +6,7 @@
  * - Ethernet for receiving sensor data
  * - Simultaneous provisioning and data forwarding
  * 
- * Author: SafeEdge Team - Imagine Cup 2026
+ * Author: SafeEdge Team
  * Date: April 15, 2026
  */
 
@@ -148,7 +148,7 @@ void setup() {
   Serial.println("╔════════════════════════════════════════════════════════╗");
   Serial.println("║   SafeEdge ESP32 - Gateway with BLE Provisioning     ║");
   Serial.println("║   WiFi: Always On | BLE: Provisioning | Ethernet: Data║");
-  Serial.println("║   Imagine Cup 2026 - World Championship               ║");
+  Serial.println("║   Hospital IoT Security Platform                      ║");
   Serial.println("╚════════════════════════════════════════════════════════╝");
   Serial.println();
   

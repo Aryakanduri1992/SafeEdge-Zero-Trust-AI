@@ -1,7 +1,7 @@
 """
 Local Voice Player Service
 Alternative to Twilio - plays voice alerts directly on computer speakers
-Perfect for Imagine Cup demonstrations
+Perfect for security demonstrations
 """
 
 import os
@@ -159,7 +159,7 @@ class LocalVoicePlayer:
             return False
         
         print(f"\n🎭 DEMO MODE: Playing {len(voice_files)} voice alerts")
-        print("   Perfect for Imagine Cup demonstrations!")
+        print("   Perfect for security demonstrations!")
         
         for i, file in enumerate(voice_files[:3], 1):  # Play up to 3 files
             file_path = os.path.join(self.audio_dir, file)

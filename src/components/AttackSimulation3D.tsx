@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * 3D Attack Simulation for SafeEdge Imagine Cup 2026
+ * 3D Attack Simulation for SafeEdge Platform
  * Real-time attack visualization with voice alerts
  * Shows security threats being blocked in 3D space
  */
@@ -191,7 +191,7 @@ export default function AttackSimulation3D() {
           🛡️ SafeEdge Attack Simulation
         </h2>
         <p className="text-gray-600">
-          Demonstrate real-time threat detection and response for Imagine Cup 2026
+          Demonstrate real-time threat detection and response capabilities
         </p>
       </div>
 
@@ -352,7 +352,7 @@ export default function AttackSimulation3D() {
       {/* Demo Instructions */}
       <Alert>
         <AlertDescription>
-          <strong>🎯 For Imagine Cup Demo:</strong> These attack simulations demonstrate SafeEdge's 
+          <strong>🎯 Security Demo:</strong> These attack simulations demonstrate SafeEdge's 
           real-time threat detection, blocking, and voice alert capabilities. Each scenario shows 
           how SafeEdge protects critical hospital infrastructure and patient safety.
         </AlertDescription>

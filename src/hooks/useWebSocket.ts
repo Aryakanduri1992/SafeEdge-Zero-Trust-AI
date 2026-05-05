@@ -4,7 +4,7 @@
  * React hook for managing WebSocket connections with automatic reconnection.
  * Provides real-time updates from ESP32 devices.
  * 
- * Author: SafeEdge Team - Imagine Cup 2026
+ * Author: SafeEdge Team
  */
 
 import { useEffect, useRef, useState, useCallback } from 'react';

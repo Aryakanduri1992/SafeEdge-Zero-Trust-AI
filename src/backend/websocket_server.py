@@ -4,7 +4,7 @@ SafeEdge WebSocket Server
 Real-time WebSocket server for ESP32 device updates.
 Provides device-specific and organization-wide channels.
 
-Author: SafeEdge Team - Imagine Cup 2026
+Author: SafeEdge Team
 """
 
 from fastapi import WebSocket, WebSocketDisconnect, Depends, HTTPException, status

@@ -3,7 +3,7 @@ Security Analytics API
 =====================
 API endpoints for storing and retrieving security analytics data
 
-Author: SafeEdge Team - Imagine Cup 2026
+Author: SafeEdge Team
 """
 
 from fastapi import APIRouter, HTTPException, Depends

@@ -4,7 +4,7 @@ Multi-Device IoT Simulator for SafeEdge Platform
 Laptop 2 simulates multiple IoT devices sending data to ESP32 Hardware Box
 Each virtual device represents a different IoT sensor/actuator
 
-Author: SafeEdge Team - Imagine Cup 2026
+Author: SafeEdge Team
 Date: April 14, 2026
 """
 

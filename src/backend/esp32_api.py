@@ -4,7 +4,7 @@ SafeEdge ESP32 API Endpoints
 Backend API for ESP32 device communication with Firebase integration.
 Handles device management, sensor data, alerts, and commands.
 
-Author: SafeEdge Team - Imagine Cup 2026
+Author: SafeEdge Team
 """
 
 from fastapi import APIRouter, HTTPException, Query, Depends

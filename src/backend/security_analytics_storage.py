@@ -4,7 +4,7 @@ Security Analytics Storage Service
 Stores security analysis data, threat detections, and historical metrics
 in Firebase Realtime Database for the Security Center.
 
-Author: SafeEdge Team - Imagine Cup 2026
+Author: SafeEdge Team
 """
 
 from datetime import datetime, timedelta

@@ -4,7 +4,7 @@ Voice Alert Service for SafeEdge Backend
 ✅ Integrated with main.py FastAPI backend
 ✅ Handles Twilio trial messages properly
 ✅ Crystal clear hospital security alerts
-✅ Perfect for Imagine Cup 2026 demonstrations
+✅ Perfect for security demonstrations
 """
 
 import os

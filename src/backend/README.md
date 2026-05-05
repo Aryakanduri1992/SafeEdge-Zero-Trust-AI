@@ -2,7 +2,7 @@
 
 ## Overview
 
-Python backend for SafeEdge Imagine Cup 2026 project implementing:
+Python backend for SafeEdge IoT Security Platform implementing:
 - **Task 2.1**: Optimized Firebase integration with monitoring
 - **Task 2.2**: Cloud abstraction layer (Firebase + Azure stub)
 - **Task 3**: AI Security Response Pipeline (coming next)

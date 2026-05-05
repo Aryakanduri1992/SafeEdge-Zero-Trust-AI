@@ -146,7 +146,6 @@ export default function ProvisionPage() {
 
         <div className="text-center text-sm text-gray-500">
           <p>SafeEdge IoT Security Platform</p>
-          <p>Imagine Cup 2026</p>
         </div>
       </div>
     </div>

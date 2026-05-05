@@ -2,7 +2,6 @@
  * ============================================================
  * SafeEdge ESP32 - FINAL PERFECT VERSION
  * ============================================================
- * 🏆 Imagine Cup 2026 - World Championship
  * 🏥 Hospital IoT Security Platform
  * 
  * VERIFIED WORKING - ALL FEATURES OPERATIONAL
@@ -118,7 +117,7 @@ void setup() {
   delay(2000);
   
   Serial.println("\n🚀 SafeEdge ESP32 - FINAL PERFECT VERSION");
-  Serial.println("🏆 Imagine Cup 2026 - World Championship");
+  Serial.println("🏥 Hospital IoT Security Platform");
   Serial.println("============================================================");
   
   forceInitGPIO25();
@@ -355,7 +354,7 @@ void setupHTTPServer() {
 void handleRoot() {
   String html = "<!DOCTYPE html><html><head><title>SafeEdge Final Perfect</title></head><body>";
   html += "<h1>🏆 SafeEdge ESP32 - FINAL PERFECT VERSION</h1>";
-  html += "<p><strong>Imagine Cup 2026 - World Championship</strong></p>";
+  html += "<p><strong>Hospital IoT Security Platform</strong></p>";
   html += "<h2>LED Status</h2>";
   html += "<p>🔴 RED LED (GPIO 32): " + String(attackDetected ? "ON" : "OFF") + "</p>";
   html += "<p>🟢 GREEN LED (GPIO 25): " + String(systemReady && !attackDetected ? "ON" : "OFF") + "</p>";

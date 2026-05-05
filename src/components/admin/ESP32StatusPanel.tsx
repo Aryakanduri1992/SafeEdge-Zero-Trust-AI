@@ -6,7 +6,7 @@
  * Real-time display of connected ESP32 devices.
  * Shows WiFi status, signal strength, and device health.
  * 
- * Author: SafeEdge Team - Imagine Cup 2026
+ * Author: SafeEdge Team
  */
 
 import { useEffect, useState, useCallback } from 'react';

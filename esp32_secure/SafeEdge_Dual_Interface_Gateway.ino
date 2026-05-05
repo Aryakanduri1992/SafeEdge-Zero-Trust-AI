@@ -11,7 +11,7 @@
  * Data Flow:
  * Laptop 2 (192.168.100.12) → [Ethernet] → ESP32 → [WiFi] → Firebase → Dashboard
  * 
- * Author: SafeEdge Team - Imagine Cup 2026
+ * Author: SafeEdge Team
  * Date: April 14, 2026
  */
 
@@ -102,7 +102,7 @@ void setup() {
   Serial.println("╔════════════════════════════════════════════════════════╗");
   Serial.println("║     SafeEdge ESP32 - Dual Interface Gateway          ║");
   Serial.println("║     WiFi: Firebase | Ethernet: Laptop 2              ║");
-  Serial.println("║     Imagine Cup 2026 - World Championship             ║");
+  Serial.println("║     Hospital IoT Security Platform                    ║");
   Serial.println("╚════════════════════════════════════════════════════════╝");
   Serial.println();
   

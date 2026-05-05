@@ -5,7 +5,7 @@ Firebase Encryption Keys Cleanup
 Keeps only encryption key for: iot_temperature_sensor_20260414185938_62fd12aa
 Deletes all other device encryption keys from /encryption_keys
 
-Author: SafeEdge Team - Imagine Cup 2026
+Author: SafeEdge Team
 """
 
 import firebase_admin

@@ -1,6 +1,6 @@
 """
 SafeEdge Python Backend
-Imagine Cup 2026 - World Championship Submission
+IoT Security Platform
 """
 
 __version__ = "1.0.0"

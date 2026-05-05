@@ -11,7 +11,7 @@ This is NOT demo data - it's realistic training data with:
 - Real-world anomaly patterns for security training
 - Hardware-accurate sensor characteristics (resolution, range, response time)
 
-Author: SafeEdge Team - Imagine Cup 2026
+Author: SafeEdge Team
 """
 
 import numpy as np
@@ -1261,7 +1261,7 @@ def generate_training_data(
     
     print("=" * 70)
     print("🏥 SafeEdge Realistic Sensor Data Generator")
-    print("   For ML Training - Imagine Cup 2026")
+    print("   For ML Training - IoT Security Platform")
     print("=" * 70)
     
     generator = RealisticSensorGenerator(seed=seed)

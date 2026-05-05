@@ -5,7 +5,7 @@ Handles encryption/decryption of data between ESP32 and backend.
 Uses AES-256-GCM for authenticated encryption.
 Stores encryption keys in Firebase Realtime Database.
 
-Author: SafeEdge Team - Imagine Cup 2026
+Author: SafeEdge Team
 """
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM

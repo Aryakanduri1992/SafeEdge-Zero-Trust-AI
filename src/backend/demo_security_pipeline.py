@@ -1,7 +1,7 @@
 """
 Demo Security Response Pipeline
 Provides realistic security demonstrations without requiring real API keys
-Perfect for Imagine Cup 2026 presentations
+Perfect for security demonstrations
 """
 
 import asyncio

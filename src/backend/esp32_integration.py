@@ -8,7 +8,7 @@ Usage in main.py:
     from esp32_integration import setup_esp32_routes
     setup_esp32_routes(app)
 
-Author: SafeEdge Team - Imagine Cup 2026
+Author: SafeEdge Team
 """
 
 from fastapi import FastAPI

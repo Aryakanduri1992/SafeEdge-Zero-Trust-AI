@@ -3,7 +3,7 @@
  * ===============================================
  * Proper captive portal interface for mobile provisioning
  * 
- * Author: SafeEdge Team - Imagine Cup 2026
+ * Author: SafeEdge Team
  * Date: April 14, 2026
  */
 
@@ -590,7 +590,7 @@ void setup() {
   
   printSeparator('=', 60);
   Serial.println("🚀 SafeEdge ESP32 - Device Mode with Captive Portal");
-  Serial.println("🏆 Imagine Cup 2026 - World Championship");
+  Serial.println("🏥 Hospital IoT Security Platform");
   printSeparator('=', 60);
   
   // Initialize hardware

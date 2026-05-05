@@ -4,7 +4,7 @@ Firebase ESP32 Service
 Service for managing ESP32 devices with Firebase Realtime Database.
 Implements circular buffer pattern (200 entries) for sensor history and alerts.
 
-Author: SafeEdge Team - Imagine Cup 2026
+Author: SafeEdge Team
 """
 
 from typing import Dict, List, Optional, Any

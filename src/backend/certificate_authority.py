@@ -5,7 +5,7 @@ Zero-Trust Security: Never trust, always verify
 Uses ECC (Elliptic Curve Cryptography) for efficiency on IoT devices
 Stores all certificates in Firebase Realtime Database
 
-Author: SafeEdge Team - Imagine Cup 2026
+Author: SafeEdge Team
 """
 
 from cryptography import x509

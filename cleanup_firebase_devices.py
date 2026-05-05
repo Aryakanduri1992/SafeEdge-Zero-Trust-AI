@@ -5,7 +5,7 @@ Firebase Device Cleanup Script
 Keeps only devices registered under RV University organization.
 Deletes all other devices from Firebase Realtime Database.
 
-Author: SafeEdge Team - Imagine Cup 2026
+Author: SafeEdge Team
 """
 
 import firebase_admin

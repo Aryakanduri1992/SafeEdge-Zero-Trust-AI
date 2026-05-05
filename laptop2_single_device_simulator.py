@@ -5,7 +5,7 @@ Sends data to ONE provisioned ESP32 device
 
 IMPORTANT: Update DEVICE_ID after provisioning ESP32!
 
-Author: SafeEdge Team - Imagine Cup 2026
+Author: SafeEdge Team
 Date: April 14, 2026
 """
 

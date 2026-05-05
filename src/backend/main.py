@@ -26,7 +26,7 @@ from kali_terminal_server import init_kali_terminal_server
 # Initialize FastAPI app
 app = FastAPI(
     title="SafeEdge Backend API",
-    description="Python backend for SafeEdge Imagine Cup 2026",
+    description="Python backend for SafeEdge IoT Security Platform",
     version="1.0.0"
 )
 
@@ -88,7 +88,6 @@ async def startup_event():
     
     print("🚀 SafeEdge Backend Starting...")
     print("🏥 Hospital IoT Security Platform")
-    print("🏆 Imagine Cup 2026 - World Championship")
     
     # Check if we're in demo mode
     if settings.demo_mode or not os.path.exists(settings.firebase_credentials_path):

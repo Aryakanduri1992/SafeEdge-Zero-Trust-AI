@@ -5,7 +5,7 @@ Firebase Certificates Cleanup
 Keeps only certificate for: iot_temperature_sensor_20260414185938_62fd12aa
 Deletes all other device certificates from /certificates/issued
 
-Author: SafeEdge Team - Imagine Cup 2026
+Author: SafeEdge Team
 """
 
 import firebase_admin

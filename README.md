@@ -1,7 +1,5 @@
 # SafeEdge - IoT Security Platform
 
-🏆 **Microsoft Imagine Cup 2026 World Championship Project**
-
 SafeEdge is an enterprise-grade IoT security platform that provides real-time threat detection, encrypted data transmission, and professional security testing capabilities for hospital and healthcare environments.
 
 ## 🚀 Features

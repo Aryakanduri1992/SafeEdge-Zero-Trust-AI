@@ -24,7 +24,7 @@
  * - LEDs: Red=32, Green=25, Yellow=26 (220Ω resistors)
  * - Buzzer: GPIO 33
  * 
- * Author: SafeEdge Team - Imagine Cup 2026
+ * Author: SafeEdge Team
  * Date: April 10, 2026
  */
 
@@ -147,7 +147,7 @@ void setup() {
   Serial.println("╔════════════════════════════════════════════════════════╗");
   Serial.println("║     SafeEdge ESP32 Security Gateway                   ║");
   Serial.println("║     Mobile Provisioning + Enterprise Security         ║");
-  Serial.println("║     Imagine Cup 2026 - World Championship             ║");
+  Serial.println("║     Hospital IoT Security Platform                    ║");
   Serial.println("╚════════════════════════════════════════════════════════╝");
   Serial.println();
   

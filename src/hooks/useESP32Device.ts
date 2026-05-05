@@ -4,7 +4,7 @@
  * React hook for fetching and managing ESP32 device data.
  * Integrates with WebSocket for real-time updates.
  * 
- * Author: SafeEdge Team - Imagine Cup 2026
+ * Author: SafeEdge Team
  */
 
 import { useState, useEffect, useCallback } from 'react';
